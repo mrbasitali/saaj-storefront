@@ -51,7 +51,7 @@ export default defineNuxtConfig({
       navigateFallbackDenylist: [/^\/api\//],
     },
     devOptions: {
-      enabled: true,
+      enabled: process.env.NODE_ENV !== 'production',
     },
   },
 
