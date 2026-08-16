@@ -35,15 +35,56 @@ type Product = {
   }> | null
 }
 
+type HeroSlide = {
+  id: number | string
+  media_type: 'image' | 'video'
+  desktop_media_url: string | null
+  mobile_media_url?: string | null
+  poster_url?: string | null
+  eyebrow?: string | null
+  title?: string | null
+  description?: string | null
+  alt_text?: string | null
+  primary_cta_label?: string | null
+  primary_cta_url?: string | null
+  secondary_cta_label?: string | null
+  secondary_cta_url?: string | null
+  text_position?: 'bottom-left' | 'center-left' | 'center' | 'bottom-center'
+  text_theme?: 'light' | 'dark'
+  overlay_strength?: number
+}
+
+type HomepageResponse = {
+  data: {
+    hero: {
+      enabled: boolean
+      mode: 'single' | 'slider'
+      autoplay: boolean
+      autoplay_delay: number
+      pause_on_hover: boolean
+      show_arrows: boolean
+      show_dots: boolean
+      slides: HeroSlide[]
+    }
+  }
+}
+
 const { $api } = useNuxtApp()
 
-const { data: categoriesResponse } = await useAsyncData('home-categories', () =>
+// The hero is critical, so it is fetched normally and can be rendered on
+// the server. Secondary merchandising sections are lazy so client-side
+// navigation can paint immediately and use stable skeletons while loading.
+const { data: homepageResponse } = await useAsyncData('homepage-config', () =>
+  $api<HomepageResponse>('/homepage'),
+)
+
+const { data: categoriesResponse, status: categoriesStatus } = await useLazyAsyncData('home-categories', () =>
   $api<{ data: Category[] }>('/categories', {
     query: { root: 1, menu_only: 1 },
   }),
 )
 
-const { data: featuredResponse } = await useAsyncData('home-featured', () =>
+const { data: featuredResponse, status: featuredStatus } = await useLazyAsyncData('home-featured', () =>
   $api<{ data: Product[] }>('/products', {
     query: { featured: 1, per_page: 10, include_variants: 1 },
   }),
@@ -72,6 +113,38 @@ const heroLink = computed(() =>
     : '/shop',
 )
 
+const heroConfig = computed(() => homepageResponse.value?.data.hero ?? {
+  enabled: true,
+  mode: 'single' as const,
+  autoplay: false,
+  autoplay_delay: 6000,
+  pause_on_hover: true,
+  show_arrows: false,
+  show_dots: false,
+  slides: [],
+})
+
+const fallbackSlide = computed<HeroSlide>(() => ({
+  id: 'saaj-fallback-hero',
+  media_type: 'image',
+  desktop_media_url: heroImage.value,
+  eyebrow: 'The new edit',
+  title: 'Quiet detail.\nStrong presence.',
+  description: 'A considered wardrobe shaped by clean lines, effortless silhouettes, and the details that make a piece feel distinctly yours.',
+  alt_text: heroCategory.value?.name || 'SAAJ new collection',
+  primary_cta_label: 'Shop the edit',
+  primary_cta_url: heroLink.value,
+  secondary_cta_label: 'View all',
+  secondary_cta_url: '/shop',
+  text_position: 'bottom-left',
+  text_theme: 'light',
+  overlay_strength: 36,
+}))
+
+const heroSlides = computed(() =>
+  heroConfig.value.slides.length ? heroConfig.value.slides : [fallbackSlide.value],
+)
+
 const editorialImage = computed(() =>
   featuredProducts.value[4]?.primary_image?.optimized_urls?.detail
   || featuredProducts.value[1]?.primary_image?.optimized_urls?.detail
@@ -95,61 +168,17 @@ useSeoMeta({
 </script>
 
 <template>
-  <div class="overflow-hidden bg-paper-50">
-    <section class="relative min-h-[620px] bg-mist-100 sm:min-h-[680px] lg:min-h-[calc(100svh-110px)]">
-      <NuxtImg
-        v-if="heroImage"
-        :src="heroImage"
-        :alt="heroCategory?.name || 'SAAJ new collection'"
-        class="absolute inset-0 h-full w-full object-cover"
-        sizes="100vw"
-        preload
-      />
-
-      <div
-        v-else
-        class="absolute inset-0 bg-[linear-gradient(125deg,#dfe5df_0%,#f3f1eb_52%,#d8ddd8_100%)]"
-      />
-
-      <div class="absolute inset-0 bg-gradient-to-r from-black/48 via-black/20 to-transparent" />
-      <div class="absolute inset-0 bg-gradient-to-t from-black/26 via-transparent to-black/5" />
-
-      <div class="relative mx-auto flex min-h-[620px] max-w-[1600px] items-end px-5 pb-12 pt-20 sm:min-h-[680px] sm:px-8 sm:pb-16 lg:min-h-[calc(100svh-110px)] lg:px-10 lg:pb-20">
-        <div class="max-w-[680px] text-white">
-          <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/75 sm:text-[11px]">
-            The new edit
-          </p>
-          <h1 class="mt-4 max-w-[620px] text-[clamp(3.2rem,7vw,7rem)] font-medium leading-[0.9] tracking-[-0.055em]">
-            Quiet detail.<br>
-            Strong presence.
-          </h1>
-          <p class="mt-6 max-w-lg text-sm leading-6 text-white/78 sm:text-base sm:leading-7">
-            A considered wardrobe shaped by clean lines, effortless silhouettes, and the details that make a piece feel distinctly yours.
-          </p>
-
-          <div class="mt-8 flex flex-wrap items-center gap-3">
-            <NuxtLink
-              :to="heroLink"
-              class="inline-flex min-h-12 items-center justify-center bg-white px-7 text-[11px] font-semibold uppercase tracking-[0.15em] text-charcoal-950 transition hover:bg-white/88"
-            >
-              Shop the edit
-            </NuxtLink>
-            <NuxtLink
-              to="/shop"
-              class="inline-flex min-h-12 items-center justify-center border border-white/55 px-7 text-[11px] font-semibold uppercase tracking-[0.15em] text-white transition hover:bg-white hover:text-charcoal-950"
-            >
-              View all
-            </NuxtLink>
-          </div>
-        </div>
-      </div>
-    </section>
+  <div class="overflow-hidden bg-paper-50 transition-colors duration-300">
+    <StorefrontHero
+      :config="heroConfig"
+      :slides="heroSlides"
+    />
 
     <section class="mx-auto max-w-[1600px] px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-28">
       <div class="grid gap-8 lg:grid-cols-[0.7fr_1.3fr] lg:items-end">
         <p class="section-kicker">SAAJ / 2026</p>
         <div>
-          <h2 class="max-w-4xl text-[clamp(2rem,4vw,4.4rem)] font-medium leading-[1.02] tracking-[-0.045em] text-charcoal-950">
+          <h2 class="max-w-4xl font-display text-[clamp(2.4rem,4.2vw,4.8rem)] font-medium leading-[0.98] tracking-[-0.05em] text-charcoal-950">
             Clothes that feel current now, and considered long after.
           </h2>
           <p class="mt-5 max-w-2xl text-sm leading-7 text-charcoal-500 sm:text-base">
@@ -159,21 +188,32 @@ useSeoMeta({
       </div>
     </section>
 
-    <section
-      v-if="categories.length"
-      class="mx-auto max-w-[1600px] px-5 pb-16 sm:px-8 sm:pb-20 lg:px-10 lg:pb-28"
-    >
+    <section class="mx-auto max-w-[1600px] px-5 pb-16 sm:px-8 sm:pb-20 lg:px-10 lg:pb-28">
       <div class="mb-7 flex items-end justify-between gap-6 sm:mb-9">
         <div>
           <p class="section-kicker">Shop by category</p>
-          <h2 class="mt-2 text-3xl font-medium tracking-[-0.035em] text-charcoal-950 sm:text-4xl">
+          <h2 class="mt-2 font-display text-4xl font-medium tracking-[-0.04em] text-charcoal-950 sm:text-5xl">
             Find your edit
           </h2>
         </div>
-        <NuxtLink to="/shop" class="text-link hidden sm:inline-flex">Shop all</NuxtLink>
+        <NuxtLink v-if="categoriesStatus !== 'pending'" to="/shop" class="text-link hidden sm:inline-flex">Shop all</NuxtLink>
       </div>
 
-      <div class="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-12 lg:gap-5">
+      <div
+        v-if="categoriesStatus === 'pending'"
+        class="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-12 lg:gap-5"
+        aria-label="Loading categories"
+      >
+        <StorefrontSkeleton class="aspect-[3/4] lg:col-span-7 lg:aspect-[4/5]" />
+        <StorefrontSkeleton class="aspect-[3/4] lg:col-span-5 lg:aspect-[4/5]" />
+        <StorefrontSkeleton class="aspect-[3/4] lg:col-span-5 lg:aspect-[5/4]" />
+        <StorefrontSkeleton class="aspect-[3/4] lg:col-span-7 lg:aspect-[5/4]" />
+      </div>
+
+      <div
+        v-else-if="categories.length"
+        class="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-12 lg:gap-5"
+      >
         <NuxtLink
           v-for="(category, index) in categories"
           :key="category.id"
@@ -191,26 +231,17 @@ useSeoMeta({
             class="absolute inset-0 h-full w-full object-cover transition duration-700 ease-out group-hover:scale-[1.025]"
             loading="lazy"
           />
-          <div
-            v-else
-            class="absolute inset-0 bg-[linear-gradient(145deg,#dfe5df,#f3f1eb)]"
-          />
+          <div v-else class="absolute inset-0 bg-[linear-gradient(145deg,#dfe5df,#f3f1eb)]" />
           <div class="absolute inset-0 bg-gradient-to-t from-black/52 via-black/7 to-transparent" />
 
           <div class="absolute inset-x-0 bottom-0 p-4 text-white sm:p-6 lg:p-8">
             <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/68">Explore</p>
             <div class="mt-1.5 flex items-end justify-between gap-4">
-              <h3 class="text-xl font-medium tracking-[-0.025em] sm:text-2xl lg:text-3xl">
+              <h3 class="font-display text-[28px] font-medium tracking-[-0.035em] sm:text-[34px] lg:text-[42px]">
                 {{ category.name }}
               </h3>
-              <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/45 transition duration-300 group-hover:bg-white group-hover:text-charcoal-950">
-                <svg
-                  class="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                >
+              <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/45 transition duration-300 group-hover:bg-white group-hover:text-[#151714]">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                   <path d="M5 12h14M14 7l5 5-5 5" />
                 </svg>
               </span>
@@ -219,25 +250,26 @@ useSeoMeta({
         </NuxtLink>
       </div>
 
-      <NuxtLink to="/shop" class="text-link mt-6 sm:hidden">Shop all</NuxtLink>
+      <NuxtLink v-if="categoriesStatus !== 'pending'" to="/shop" class="text-link mt-6 sm:hidden">Shop all</NuxtLink>
     </section>
 
-    <section
-      v-if="featuredProducts.length"
-      class="border-y border-black/8 bg-white"
-    >
+    <section class="border-y border-black/8 bg-white dark:border-white/8 dark:bg-[#121512]">
       <div class="mx-auto max-w-[1600px] px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-24">
         <div class="flex items-end justify-between gap-5">
           <div>
             <p class="section-kicker">Selected for you</p>
-            <h2 class="mt-2 text-3xl font-medium tracking-[-0.035em] text-charcoal-950 sm:text-4xl">
+            <h2 class="mt-2 font-display text-4xl font-medium tracking-[-0.04em] text-charcoal-950 sm:text-5xl">
               New & noteworthy
             </h2>
           </div>
-          <NuxtLink to="/shop" class="text-link hidden sm:inline-flex">View all</NuxtLink>
+          <NuxtLink v-if="featuredStatus !== 'pending'" to="/shop" class="text-link hidden sm:inline-flex">View all</NuxtLink>
         </div>
 
-        <div class="mt-8 grid grid-cols-2 gap-x-3 gap-y-10 sm:mt-10 sm:gap-x-5 lg:grid-cols-4 lg:gap-x-6">
+        <div v-if="featuredStatus === 'pending'" class="mt-8 grid grid-cols-2 gap-x-3 gap-y-10 sm:mt-10 sm:gap-x-5 lg:grid-cols-4 lg:gap-x-6">
+          <ProductCardSkeleton v-for="index in 8" :key="index" />
+        </div>
+
+        <div v-else-if="featuredProducts.length" class="mt-8 grid grid-cols-2 gap-x-3 gap-y-10 sm:mt-10 sm:gap-x-5 lg:grid-cols-4 lg:gap-x-6">
           <ProductCard
             v-for="product in featuredProducts.slice(0, 8)"
             :key="product.id"
@@ -245,7 +277,11 @@ useSeoMeta({
           />
         </div>
 
-        <NuxtLink to="/shop" class="text-link mt-8 sm:hidden">View all</NuxtLink>
+        <div v-else class="mt-10 border-t border-black/8 pt-8 text-sm text-charcoal-400 dark:border-white/8">
+          New pieces will appear here as soon as they are marked featured in the backoffice.
+        </div>
+
+        <NuxtLink v-if="featuredStatus !== 'pending'" to="/shop" class="text-link mt-8 sm:hidden">View all</NuxtLink>
       </div>
     </section>
 
@@ -259,16 +295,14 @@ useSeoMeta({
             class="absolute inset-0 h-full w-full object-cover"
             loading="lazy"
           />
-          <div
-            v-else
-            class="absolute inset-0 bg-[linear-gradient(145deg,#cfd8d0,#edeae2)]"
-          />
+          <StorefrontSkeleton v-else-if="featuredStatus === 'pending'" class="absolute inset-0" />
+          <div v-else class="absolute inset-0 bg-[linear-gradient(145deg,#cfd8d0,#edeae2)]" />
         </div>
 
         <div class="flex items-center px-5 py-16 sm:px-10 sm:py-20 lg:px-16 lg:py-24 xl:px-24">
           <div class="max-w-xl">
             <p class="section-kicker">The SAAJ point of view</p>
-            <h2 class="mt-4 text-[clamp(2.6rem,5vw,5.5rem)] font-medium leading-[0.94] tracking-[-0.055em] text-charcoal-950">
+            <h2 class="mt-4 font-display text-[clamp(3rem,5vw,5.8rem)] font-medium leading-[0.9] tracking-[-0.06em] text-charcoal-950">
               Less noise.<br>More character.
             </h2>
             <p class="mt-6 max-w-lg text-sm leading-7 text-charcoal-600 sm:text-base">
@@ -276,7 +310,7 @@ useSeoMeta({
             </p>
             <NuxtLink
               to="/shop"
-              class="mt-8 inline-flex min-h-12 items-center justify-center bg-charcoal-950 px-7 text-[11px] font-semibold uppercase tracking-[0.15em] text-white transition hover:bg-charcoal-800"
+              class="mt-8 inline-flex min-h-12 items-center justify-center bg-charcoal-950 px-7 text-[10px] font-semibold uppercase tracking-[0.16em] text-paper-50 transition hover:bg-charcoal-800"
             >
               Discover SAAJ
             </NuxtLink>
@@ -286,7 +320,7 @@ useSeoMeta({
     </section>
 
     <section class="mx-auto max-w-[1600px] px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-24">
-      <div class="grid gap-10 border-t border-black/8 pt-10 sm:grid-cols-3 sm:gap-6">
+      <div class="grid gap-10 border-t border-black/8 pt-10 sm:grid-cols-3 sm:gap-6 dark:border-white/8">
         <div>
           <p class="section-kicker">01 / Detail</p>
           <p class="mt-3 max-w-xs text-sm leading-6 text-charcoal-600">

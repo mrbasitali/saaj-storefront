@@ -16,7 +16,7 @@ const menuCategories = computed(() => menuResponse.value?.data ?? [])
 </script>
 
 <template>
-  <div class="flex min-h-screen flex-col bg-paper-50">
+  <div class="flex min-h-screen flex-col bg-paper-50 transition-colors duration-300">
     <StorefrontHeader :categories="menuCategories" />
 
     <main class="flex-1">

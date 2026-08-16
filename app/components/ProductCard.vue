@@ -72,12 +72,12 @@ function formatPrice(value: string | number) {
 
       <span
         v-if="isOnSale"
-        class="absolute left-3 top-3 bg-white/92 px-2.5 py-1.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-charcoal-950 backdrop-blur"
+        class="absolute left-3 top-3 bg-white/92 px-2.5 py-1.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-[#151714] backdrop-blur"
       >
         Sale
       </span>
 
-      <div class="absolute inset-x-0 bottom-0 translate-y-full bg-white/94 px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-charcoal-950 backdrop-blur transition duration-300 group-hover:translate-y-0 max-lg:hidden">
+      <div class="absolute inset-x-0 bottom-0 translate-y-full bg-white/94 px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-[#151714] backdrop-blur transition duration-300 group-hover:translate-y-0 max-lg:hidden">
         View piece
       </div>
     </div>

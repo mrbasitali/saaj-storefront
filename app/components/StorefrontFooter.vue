@@ -32,7 +32,7 @@ const phoneLink = computed(() => {
 </script>
 
 <template>
-  <footer class="bg-charcoal-950 text-white">
+  <footer class="bg-[#151714] text-white">
     <div class="mx-auto max-w-[1600px] px-5 pb-7 pt-14 sm:px-8 sm:pt-16 lg:px-10 lg:pt-20">
       <div class="grid gap-12 border-b border-white/12 pb-14 sm:grid-cols-2 lg:grid-cols-[1.35fr_0.8fr_0.8fr_0.9fr] lg:gap-10 lg:pb-18">
         <div class="max-w-md">

@@ -14,347 +14,494 @@ const authStore = useAuthStore()
 const cart = useCartStore()
 const siteSettings = useSiteSettingsStore()
 const route = useRoute()
+const { theme, isDark, toggleTheme } = useStorefrontTheme()
 
 const mobileMenuOpen = ref(false)
+const mobileCategoryId = ref<number | null>(null)
+const mobileDirection = ref<'forward' | 'back'>('forward')
 const searchOpen = ref(false)
 const searchQuery = ref('')
+const searchInput = ref<HTMLInputElement | null>(null)
+const desktopCategoryId = ref<number | null>(null)
+let desktopCloseTimer: ReturnType<typeof setTimeout> | null = null
 
-const visibleCategories = computed(() => props.categories.slice(0, 4))
+const visibleCategories = computed(() => props.categories.slice(0, 6))
+const desktopCategory = computed(() => props.categories.find(category => category.id === desktopCategoryId.value) ?? null)
+const mobileCategory = computed(() => props.categories.find(category => category.id === mobileCategoryId.value) ?? null)
+
+const headerLogo = computed(() => {
+  const logos = siteSettings.settings?.logos
+  if (!logos) return null
+
+  return isDark.value
+    ? (logos.navbar_dark || logos.navbar_light)
+    : (logos.navbar_light || logos.navbar_dark)
+})
+
+const overlayOpen = computed(() => mobileMenuOpen.value || searchOpen.value)
+const selectedCategory = computed(() => typeof route.query.category === 'string' ? route.query.category : '')
+const isNewInActive = computed(() => route.path === '/shop' && !selectedCategory.value && !route.query.search)
+
+function isCategoryActive(category: Category) {
+  if (route.path !== '/shop' || !selectedCategory.value) return false
+  return selectedCategory.value === category.full_slug
+    || selectedCategory.value.startsWith(`${category.full_slug}/`)
+}
 
 watch(() => route.fullPath, () => {
-  mobileMenuOpen.value = false
-  searchOpen.value = false
+  closeMobileMenu()
+  closeSearch()
+  closeDesktopMenu()
 })
+
+watch(overlayOpen, (open) => {
+  if (!import.meta.client) return
+  document.body.style.overflow = open ? 'hidden' : ''
+})
+
+watch(searchOpen, async (open) => {
+  if (!open) return
+  await nextTick()
+  window.setTimeout(() => searchInput.value?.focus(), 180)
+})
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+})
+
+onBeforeUnmount(() => {
+  if (import.meta.client) {
+    document.body.style.overflow = ''
+    window.removeEventListener('keydown', onKeydown)
+  }
+  clearDesktopCloseTimer()
+})
+
+function onKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Escape') return
+  if (searchOpen.value) closeSearch()
+  else if (mobileMenuOpen.value) closeMobileMenu()
+  else closeDesktopMenu()
+}
+
+function clearDesktopCloseTimer() {
+  if (!desktopCloseTimer) return
+  clearTimeout(desktopCloseTimer)
+  desktopCloseTimer = null
+}
+
+function openDesktopMenu(category: Category) {
+  clearDesktopCloseTimer()
+  searchOpen.value = false
+  desktopCategoryId.value = category.id
+}
+
+function scheduleDesktopClose() {
+  clearDesktopCloseTimer()
+  desktopCloseTimer = setTimeout(() => {
+    desktopCategoryId.value = null
+  }, 150)
+}
+
+function closeDesktopMenu() {
+  clearDesktopCloseTimer()
+  desktopCategoryId.value = null
+}
+
+function openMobileMenu() {
+  closeSearch()
+  closeDesktopMenu()
+  mobileDirection.value = 'back'
+  mobileCategoryId.value = null
+  mobileMenuOpen.value = true
+}
+
+function closeMobileMenu() {
+  mobileMenuOpen.value = false
+
+  if (!import.meta.client) {
+    mobileCategoryId.value = null
+    return
+  }
+
+  window.setTimeout(() => {
+    mobileCategoryId.value = null
+  }, 540)
+}
+
+function openMobileCategory(category: Category) {
+  mobileDirection.value = 'forward'
+  mobileCategoryId.value = category.id
+}
+
+function goMobileBack() {
+  mobileDirection.value = 'back'
+  mobileCategoryId.value = null
+}
+
+function openSearch() {
+  closeDesktopMenu()
+  if (mobileMenuOpen.value) closeMobileMenu()
+  searchOpen.value = true
+}
+
+function closeSearch() {
+  searchOpen.value = false
+}
 
 function submitSearch() {
   const query = searchQuery.value.trim()
-
   if (!query) return
 
-  searchOpen.value = false
+  closeSearch()
   navigateTo({ path: '/shop', query: { search: query } })
 }
 </script>
 
 <template>
-  <header class="sticky top-0 z-50 bg-paper-50/95 backdrop-blur-xl">
-    <div class="border-b border-black/5 bg-charcoal-950 text-white">
-      <div class="mx-auto flex min-h-8 max-w-[1600px] items-center justify-center px-5 text-center text-[10px] font-medium uppercase tracking-[0.18em] sm:px-8">
-        The new edit is here · Discover SAAJ
-      </div>
-    </div>
-
-    <div class="border-b border-black/8">
-      <div class="mx-auto grid h-[72px] max-w-[1600px] grid-cols-[1fr_auto_1fr] items-center px-5 sm:px-8 lg:h-[78px] lg:px-10">
-        <nav class="hidden min-w-0 items-center gap-5 lg:flex xl:gap-7">
-          <NuxtLink
-            to="/shop"
-            class="nav-link"
-          >
-            New in
-          </NuxtLink>
-
-          <div
-            v-for="category in visibleCategories"
-            :key="category.id"
-            class="group relative"
-          >
-            <NuxtLink
-              :to="`/shop?category=${category.full_slug}`"
-              class="nav-link inline-flex items-center gap-1.5"
-            >
-              {{ category.name }}
-              <svg
-                v-if="category.children?.length"
-                class="h-3 w-3 transition duration-200 group-hover:rotate-180"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.7"
-              >
-                <path d="m7 9.5 5 5 5-5" />
-              </svg>
-            </NuxtLink>
-
-            <div
-              v-if="category.children?.length"
-              class="invisible absolute left-1/2 top-full w-64 -translate-x-1/2 pt-6 opacity-0 transition duration-200 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
-            >
-              <div class="border border-black/8 bg-paper-50 p-5 shadow-[0_18px_60px_rgba(0,0,0,0.09)]">
-                <NuxtLink
-                  :to="`/shop?category=${category.full_slug}`"
-                  class="mb-3 block border-b border-black/8 pb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-charcoal-950"
-                >
-                  Shop all {{ category.name }}
-                </NuxtLink>
-
-                <div class="space-y-2.5">
-                  <NuxtLink
-                    v-for="child in category.children"
-                    :key="child.id"
-                    :to="`/shop?category=${child.full_slug}`"
-                    class="block text-[13px] text-charcoal-600 transition hover:text-charcoal-950"
-                  >
-                    {{ child.name }}
-                  </NuxtLink>
-                </div>
-              </div>
-            </div>
-          </div>
-        </nav>
+  <header class="storefront-header sticky top-0 z-50">
+    <div class="storefront-header-main">
+      <div class="flex min-w-0 items-center">
+        <button
+          type="button"
+          :aria-label="mobileMenuOpen ? 'Close menu' : 'Open menu'"
+          :aria-expanded="mobileMenuOpen"
+          class="header-utility-button lg:hidden"
+          @click="mobileMenuOpen ? closeMobileMenu() : openMobileMenu()"
+        >
+          <span class="hamburger-icon" :class="{ 'is-open': mobileMenuOpen }" aria-hidden="true">
+            <span />
+            <span />
+          </span>
+        </button>
 
         <button
           type="button"
-          aria-label="Open menu"
-          class="flex h-10 w-10 items-center justify-start text-charcoal-950 lg:hidden"
-          @click="mobileMenuOpen = true"
+          class="hidden items-center gap-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-charcoal-700 transition-colors duration-300 hover:text-charcoal-950 lg:inline-flex"
+          @click="openSearch"
         >
-          <svg
-            class="h-5 w-5"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.6"
-          >
-            <path d="M3 7h18M3 12h18M3 17h18" />
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45" class="h-[18px] w-[18px]">
+            <circle cx="10.7" cy="10.7" r="6.5" />
+            <path d="m15.5 15.5 4.3 4.3" />
           </svg>
+          Search
         </button>
+      </div>
 
-        <NuxtLink
-          to="/"
-          class="flex items-center justify-center px-4"
-          aria-label="SAAJ home"
-        >
+      <NuxtLink
+        to="/"
+        aria-label="SAAJ home"
+        class="flex min-w-[120px] items-center justify-center px-3 sm:min-w-[150px]"
+      >
+        <Transition name="logo-fade" mode="out-in">
           <img
-            v-if="siteSettings.settings?.logos.navbar_light"
-            :src="siteSettings.settings.logos.navbar_light"
+            v-if="headerLogo"
+            :key="`${theme}-${headerLogo}`"
+            :src="headerLogo"
             alt="SAAJ"
-            class="max-h-10 w-auto max-w-[150px] object-contain sm:max-h-11 sm:max-w-[175px]"
+            class="max-h-[31px] w-auto max-w-[142px] object-contain sm:max-h-[35px] sm:max-w-[170px]"
           >
           <span
             v-else
-            class="text-[22px] font-semibold uppercase tracking-[0.24em] text-charcoal-950 sm:text-[24px]"
+            :key="`wordmark-${theme}`"
+            class="font-display text-[29px] font-medium leading-none tracking-[0.08em] text-charcoal-950 sm:text-[32px]"
           >
             SAAJ
           </span>
+        </Transition>
+      </NuxtLink>
+
+      <div class="flex min-w-0 items-center justify-end gap-0.5 sm:gap-1">
+        <button
+          type="button"
+          aria-label="Search"
+          class="header-utility-button lg:hidden"
+          @click="openSearch"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45" class="h-[18px] w-[18px]">
+            <circle cx="10.7" cy="10.7" r="6.5" />
+            <path d="m15.5 15.5 4.3 4.3" />
+          </svg>
+        </button>
+
+        <button
+          type="button"
+          :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+          class="header-utility-button hidden sm:flex"
+          @click="toggleTheme"
+        >
+          <Transition name="theme-icon" mode="out-in">
+            <svg v-if="isDark" key="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="h-[18px] w-[18px]">
+              <circle cx="12" cy="12" r="3.6" />
+              <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4l-1.5 1.5M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4" />
+            </svg>
+            <svg v-else key="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="h-[18px] w-[18px]">
+              <path d="M20 15.2A8.6 8.6 0 0 1 8.8 4a8.2 8.2 0 1 0 11.2 11.2Z" />
+            </svg>
+          </Transition>
+        </button>
+
+        <NuxtLink to="/account/wishlist" aria-label="Wishlist" class="header-utility-button hidden sm:flex">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="h-[18px] w-[18px]">
+            <path d="M12 20.3s-7.4-4.6-9.3-9.1C1.2 7.9 2.9 4.8 6 4.4c1.9-.2 3.6.7 4.7 2.4 1.1-1.7 2.8-2.6 4.7-2.4 3.1.4 4.8 3.5 3.3 6.8C16.8 15.7 12 20.3 12 20.3Z" />
+          </svg>
         </NuxtLink>
 
-        <div class="flex items-center justify-end gap-1 sm:gap-2">
-          <button
-            type="button"
-            aria-label="Search"
-            class="header-icon-button"
-            @click="searchOpen = true"
-          >
-            <svg
-              class="h-[19px] w-[19px]"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.55"
-            >
-              <circle cx="10.8" cy="10.8" r="6.8" />
-              <path d="m16 16 4.2 4.2" />
-            </svg>
-          </button>
+        <NuxtLink :to="authStore.isLoggedIn ? '/account' : '/login'" aria-label="Account" class="header-utility-button hidden sm:flex">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="h-[18px] w-[18px]">
+            <circle cx="12" cy="8" r="3.4" />
+            <path d="M4.8 19.7c1.5-3.4 4.2-5 7.2-5s5.7 1.6 7.2 5" />
+          </svg>
+        </NuxtLink>
 
-          <NuxtLink
-            to="/account/wishlist"
-            aria-label="Wishlist"
-            class="header-icon-button hidden sm:flex"
-          >
-            <svg
-              class="h-[19px] w-[19px]"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-            >
-              <path d="M12 20.5s-7.6-4.7-9.6-9.4C.9 7.7 2.6 4.5 5.8 4.1c2-.2 3.7.7 4.8 2.5 1.2-1.8 2.9-2.7 4.9-2.5 3.2.4 4.9 3.6 3.4 7C16.8 15.8 12 20.5 12 20.5Z" />
-            </svg>
-          </NuxtLink>
-
-          <NuxtLink
-            :to="authStore.isLoggedIn ? '/account' : '/login'"
-            aria-label="Account"
-            class="header-icon-button hidden sm:flex"
-          >
-            <svg
-              class="h-[19px] w-[19px]"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-            >
-              <circle cx="12" cy="8" r="3.5" />
-              <path d="M4.6 20c1.6-3.5 4.3-5.2 7.4-5.2s5.8 1.7 7.4 5.2" />
-            </svg>
-          </NuxtLink>
-
-          <NuxtLink
-            to="/cart"
-            aria-label="Shopping bag"
-            class="header-icon-button relative"
-          >
-            <svg
-              class="h-[19px] w-[19px]"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-            >
-              <path d="M4.5 7h15l-1.2 12H5.7L4.5 7Z" />
-              <path d="M8.4 7V5.6a3.6 3.6 0 0 1 7.2 0V7" />
-            </svg>
-            <span
-              v-if="cart.totalItems > 0"
-              class="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-charcoal-950 px-1 text-[9px] font-semibold text-white"
-            >
-              {{ cart.totalItems > 99 ? '99+' : cart.totalItems }}
-            </span>
-          </NuxtLink>
-        </div>
+        <NuxtLink to="/cart" aria-label="Shopping bag" class="header-utility-button relative">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="h-[18px] w-[18px]">
+            <path d="M4.6 7.2h14.8l-1.1 11.5H5.7L4.6 7.2Z" />
+            <path d="M8.5 7.2V5.8a3.5 3.5 0 0 1 7 0v1.4" />
+          </svg>
+          <span v-if="cart.totalItems > 0" class="cart-count">
+            {{ cart.totalItems > 99 ? '99+' : cart.totalItems }}
+          </span>
+        </NuxtLink>
       </div>
     </div>
 
-    <Transition name="fade">
-      <div
-        v-if="searchOpen"
-        class="absolute inset-x-0 top-full border-b border-black/8 bg-paper-50 shadow-[0_18px_50px_rgba(0,0,0,0.06)]"
-      >
-        <form
-          class="mx-auto flex max-w-4xl items-center gap-4 px-5 py-7 sm:px-8 sm:py-9"
-          @submit.prevent="submitSearch"
+    <nav
+      class="storefront-desktop-nav hidden lg:flex"
+      aria-label="Main navigation"
+      @mouseleave="scheduleDesktopClose"
+    >
+      <div class="flex h-full items-stretch justify-center gap-8 xl:gap-11">
+        <NuxtLink
+          to="/shop"
+          class="storefront-nav-item"
+          :class="{ 'is-active': isNewInActive }"
+          @mouseenter="closeDesktopMenu"
         >
-          <svg
-            class="h-5 w-5 shrink-0 text-charcoal-400"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-          >
-            <circle cx="10.8" cy="10.8" r="6.8" />
-            <path d="m16 16 4.2 4.2" />
-          </svg>
+          New in
+        </NuxtLink>
 
-          <input
-            v-model="searchQuery"
-            type="search"
-            autofocus
-            placeholder="Search SAAJ"
-            class="min-w-0 flex-1 bg-transparent text-lg text-charcoal-950 outline-none placeholder:text-charcoal-300 sm:text-xl"
-          >
-
-          <button
-            type="button"
-            aria-label="Close search"
-            class="text-charcoal-500 transition hover:text-charcoal-950"
-            @click="searchOpen = false"
-          >
-            <svg
-              class="h-5 w-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-            >
-              <path d="m5 5 14 14M19 5 5 19" />
-            </svg>
-          </button>
-        </form>
-      </div>
-    </Transition>
-
-    <Transition name="drawer-backdrop">
-      <div
-        v-if="mobileMenuOpen"
-        class="fixed inset-0 z-[60] bg-black/35 lg:hidden"
-        @click="mobileMenuOpen = false"
-      />
-    </Transition>
-
-    <Transition name="drawer">
-      <aside
-        v-if="mobileMenuOpen"
-        class="fixed inset-y-0 left-0 z-[70] flex w-[min(90vw,420px)] flex-col bg-paper-50 lg:hidden"
-      >
-        <div class="flex h-[72px] items-center justify-between border-b border-black/8 px-5">
-          <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-charcoal-500">Menu</span>
-          <button
-            type="button"
-            aria-label="Close menu"
-            class="header-icon-button"
-            @click="mobileMenuOpen = false"
-          >
-            <svg
-              class="h-5 w-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-            >
-              <path d="m5 5 14 14M19 5 5 19" />
-            </svg>
-          </button>
-        </div>
-
-        <nav class="flex-1 overflow-y-auto px-5 py-6">
+        <div
+          v-for="category in visibleCategories"
+          :key="category.id"
+          class="flex items-stretch"
+          @mouseenter="category.children?.length ? openDesktopMenu(category) : closeDesktopMenu()"
+        >
           <NuxtLink
-            to="/shop"
-            class="mobile-main-link"
+            :to="`/shop?category=${category.full_slug}`"
+            class="storefront-nav-item inline-flex items-center gap-1.5"
+            :class="{ 'is-active': isCategoryActive(category) }"
           >
-            New in
-          </NuxtLink>
-
-          <div
-            v-for="category in categories"
-            :key="category.id"
-            class="border-b border-black/8 py-4"
-          >
-            <NuxtLink
-              :to="`/shop?category=${category.full_slug}`"
-              class="mobile-main-link !border-0 !py-0"
-            >
-              {{ category.name }}
-            </NuxtLink>
-
-            <div
+            {{ category.name }}
+            <svg
               v-if="category.children?.length"
-              class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.3"
+              class="h-3 w-3 transition-transform duration-300"
+              :class="desktopCategoryId === category.id ? 'rotate-180' : ''"
             >
+              <path d="m4.2 6 3.8 4 3.8-4" />
+            </svg>
+          </NuxtLink>
+        </div>
+      </div>
+    </nav>
+
+    <Transition name="mega-menu">
+      <div
+        v-if="desktopCategory"
+        class="storefront-mega-menu hidden lg:block"
+        @mouseenter="clearDesktopCloseTimer"
+        @mouseleave="scheduleDesktopClose"
+      >
+        <div class="mx-auto grid max-w-[1500px] grid-cols-[0.72fr_1.28fr] gap-16 px-10 py-10 xl:px-14 xl:py-12">
+          <div class="pr-8">
+            <p class="section-kicker">Explore</p>
+            <h2 class="mt-3 font-display text-[44px] font-medium leading-[0.95] tracking-[-0.045em] text-charcoal-950 xl:text-[52px]">
+              {{ desktopCategory.name }}
+            </h2>
+            <NuxtLink :to="`/shop?category=${desktopCategory.full_slug}`" class="mega-shop-all mt-7 inline-flex items-center gap-3">
+              Shop all {{ desktopCategory.name }}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="h-4 w-4">
+                <path d="M5 12h14M14 7l5 5-5 5" />
+              </svg>
+            </NuxtLink>
+          </div>
+
+          <div>
+            <p class="section-kicker">Categories</p>
+            <div class="mt-4 grid grid-cols-2 gap-x-10 gap-y-1 xl:grid-cols-3">
               <NuxtLink
-                v-for="child in category.children"
+                v-for="(child, index) in desktopCategory.children"
                 :key="child.id"
                 :to="`/shop?category=${child.full_slug}`"
-                class="text-[13px] text-charcoal-500 transition hover:text-charcoal-950"
+                class="mega-child-link menu-stagger group"
+                :style="{ '--menu-delay': `${90 + index * 38}ms` }"
               >
-                {{ child.name }}
+                <span>{{ child.name }}</span>
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.25" class="h-4 w-4 opacity-0 transition-all duration-300 group-hover:translate-x-1 group-hover:opacity-100">
+                  <path d="M4 10h12M12 6l4 4-4 4" />
+                </svg>
               </NuxtLink>
             </div>
           </div>
-
-          <div class="mt-7 space-y-4">
-            <NuxtLink
-              to="/account/wishlist"
-              class="flex items-center gap-3 text-sm text-charcoal-700"
-            >
-              <span>Wishlist</span>
-            </NuxtLink>
-            <NuxtLink
-              :to="authStore.isLoggedIn ? '/account' : '/login'"
-              class="flex items-center gap-3 text-sm text-charcoal-700"
-            >
-              <span>{{ authStore.isLoggedIn ? 'My account' : 'Sign in' }}</span>
-            </NuxtLink>
-            <NuxtLink
-              to="/track-order"
-              class="flex items-center gap-3 text-sm text-charcoal-700"
-            >
-              <span>Track order</span>
-            </NuxtLink>
-          </div>
-        </nav>
-      </aside>
+        </div>
+      </div>
     </Transition>
   </header>
+
+  <Transition name="menu-backdrop">
+    <button
+      v-if="desktopCategory"
+      type="button"
+      aria-label="Close menu"
+      class="fixed inset-0 z-40 hidden bg-black/16 backdrop-blur-[1px] lg:block"
+      @mouseenter="scheduleDesktopClose"
+      @click="closeDesktopMenu"
+    />
+  </Transition>
+
+  <Transition name="mobile-shell">
+    <div v-if="mobileMenuOpen" class="mobile-menu-shell lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+      <div class="relative min-h-0 flex-1 overflow-hidden">
+        <Transition :name="mobileDirection === 'forward' ? 'mobile-level-forward' : 'mobile-level-back'" mode="out-in">
+          <div v-if="!mobileCategory" key="root" class="mobile-menu-level">
+            <nav class="mobile-menu-scroll" aria-label="Mobile navigation">
+              <p class="mobile-menu-eyebrow mobile-stagger" style="--menu-delay: 70ms">Shop</p>
+
+              <NuxtLink to="/shop" class="mobile-menu-main-link mobile-stagger" style="--menu-delay: 115ms">
+                <span>New in</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" class="h-5 w-5 opacity-45">
+                  <path d="M5 12h14M14 7l5 5-5 5" />
+                </svg>
+              </NuxtLink>
+
+              <template v-for="(category, index) in categories" :key="category.id">
+                <button
+                  v-if="category.children?.length"
+                  type="button"
+                  class="mobile-menu-main-link mobile-stagger w-full text-left"
+                  :style="{ '--menu-delay': `${160 + index * 45}ms` }"
+                  @click="openMobileCategory(category)"
+                >
+                  <span>{{ category.name }}</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" class="h-5 w-5 opacity-45">
+                    <path d="m9 5 7 7-7 7" />
+                  </svg>
+                </button>
+                <NuxtLink
+                  v-else
+                  :to="`/shop?category=${category.full_slug}`"
+                  class="mobile-menu-main-link mobile-stagger"
+                  :style="{ '--menu-delay': `${160 + index * 45}ms` }"
+                >
+                  <span>{{ category.name }}</span>
+                </NuxtLink>
+              </template>
+            </nav>
+
+            <div class="mobile-menu-footer mobile-stagger" :style="{ '--menu-delay': `${200 + categories.length * 45}ms` }">
+              <NuxtLink :to="authStore.isLoggedIn ? '/account' : '/login'">{{ authStore.isLoggedIn ? 'Account' : 'Sign in' }}</NuxtLink>
+              <NuxtLink to="/account/wishlist">Wishlist</NuxtLink>
+              <NuxtLink to="/track-order">Track order</NuxtLink>
+              <NuxtLink to="/cart">Bag ({{ cart.totalItems }})</NuxtLink>
+              <button type="button" class="inline-flex items-center gap-2" @click="toggleTheme">
+                {{ isDark ? 'Light mode' : 'Dark mode' }}
+                <span class="h-1.5 w-1.5 rounded-full bg-current opacity-45" />
+              </button>
+            </div>
+          </div>
+
+          <div v-else :key="mobileCategory.id" class="mobile-menu-level">
+            <nav class="mobile-menu-scroll" :aria-label="mobileCategory.name">
+              <button
+                type="button"
+                class="mobile-menu-back mobile-stagger"
+                style="--menu-delay: 55ms"
+                @click="goMobileBack"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.35" class="h-4 w-4">
+                  <path d="m14.5 5-7 7 7 7" />
+                </svg>
+                Back
+              </button>
+              <p class="mobile-menu-eyebrow mobile-stagger" style="--menu-delay: 90ms">{{ mobileCategory.name }}</p>
+              <NuxtLink
+                :to="`/shop?category=${mobileCategory.full_slug}`"
+                class="mobile-menu-main-link mobile-stagger"
+                style="--menu-delay: 135ms"
+              >
+                <span>Shop all</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" class="h-5 w-5 opacity-45">
+                  <path d="M5 12h14M14 7l5 5-5 5" />
+                </svg>
+              </NuxtLink>
+              <NuxtLink
+                v-for="(child, index) in mobileCategory.children"
+                :key="child.id"
+                :to="`/shop?category=${child.full_slug}`"
+                class="mobile-menu-main-link mobile-stagger"
+                :style="{ '--menu-delay': `${180 + index * 45}ms` }"
+              >
+                <span>{{ child.name }}</span>
+              </NuxtLink>
+            </nav>
+          </div>
+        </Transition>
+      </div>
+    </div>
+  </Transition>
+
+  <Transition name="search-overlay">
+    <div v-if="searchOpen" class="search-overlay" role="dialog" aria-modal="true" aria-label="Search">
+      <div class="search-overlay-topbar">
+        <span class="w-10" />
+        <NuxtLink to="/" aria-label="SAAJ home" class="flex min-w-[120px] justify-center">
+          <img v-if="headerLogo" :src="headerLogo" alt="SAAJ" class="max-h-[31px] max-w-[150px] object-contain">
+          <span v-else class="font-display text-[28px] tracking-[0.08em] text-charcoal-950">SAAJ</span>
+        </NuxtLink>
+        <button type="button" aria-label="Close search" class="header-utility-button -mr-2" @click="closeSearch">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.35" class="h-5 w-5">
+            <path d="m5 5 14 14M19 5 5 19" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="mx-auto w-full max-w-[1180px] px-5 pb-10 pt-[8vh] sm:px-8 lg:px-10 lg:pt-[11vh]">
+        <p class="section-kicker search-stagger" style="--menu-delay: 70ms">Search SAAJ</p>
+        <form class="search-form search-stagger" style="--menu-delay: 115ms" @submit.prevent="submitSearch">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" class="h-6 w-6 shrink-0 text-charcoal-400 sm:h-7 sm:w-7">
+            <circle cx="10.7" cy="10.7" r="6.5" />
+            <path d="m15.5 15.5 4.3 4.3" />
+          </svg>
+          <input
+            ref="searchInput"
+            v-model="searchQuery"
+            type="search"
+            autocomplete="off"
+            placeholder="What are you looking for?"
+            class="min-w-0 flex-1 bg-transparent font-display text-[clamp(2.3rem,6vw,5rem)] font-medium leading-none tracking-[-0.045em] text-charcoal-950 outline-none placeholder:text-charcoal-300"
+          >
+        </form>
+
+        <div class="mt-12 grid gap-10 border-t border-charcoal-950/10 pt-8 sm:grid-cols-[0.6fr_1.4fr] lg:mt-16 lg:pt-10">
+          <p class="section-kicker search-stagger" style="--menu-delay: 160ms">Browse</p>
+          <div class="grid grid-cols-2 gap-x-7 gap-y-1 sm:grid-cols-3">
+            <NuxtLink to="/shop" class="search-browse-link search-stagger" style="--menu-delay: 205ms">New in</NuxtLink>
+            <NuxtLink
+              v-for="(category, index) in visibleCategories"
+              :key="category.id"
+              :to="`/shop?category=${category.full_slug}`"
+              class="search-browse-link search-stagger"
+              :style="{ '--menu-delay': `${250 + index * 40}ms` }"
+            >
+              {{ category.name }}
+            </NuxtLink>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Transition>
 </template>
