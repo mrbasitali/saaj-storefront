@@ -1,5 +1,11 @@
 <script setup lang="ts">
-type LocationOption = { id: number, name: string }
+import type { StorefrontSelectOption } from '~/components/StorefrontSearchSelect.vue'
+
+type LocationOption = StorefrontSelectOption & {
+  country_id?: number
+  state_id?: number
+  phone_code?: string | null
+}
 
 export type AddressFieldsValue = {
   label: string
@@ -13,10 +19,14 @@ export type AddressFieldsValue = {
   postal_code: string
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   modelValue: AddressFieldsValue
   showLabel?: boolean
-}>()
+  showRecipientFields?: boolean
+}>(), {
+  showLabel: false,
+  showRecipientFields: true,
+})
 
 const emit = defineEmits<{
   'update:modelValue': [value: AddressFieldsValue]
@@ -27,213 +37,327 @@ const { $api } = useNuxtApp()
 const countries = ref<LocationOption[]>([])
 const states = ref<LocationOption[]>([])
 const cities = ref<LocationOption[]>([])
+const loadingCountries = ref(false)
 const loadingStates = ref(false)
 const loadingCities = ref(false)
+
+// Keep the three dependent selections locally stable while their option
+// lists are loading. The parent still receives every change immediately.
+const countryId = ref<number | null>(props.modelValue.country_id)
+const stateId = ref<number | null>(props.modelValue.state_id)
+const cityId = ref<number | null>(props.modelValue.city_id)
+
+let stateRequest = 0
+let cityRequest = 0
 
 function update(patch: Partial<AddressFieldsValue>) {
   emit('update:modelValue', { ...props.modelValue, ...patch })
 }
 
+function emitLocation() {
+  update({
+    country_id: countryId.value,
+    state_id: stateId.value,
+    city_id: cityId.value,
+  })
+}
+
 async function loadCountries() {
-  const response = await $api<{ data: LocationOption[] }>('/locations/countries')
+  loadingCountries.value = true
 
-  countries.value = response.data
+  try {
+    const response = await $api<{ data: LocationOption[] }>('/locations/countries')
+    countries.value = response.data
 
-  // Only one country exists today — select it automatically so
-  // there's nothing to click through for a single-option dropdown.
-  if (countries.value.length === 1 && !props.modelValue.country_id) {
-    update({ country_id: countries.value[0].id })
+    // When a store only ships to one country, select it automatically.
+    if (!countryId.value && countries.value.length === 1) {
+      countryId.value = countries.value[0].id
+      emitLocation()
+    }
+  } finally {
+    loadingCountries.value = false
   }
 }
 
-async function loadStates(countryId: number) {
+async function loadStates(country: number) {
+  const request = ++stateRequest
   loadingStates.value = true
-  states.value = []
 
   try {
     const response = await $api<{ data: LocationOption[] }>('/locations/states', {
-      query: { country_id: countryId },
+      query: { country_id: country },
     })
 
+    if (request !== stateRequest || country !== countryId.value) return
+
     states.value = response.data
+
+    if (stateId.value && !states.value.some(state => state.id === stateId.value)) {
+      stateId.value = null
+      cityId.value = null
+      cities.value = []
+      emitLocation()
+    }
   } finally {
-    loadingStates.value = false
+    if (request === stateRequest) loadingStates.value = false
   }
 }
 
-async function loadCities(stateId: number) {
+async function loadCities(state: number) {
+  const request = ++cityRequest
   loadingCities.value = true
-  cities.value = []
 
   try {
     const response = await $api<{ data: LocationOption[] }>('/locations/cities', {
-      query: { state_id: stateId },
+      query: { state_id: state },
     })
 
+    if (request !== cityRequest || state !== stateId.value) return
+
     cities.value = response.data
+
+    if (cityId.value && !cities.value.some(city => city.id === cityId.value)) {
+      cityId.value = null
+      emitLocation()
+    }
   } finally {
-    loadingCities.value = false
+    if (request === cityRequest) loadingCities.value = false
   }
 }
+
+async function selectCountry(id: number) {
+  if (countryId.value === id) return
+
+  countryId.value = id
+  stateId.value = null
+  cityId.value = null
+  states.value = []
+  cities.value = []
+  stateRequest++
+  cityRequest++
+  emitLocation()
+  await loadStates(id)
+}
+
+async function selectState(id: number) {
+  if (stateId.value === id) return
+
+  stateId.value = id
+  cityId.value = null
+  cities.value = []
+  cityRequest++
+  emitLocation()
+  await loadCities(id)
+}
+
+function selectCity(id: number) {
+  if (cityId.value === id) return
+  cityId.value = id
+  emitLocation()
+}
+
+// Allow a saved/new address to be applied from the parent without letting
+// ordinary component re-renders wipe a shopper's current selections.
+watch(() => props.modelValue.country_id, async (id) => {
+  if (id === countryId.value) return
+
+  countryId.value = id
+  stateId.value = props.modelValue.state_id
+  cityId.value = props.modelValue.city_id
+  states.value = []
+  cities.value = []
+
+  if (id) {
+    await loadStates(id)
+    if (stateId.value) await loadCities(stateId.value)
+  }
+})
+
+watch(() => props.modelValue.state_id, async (id) => {
+  if (id === stateId.value) return
+
+  stateId.value = id
+  cityId.value = props.modelValue.city_id
+  cities.value = []
+  if (id) await loadCities(id)
+})
+
+watch(() => props.modelValue.city_id, (id) => {
+  if (id !== cityId.value) cityId.value = id
+})
 
 onMounted(async () => {
   await loadCountries()
 
-  if (props.modelValue.country_id) await loadStates(props.modelValue.country_id)
-  if (props.modelValue.state_id) await loadCities(props.modelValue.state_id)
+  if (countryId.value) await loadStates(countryId.value)
+  if (stateId.value) await loadCities(stateId.value)
 })
-
-function onCountryChange(id: number) {
-  update({ country_id: id, state_id: null, city_id: null })
-  loadStates(id)
-}
-
-function onStateChange(id: number) {
-  update({ state_id: id, city_id: null })
-  loadCities(id)
-}
 </script>
 
 <template>
   <div class="grid gap-4">
-    <div v-if="showLabel">
-      <label class="mb-1.5 block text-[13px] font-medium text-ink-700">Label (optional)</label>
+    <label v-if="showLabel" class="address-field">
+      <span>Label <em>optional</em></span>
       <input
         :value="modelValue.label"
         type="text"
-        placeholder="Home, Office..."
-        class="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-[15px] text-ink-900 outline-none focus:border-indigo-700"
+        autocomplete="off"
+        placeholder="Home, Office…"
         @input="update({ label: ($event.target as HTMLInputElement).value })"
       >
-    </div>
+    </label>
 
-    <div class="grid gap-4 sm:grid-cols-2">
-      <div>
-        <label class="mb-1.5 block text-[13px] font-medium text-ink-700">Recipient name</label>
+    <div v-if="showRecipientFields" class="grid gap-4 sm:grid-cols-2">
+      <label class="address-field">
+        <span>Recipient name</span>
         <input
           :value="modelValue.recipient_name"
           type="text"
+          autocomplete="name"
           required
-          class="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-[15px] text-ink-900 outline-none focus:border-indigo-700"
+          placeholder="Full name"
           @input="update({ recipient_name: ($event.target as HTMLInputElement).value })"
         >
-      </div>
+      </label>
 
-      <div>
-        <label class="mb-1.5 block text-[13px] font-medium text-ink-700">Recipient phone</label>
+      <label class="address-field">
+        <span>Recipient phone</span>
         <input
           :value="modelValue.recipient_phone"
           type="tel"
+          autocomplete="tel"
+          inputmode="tel"
           required
           placeholder="03XXXXXXXXX"
-          class="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-[15px] text-ink-900 outline-none focus:border-indigo-700"
           @input="update({ recipient_phone: ($event.target as HTMLInputElement).value })"
         >
-      </div>
+      </label>
     </div>
 
-    <div>
-      <label class="mb-1.5 block text-[13px] font-medium text-ink-700">Address line 1</label>
+    <label class="address-field">
+      <span>Street address</span>
       <input
         :value="modelValue.address_line1"
         type="text"
+        autocomplete="address-line1"
         required
-        class="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-[15px] text-ink-900 outline-none focus:border-indigo-700"
+        placeholder="House / building, street, area"
         @input="update({ address_line1: ($event.target as HTMLInputElement).value })"
       >
-    </div>
+    </label>
 
-    <div>
-      <label class="mb-1.5 block text-[13px] font-medium text-ink-700">Address line 2 (optional)</label>
+    <label class="address-field">
+      <span>Apartment, suite, landmark <em>optional</em></span>
       <input
         :value="modelValue.address_line2"
         type="text"
-        class="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-[15px] text-ink-900 outline-none focus:border-indigo-700"
+        autocomplete="address-line2"
+        placeholder="Apartment, floor, nearby landmark…"
         @input="update({ address_line2: ($event.target as HTMLInputElement).value })"
       >
-    </div>
+    </label>
 
     <div class="grid gap-4 sm:grid-cols-3">
-      <div>
-        <label class="mb-1.5 block text-[13px] font-medium text-ink-700">Country</label>
-        <select
-          :value="modelValue.country_id ?? ''"
-          class="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-[15px] text-ink-900 outline-none focus:border-indigo-700"
-          @change="onCountryChange(Number(($event.target as HTMLSelectElement).value))"
-        >
-          <option
-            value=""
-            disabled
-          >
-            Select
-          </option>
-          <option
-            v-for="c in countries"
-            :key="c.id"
-            :value="c.id"
-          >
-            {{ c.name }}
-          </option>
-        </select>
+      <div class="address-field">
+        <span>Country</span>
+        <StorefrontSearchSelect
+          :model-value="countryId"
+          :options="countries"
+          :loading="loadingCountries"
+          placeholder="Select country"
+          search-placeholder="Search country…"
+          @update:model-value="selectCountry"
+        />
       </div>
 
-      <div>
-        <label class="mb-1.5 block text-[13px] font-medium text-ink-700">Province</label>
-        <select
-          :value="modelValue.state_id ?? ''"
-          :disabled="!modelValue.country_id || loadingStates"
-          class="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-[15px] text-ink-900 outline-none focus:border-indigo-700 disabled:opacity-50"
-          @change="onStateChange(Number(($event.target as HTMLSelectElement).value))"
-        >
-          <option
-            value=""
-            disabled
-          >
-            {{ loadingStates ? 'Loading...' : 'Select' }}
-          </option>
-          <option
-            v-for="s in states"
-            :key="s.id"
-            :value="s.id"
-          >
-            {{ s.name }}
-          </option>
-        </select>
+      <div class="address-field">
+        <span>Province</span>
+        <StorefrontSearchSelect
+          :model-value="stateId"
+          :options="states"
+          :loading="loadingStates"
+          :disabled="!countryId"
+          placeholder="Select province"
+          search-placeholder="Search province…"
+          @update:model-value="selectState"
+        />
       </div>
 
-      <div>
-        <label class="mb-1.5 block text-[13px] font-medium text-ink-700">City</label>
-        <select
-          :value="modelValue.city_id ?? ''"
-          :disabled="!modelValue.state_id || loadingCities"
-          class="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-[15px] text-ink-900 outline-none focus:border-indigo-700 disabled:opacity-50"
-          @change="update({ city_id: Number(($event.target as HTMLSelectElement).value) })"
-        >
-          <option
-            value=""
-            disabled
-          >
-            {{ loadingCities ? 'Loading...' : 'Select' }}
-          </option>
-          <option
-            v-for="c in cities"
-            :key="c.id"
-            :value="c.id"
-          >
-            {{ c.name }}
-          </option>
-        </select>
+      <div class="address-field">
+        <span>City</span>
+        <StorefrontSearchSelect
+          :model-value="cityId"
+          :options="cities"
+          :loading="loadingCities"
+          :disabled="!stateId"
+          placeholder="Select city"
+          search-placeholder="Search city…"
+          @update:model-value="selectCity"
+        />
       </div>
     </div>
 
-    <div>
-      <label class="mb-1.5 block text-[13px] font-medium text-ink-700">Postal code (optional)</label>
+    <label class="address-field sm:max-w-[220px]">
+      <span>Postal code <em>optional</em></span>
       <input
         :value="modelValue.postal_code"
         type="text"
-        class="w-full max-w-[200px] rounded-xl border border-stone-300 bg-white px-4 py-3 text-[15px] text-ink-900 outline-none focus:border-indigo-700"
+        autocomplete="postal-code"
+        inputmode="numeric"
+        placeholder="Postal code"
         @input="update({ postal_code: ($event.target as HTMLInputElement).value })"
       >
-    </div>
+    </label>
   </div>
 </template>
+
+<style scoped>
+.address-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.address-field > span:first-child {
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--color-charcoal-400);
+}
+
+.address-field em {
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: .04em;
+  text-transform: none;
+}
+
+.address-field input {
+  width: 100%;
+  min-height: 50px;
+  border: 1px solid color-mix(in srgb, var(--color-charcoal-950) 14%, transparent);
+  background: var(--color-paper-50);
+  padding: 0 14px;
+  color: var(--color-charcoal-950);
+  font-size: 16px;
+  line-height: 1.4;
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 180ms ease, opacity 160ms ease;
+}
+
+.address-field input::placeholder {
+  color: var(--color-charcoal-350);
+}
+
+.address-field input:focus {
+  border-color: color-mix(in srgb, var(--color-charcoal-950) 65%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-charcoal-950) 5%, transparent);
+}
+
+@media (min-width: 768px) {
+  .address-field input {
+    font-size: 14px;
+  }
+}
+</style>

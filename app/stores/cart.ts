@@ -92,6 +92,7 @@ export const useCartStore = defineStore('cart', () => {
     items,
     totalItems,
     subtotal,
+    hydrated,
     hydrate,
     add,
     updateQuantity,

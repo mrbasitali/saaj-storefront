@@ -29,10 +29,17 @@ const phoneLink = computed(() => {
   const phone = siteSettings.settings?.contact.phone?.trim()
   return phone ? `tel:${phone.replace(/\s+/g, '')}` : null
 })
+
+function categoryPath(slug: string | null | undefined) {
+  if (!slug) return '/shop'
+  const segments = slug.split('/').map(segment => encodeURIComponent(segment)).filter(Boolean)
+  return segments.length ? `/shop/${segments.join('/')}` : '/shop'
+}
+
 </script>
 
 <template>
-  <footer class="bg-[#151714] text-white">
+  <footer class="storefront-footer text-white">
     <div class="mx-auto max-w-[1600px] px-5 pb-7 pt-14 sm:px-8 sm:pt-16 lg:px-10 lg:pt-20">
       <div class="grid gap-12 border-b border-white/12 pb-14 sm:grid-cols-2 lg:grid-cols-[1.35fr_0.8fr_0.8fr_0.9fr] lg:gap-10 lg:pb-18">
         <div class="max-w-md">
@@ -91,7 +98,7 @@ const phoneLink = computed(() => {
               :key="category.id"
             >
               <NuxtLink
-                :to="`/shop?category=${category.full_slug}`"
+                :to="categoryPath(category.full_slug)"
                 class="footer-link"
               >
                 {{ category.name }}

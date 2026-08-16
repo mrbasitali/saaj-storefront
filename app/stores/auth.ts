@@ -11,51 +11,78 @@ type Customer = {
   country: string | null
   email_verified: boolean
   phone_verified: boolean
+  is_active?: boolean
+}
+
+type AuthResponse = {
+  message: string
+  token: string
+  customer: Customer
 }
 
 export const useAuthStore = defineStore('auth', () => {
   const customer = ref<Customer | null>(null)
+  const hydrated = ref(false)
 
   const isLoggedIn = computed(() => customer.value !== null)
+
+  function tokenCookie() {
+    return useCookie<string | null>('saaj_customer_token')
+  }
+
+  function acceptAuthResponse(response: AuthResponse) {
+    tokenCookie().value = response.token
+    customer.value = response.customer
+    hydrated.value = true
+
+    return response.customer
+  }
 
   async function fetchMe() {
     const { $api } = useNuxtApp()
 
     try {
       const response = await $api<{ customer: Customer }>('/customer/me')
-
       customer.value = response.customer
-
+      hydrated.value = true
       return true
     } catch {
+      tokenCookie().value = null
       customer.value = null
-
+      hydrated.value = true
       return false
     }
   }
 
-  // Backend only supports email login currently — no phone-based
-  // login path exists in LoginCustomerRequest. Checked directly
-  // against the actual validation rules rather than assumed, after
-  // the mismatch this caused (sending "login" when the backend
-  // expects "email").
   async function login(payload: { email: string, password: string }) {
     const { $api } = useNuxtApp()
-    const token = useCookie<string | null>('saaj_customer_token')
-
-    const response = await $api<{ message: string, token: string, customer: Customer }>('/customer/login', {
+    const response = await $api<AuthResponse>('/customer/login', {
       method: 'POST',
       body: payload,
     })
 
-    token.value = response.token
-    customer.value = response.customer
-
-    return response.customer
+    return acceptAuthResponse(response)
   }
 
-  // email is required, phone is optional — matches
-  // RegisterCustomerRequest's actual validation rules, not assumed.
+  async function requestLoginOtp(phone: string) {
+    const { $api } = useNuxtApp()
+
+    return await $api<{ message: string }>('/customer/otp/request', {
+      method: 'POST',
+      body: { phone },
+    })
+  }
+
+  async function loginWithOtp(payload: { phone: string, code: string }) {
+    const { $api } = useNuxtApp()
+    const response = await $api<AuthResponse>('/customer/otp/login', {
+      method: 'POST',
+      body: payload,
+    })
+
+    return acceptAuthResponse(response)
+  }
+
   async function register(payload: {
     name: string
     email: string
@@ -64,55 +91,87 @@ export const useAuthStore = defineStore('auth', () => {
     password_confirmation: string
   }) {
     const { $api } = useNuxtApp()
-    const token = useCookie<string | null>('saaj_customer_token')
-
-    const response = await $api<{ message: string, token: string, customer: Customer }>('/customer/register', {
+    const response = await $api<AuthResponse>('/customer/register', {
       method: 'POST',
       body: payload,
     })
 
-    token.value = response.token
-    customer.value = response.customer
+    return acceptAuthResponse(response)
+  }
 
-    return response.customer
+  async function resendEmailVerification() {
+    const { $api } = useNuxtApp()
+    return await $api<{ message: string }>('/customer/email/resend', { method: 'POST' })
+  }
+
+  async function sendPhoneVerification() {
+    const { $api } = useNuxtApp()
+    return await $api<{ message: string }>('/customer/phone/verify/send', { method: 'POST' })
+  }
+
+  async function confirmPhoneVerification(code: string) {
+    const { $api } = useNuxtApp()
+    const response = await $api<{ message: string }>('/customer/phone/verify/confirm', {
+      method: 'POST',
+      body: { code },
+    })
+
+    await fetchMe()
+    return response
   }
 
   async function logout() {
     const { $api } = useNuxtApp()
-    const token = useCookie<string | null>('saaj_customer_token')
 
     try {
       await $api('/customer/logout', { method: 'POST' })
     } catch {
-      // Even if the server call fails (e.g. token already expired),
-      // still clear local state — the person's intent is to be
-      // logged out regardless of network conditions.
+      // Local state still needs to clear even if the access token was
+      // already expired or the network request failed.
     }
 
-    token.value = null
+    tokenCookie().value = null
     customer.value = null
+    hydrated.value = true
+  }
+
+  async function logoutAll() {
+    const { $api } = useNuxtApp()
+
+    try {
+      await $api('/customer/logout-all', { method: 'POST' })
+    } finally {
+      tokenCookie().value = null
+      customer.value = null
+      hydrated.value = true
+    }
   }
 
   async function updateProfile(payload: Record<string, unknown>) {
     const { $api } = useNuxtApp()
-
     const response = await $api<{ message: string, customer: Customer }>('/customer/profile', {
       method: 'PUT',
       body: payload,
     })
 
     customer.value = response.customer
-
     return response.customer
   }
 
   return {
     customer,
+    hydrated,
     isLoggedIn,
     fetchMe,
     login,
+    requestLoginOtp,
+    loginWithOtp,
     register,
+    resendEmailVerification,
+    sendPhoneVerification,
+    confirmPhoneVerification,
     logout,
+    logoutAll,
     updateProfile,
   }
 })

@@ -71,6 +71,12 @@ type HomepageResponse = {
 
 const { $api } = useNuxtApp()
 
+function categoryPath(slug: string | null | undefined) {
+  if (!slug) return '/shop'
+  const segments = slug.split('/').map(segment => encodeURIComponent(segment)).filter(Boolean)
+  return segments.length ? `/shop/${segments.join('/')}` : '/shop'
+}
+
 // The hero is critical, so it is fetched normally and can be rendered on
 // the server. Secondary merchandising sections are lazy so client-side
 // navigation can paint immediately and use stable skeletons while loading.
@@ -109,7 +115,7 @@ const heroImage = computed(() =>
 
 const heroLink = computed(() =>
   heroCategory.value
-    ? `/shop?category=${heroCategory.value.full_slug}`
+    ? categoryPath(heroCategory.value.full_slug)
     : '/shop',
 )
 
@@ -161,14 +167,36 @@ function categoryImage(category: Category, index: number) {
     || null
 }
 
+const homeCanonical = 'https://www.saaj.pk/'
+
 useSeoMeta({
   title: 'SAAJ — Modern Clothing',
   description: 'Discover the latest SAAJ edit — considered clothing, modern silhouettes, and thoughtful detail.',
+  robots: 'index,follow',
+  ogTitle: 'SAAJ — Modern Clothing',
+  ogDescription: 'Discover the latest SAAJ edit — considered clothing, modern silhouettes, and thoughtful detail.',
+  ogUrl: homeCanonical,
+  ogType: 'website',
+  twitterCard: 'summary_large_image',
+})
+
+useHead({
+  link: [{ rel: 'canonical', href: homeCanonical }],
+  script: [{
+    key: 'saaj-website-jsonld',
+    type: 'application/ld+json',
+    innerHTML: JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: 'SAAJ',
+      url: homeCanonical,
+    }),
+  }],
 })
 </script>
 
 <template>
-  <div class="overflow-hidden bg-paper-50 transition-colors duration-300">
+  <div class="overflow-hidden bg-paper-50">
     <StorefrontHero
       :config="heroConfig"
       :slides="heroSlides"
@@ -217,7 +245,7 @@ useSeoMeta({
         <NuxtLink
           v-for="(category, index) in categories"
           :key="category.id"
-          :to="`/shop?category=${category.full_slug}`"
+          :to="categoryPath(category.full_slug)"
           class="group relative overflow-hidden bg-mist-100"
           :class="[
             index === 0 || index === 3 ? 'lg:col-span-7' : 'lg:col-span-5',
@@ -240,7 +268,7 @@ useSeoMeta({
               <h3 class="font-display text-[28px] font-medium tracking-[-0.035em] sm:text-[34px] lg:text-[42px]">
                 {{ category.name }}
               </h3>
-              <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/45 transition duration-300 group-hover:bg-white group-hover:text-[#151714]">
+              <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/45 transition duration-300 group-hover:bg-white group-hover:text-charcoal-950">
                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                   <path d="M5 12h14M14 7l5 5-5 5" />
                 </svg>
@@ -253,7 +281,7 @@ useSeoMeta({
       <NuxtLink v-if="categoriesStatus !== 'pending'" to="/shop" class="text-link mt-6 sm:hidden">Shop all</NuxtLink>
     </section>
 
-    <section class="border-y border-black/8 bg-white dark:border-white/8 dark:bg-[#121512]">
+    <section class="border-y border-black/8 bg-white">
       <div class="mx-auto max-w-[1600px] px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-24">
         <div class="flex items-end justify-between gap-5">
           <div>
@@ -277,7 +305,7 @@ useSeoMeta({
           />
         </div>
 
-        <div v-else class="mt-10 border-t border-black/8 pt-8 text-sm text-charcoal-400 dark:border-white/8">
+        <div v-else class="mt-10 border-t border-black/8 pt-8 text-sm text-charcoal-400">
           New pieces will appear here as soon as they are marked featured in the backoffice.
         </div>
 
@@ -310,7 +338,7 @@ useSeoMeta({
             </p>
             <NuxtLink
               to="/shop"
-              class="mt-8 inline-flex min-h-12 items-center justify-center bg-charcoal-950 px-7 text-[10px] font-semibold uppercase tracking-[0.16em] text-paper-50 transition hover:bg-charcoal-800"
+              class="mt-8 inline-flex min-h-12 items-center justify-center bg-charcoal-950 px-7 text-[10px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-charcoal-800"
             >
               Discover SAAJ
             </NuxtLink>
@@ -320,7 +348,7 @@ useSeoMeta({
     </section>
 
     <section class="mx-auto max-w-[1600px] px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-24">
-      <div class="grid gap-10 border-t border-black/8 pt-10 sm:grid-cols-3 sm:gap-6 dark:border-white/8">
+      <div class="grid gap-10 border-t border-black/8 pt-10 sm:grid-cols-3 sm:gap-6">
         <div>
           <p class="section-kicker">01 / Detail</p>
           <p class="mt-3 max-w-xs text-sm leading-6 text-charcoal-600">

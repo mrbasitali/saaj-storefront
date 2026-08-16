@@ -29,6 +29,12 @@ const visibleCategories = computed(() => props.categories.slice(0, 6))
 const desktopCategory = computed(() => props.categories.find(category => category.id === desktopCategoryId.value) ?? null)
 const mobileCategory = computed(() => props.categories.find(category => category.id === mobileCategoryId.value) ?? null)
 
+function categoryPath(slug: string | null | undefined) {
+  if (!slug) return '/shop'
+  const segments = slug.split('/').map(segment => encodeURIComponent(segment)).filter(Boolean)
+  return segments.length ? `/shop/${segments.join('/')}` : '/shop'
+}
+
 const headerLogo = computed(() => {
   const logos = siteSettings.settings?.logos
   if (!logos) return null
@@ -39,11 +45,20 @@ const headerLogo = computed(() => {
 })
 
 const overlayOpen = computed(() => mobileMenuOpen.value || searchOpen.value)
-const selectedCategory = computed(() => typeof route.query.category === 'string' ? route.query.category : '')
+const selectedCategory = computed(() => {
+  if (route.path.startsWith('/shop/')) {
+    return route.path
+      .slice('/shop/'.length)
+      .split('/')
+      .map(segment => decodeURIComponent(segment))
+      .join('/')
+  }
+  return typeof route.query.category === 'string' ? route.query.category : ''
+})
 const isNewInActive = computed(() => route.path === '/shop' && !selectedCategory.value && !route.query.search)
 
 function isCategoryActive(category: Category) {
-  if (route.path !== '/shop' || !selectedCategory.value) return false
+  if (!selectedCategory.value) return false
   return selectedCategory.value === category.full_slug
     || selectedCategory.value.startsWith(`${category.full_slug}/`)
 }
@@ -142,11 +157,21 @@ function goMobileBack() {
 function openSearch() {
   closeDesktopMenu()
   if (mobileMenuOpen.value) closeMobileMenu()
+
+  const activeSearch = typeof route.query.search === 'string' ? route.query.search : ''
+  if (activeSearch) searchQuery.value = activeSearch
+
   searchOpen.value = true
 }
 
 function closeSearch() {
   searchOpen.value = false
+}
+
+async function clearSearchInput() {
+  searchQuery.value = ''
+  await nextTick()
+  searchInput.value?.focus()
 }
 
 function submitSearch() {
@@ -247,11 +272,12 @@ function submitSearch() {
           </svg>
         </NuxtLink>
 
-        <NuxtLink :to="authStore.isLoggedIn ? '/account' : '/login'" aria-label="Account" class="header-utility-button hidden sm:flex">
+        <NuxtLink :to="authStore.isLoggedIn ? '/account' : '/login'" aria-label="Account" class="header-utility-button relative flex">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="h-[18px] w-[18px]">
             <circle cx="12" cy="8" r="3.4" />
             <path d="M4.8 19.7c1.5-3.4 4.2-5 7.2-5s5.7 1.6 7.2 5" />
           </svg>
+          <span v-if="authStore.isLoggedIn" class="absolute right-[7px] top-[7px] h-1.5 w-1.5 rounded-full bg-[#657d6c] ring-2 ring-paper-50" aria-hidden="true" />
         </NuxtLink>
 
         <NuxtLink to="/cart" aria-label="Shopping bag" class="header-utility-button relative">
@@ -288,7 +314,7 @@ function submitSearch() {
           @mouseenter="category.children?.length ? openDesktopMenu(category) : closeDesktopMenu()"
         >
           <NuxtLink
-            :to="`/shop?category=${category.full_slug}`"
+            :to="categoryPath(category.full_slug)"
             class="storefront-nav-item inline-flex items-center gap-1.5"
             :class="{ 'is-active': isCategoryActive(category) }"
           >
@@ -322,7 +348,7 @@ function submitSearch() {
             <h2 class="mt-3 font-display text-[44px] font-medium leading-[0.95] tracking-[-0.045em] text-charcoal-950 xl:text-[52px]">
               {{ desktopCategory.name }}
             </h2>
-            <NuxtLink :to="`/shop?category=${desktopCategory.full_slug}`" class="mega-shop-all mt-7 inline-flex items-center gap-3">
+            <NuxtLink :to="categoryPath(desktopCategory.full_slug)" class="mega-shop-all mt-7 inline-flex items-center gap-3">
               Shop all {{ desktopCategory.name }}
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="h-4 w-4">
                 <path d="M5 12h14M14 7l5 5-5 5" />
@@ -336,7 +362,7 @@ function submitSearch() {
               <NuxtLink
                 v-for="(child, index) in desktopCategory.children"
                 :key="child.id"
-                :to="`/shop?category=${child.full_slug}`"
+                :to="categoryPath(child.full_slug)"
                 class="mega-child-link menu-stagger group"
                 :style="{ '--menu-delay': `${90 + index * 38}ms` }"
               >
@@ -393,7 +419,7 @@ function submitSearch() {
                 </button>
                 <NuxtLink
                   v-else
-                  :to="`/shop?category=${category.full_slug}`"
+                  :to="categoryPath(category.full_slug)"
                   class="mobile-menu-main-link mobile-stagger"
                   :style="{ '--menu-delay': `${160 + index * 45}ms` }"
                 >
@@ -429,7 +455,7 @@ function submitSearch() {
               </button>
               <p class="mobile-menu-eyebrow mobile-stagger" style="--menu-delay: 90ms">{{ mobileCategory.name }}</p>
               <NuxtLink
-                :to="`/shop?category=${mobileCategory.full_slug}`"
+                :to="categoryPath(mobileCategory.full_slug)"
                 class="mobile-menu-main-link mobile-stagger"
                 style="--menu-delay: 135ms"
               >
@@ -441,7 +467,7 @@ function submitSearch() {
               <NuxtLink
                 v-for="(child, index) in mobileCategory.children"
                 :key="child.id"
-                :to="`/shop?category=${child.full_slug}`"
+                :to="categoryPath(child.full_slug)"
                 class="mobile-menu-main-link mobile-stagger"
                 :style="{ '--menu-delay': `${180 + index * 45}ms` }"
               >
@@ -484,6 +510,20 @@ function submitSearch() {
             placeholder="What are you looking for?"
             class="min-w-0 flex-1 bg-transparent font-display text-[clamp(2.3rem,6vw,5rem)] font-medium leading-none tracking-[-0.045em] text-charcoal-950 outline-none placeholder:text-charcoal-300"
           >
+          <Transition name="search-clear">
+            <button
+              v-if="searchQuery"
+              type="button"
+              class="search-clear-button"
+              aria-label="Clear search"
+              @click="clearSearchInput"
+            >
+              <span class="hidden sm:inline">Clear</span>
+              <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.2" class="h-4 w-4">
+                <path d="m4.5 4.5 9 9M13.5 4.5l-9 9" />
+              </svg>
+            </button>
+          </Transition>
         </form>
 
         <div class="mt-12 grid gap-10 border-t border-charcoal-950/10 pt-8 sm:grid-cols-[0.6fr_1.4fr] lg:mt-16 lg:pt-10">
@@ -493,7 +533,7 @@ function submitSearch() {
             <NuxtLink
               v-for="(category, index) in visibleCategories"
               :key="category.id"
-              :to="`/shop?category=${category.full_slug}`"
+              :to="categoryPath(category.full_slug)"
               class="search-browse-link search-stagger"
               :style="{ '--menu-delay': `${250 + index * 40}ms` }"
             >
