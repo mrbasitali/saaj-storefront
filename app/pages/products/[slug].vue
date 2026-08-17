@@ -471,8 +471,103 @@ const zoomOpen = ref(false)
 const zoomImageIndex = ref(0)
 const zoomMotion = ref<'next' | 'previous'>('next')
 const zoomTouchStartX = ref<number | null>(null)
+const zoomScale = ref(1)
+const zoomPanX = ref(0)
+const zoomPanY = ref(0)
+const zoomDragging = ref(false)
+const zoomPointerId = ref<number | null>(null)
+const zoomDragStartX = ref(0)
+const zoomDragStartY = ref(0)
+const zoomDragPanX = ref(0)
+const zoomDragPanY = ref(0)
+const ZOOM_MIN = 1
+const ZOOM_MAX = 3
+const ZOOM_STEP = 0.25
 const zoomImage = computed(() => galleryImages.value[zoomImageIndex.value] ?? null)
 const zoomTransitionName = computed(() => zoomMotion.value === 'previous' ? 'product-gallery-previous' : 'product-gallery-next')
+const zoomPercent = computed(() => Math.round(zoomScale.value * 100))
+const canZoomIn = computed(() => zoomScale.value < ZOOM_MAX)
+const canZoomOut = computed(() => zoomScale.value > ZOOM_MIN)
+const zoomImageStyle = computed(() => ({
+  transform: `translate3d(${zoomPanX.value}px, ${zoomPanY.value}px, 0) scale(${zoomScale.value})`,
+  transition: zoomDragging.value ? 'none' : 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)',
+  cursor: zoomScale.value > 1 ? (zoomDragging.value ? 'grabbing' : 'grab') : 'zoom-in',
+}))
+
+function constrainZoomPan() {
+  if (zoomScale.value <= 1 || !import.meta.client) {
+    zoomPanX.value = 0
+    zoomPanY.value = 0
+    return
+  }
+
+  const scaleExtra = zoomScale.value - 1
+  const maxX = Math.max(80, window.innerWidth * scaleExtra * 0.42)
+  const maxY = Math.max(80, window.innerHeight * scaleExtra * 0.42)
+  zoomPanX.value = Math.max(-maxX, Math.min(maxX, zoomPanX.value))
+  zoomPanY.value = Math.max(-maxY, Math.min(maxY, zoomPanY.value))
+}
+
+function resetZoomView() {
+  zoomScale.value = 1
+  zoomPanX.value = 0
+  zoomPanY.value = 0
+  zoomDragging.value = false
+  zoomPointerId.value = null
+}
+
+function setZoomScale(value: number) {
+  zoomScale.value = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(value * 100) / 100))
+  if (zoomScale.value <= 1) {
+    zoomPanX.value = 0
+    zoomPanY.value = 0
+  } else {
+    constrainZoomPan()
+  }
+}
+
+function zoomIn() {
+  setZoomScale(zoomScale.value + ZOOM_STEP)
+}
+
+function zoomOut() {
+  setZoomScale(zoomScale.value - ZOOM_STEP)
+}
+
+function toggleZoomLevel() {
+  if (zoomScale.value > 1) resetZoomView()
+  else setZoomScale(2)
+}
+
+function onZoomWheel(event: WheelEvent) {
+  if (event.deltaY < 0) zoomIn()
+  else if (event.deltaY > 0) zoomOut()
+}
+
+function onZoomPointerDown(event: PointerEvent) {
+  if (zoomScale.value <= 1) return
+  zoomDragging.value = true
+  zoomPointerId.value = event.pointerId
+  zoomDragStartX.value = event.clientX
+  zoomDragStartY.value = event.clientY
+  zoomDragPanX.value = zoomPanX.value
+  zoomDragPanY.value = zoomPanY.value
+  ;(event.currentTarget as HTMLElement | null)?.setPointerCapture?.(event.pointerId)
+}
+
+function onZoomPointerMove(event: PointerEvent) {
+  if (!zoomDragging.value || zoomPointerId.value !== event.pointerId) return
+  zoomPanX.value = zoomDragPanX.value + (event.clientX - zoomDragStartX.value)
+  zoomPanY.value = zoomDragPanY.value + (event.clientY - zoomDragStartY.value)
+  constrainZoomPan()
+}
+
+function onZoomPointerEnd(event: PointerEvent) {
+  if (zoomPointerId.value !== event.pointerId) return
+  zoomDragging.value = false
+  zoomPointerId.value = null
+  ;(event.currentTarget as HTMLElement | null)?.releasePointerCapture?.(event.pointerId)
+}
 
 function setZoomImage(index: number) {
   const count = galleryImages.value.length
@@ -481,6 +576,7 @@ function setZoomImage(index: number) {
   const nextIndex = Math.min(Math.max(index, 0), count - 1)
   if (nextIndex === zoomImageIndex.value) return
 
+  resetZoomView()
   zoomMotion.value = nextIndex > zoomImageIndex.value ? 'next' : 'previous'
   zoomImageIndex.value = nextIndex
   currentImageIndex.value = nextIndex
@@ -490,6 +586,7 @@ function stepZoom(direction: 1 | -1) {
   const count = galleryImages.value.length
   if (count < 2) return
 
+  resetZoomView()
   zoomMotion.value = direction === 1 ? 'next' : 'previous'
   zoomImageIndex.value = (zoomImageIndex.value + direction + count) % count
   currentImageIndex.value = zoomImageIndex.value
@@ -503,20 +600,26 @@ function openZoom(image: ProductImage) {
 
   zoomImageIndex.value = index >= 0 ? index : currentImageIndex.value
   zoomMotion.value = 'next'
+  resetZoomView()
   zoomOpen.value = true
 }
 
 function closeZoom() {
   zoomOpen.value = false
   zoomTouchStartX.value = null
+  resetZoomView()
 }
 
 function onZoomTouchStart(event: TouchEvent) {
+  if (zoomScale.value > 1) {
+    zoomTouchStartX.value = null
+    return
+  }
   zoomTouchStartX.value = event.changedTouches[0]?.clientX ?? null
 }
 
 function onZoomTouchEnd(event: TouchEvent) {
-  if (zoomTouchStartX.value == null) return
+  if (zoomScale.value > 1 || zoomTouchStartX.value == null) return
 
   const endX = event.changedTouches[0]?.clientX
   if (endX == null) return
@@ -536,12 +639,30 @@ function onKeydown(event: KeyboardEvent) {
     return
   }
 
-  if (event.key === 'ArrowRight') {
+  if (event.key === '+' || event.key === '=') {
+    event.preventDefault()
+    zoomIn()
+    return
+  }
+
+  if (event.key === '-' || event.key === '_') {
+    event.preventDefault()
+    zoomOut()
+    return
+  }
+
+  if (event.key === '0') {
+    event.preventDefault()
+    resetZoomView()
+    return
+  }
+
+  if (zoomScale.value === 1 && event.key === 'ArrowRight') {
     event.preventDefault()
     stepZoom(1)
   }
 
-  if (event.key === 'ArrowLeft') {
+  if (zoomScale.value === 1 && event.key === 'ArrowLeft') {
     event.preventDefault()
     stepZoom(-1)
   }
@@ -1385,7 +1506,7 @@ watch(product, () => {
       <Transition name="product-zoom">
         <div
           v-if="zoomOpen && zoomImage"
-          class="fixed inset-0 z-[90] flex flex-col bg-charcoal-950/[0.985] text-paper-50"
+          class="fixed inset-0 z-[90] flex flex-col bg-[#0f110f]/[0.985] text-[#f7f6f2]"
           role="dialog"
           aria-modal="true"
           aria-label="Product image gallery"
@@ -1408,29 +1529,88 @@ watch(product, () => {
               </span>
             </div>
 
-            <button
-              type="button"
-              class="flex h-11 w-11 items-center justify-center rounded-full border border-white/18 bg-white/[0.04] text-white transition duration-300 hover:border-white/45 hover:bg-white/[0.08]"
-              aria-label="Close image gallery"
-              @click="closeZoom"
-            >
-              <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.2">
-                <path d="m5 5 10 10M15 5 5 15" />
-              </svg>
-            </button>
+            <div class="flex items-center gap-2">
+              <div class="flex h-11 items-center overflow-hidden rounded-full border border-white/18 bg-white/[0.04] backdrop-blur-md">
+                <button
+                  type="button"
+                  class="flex h-11 w-11 items-center justify-center text-white transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:text-white/25"
+                  :disabled="!canZoomOut"
+                  aria-label="Zoom out"
+                  @click.stop="zoomOut"
+                >
+                  <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.25">
+                    <circle cx="8.5" cy="8.5" r="5" />
+                    <path d="M5.8 8.5h5.4M12.2 12.2l3.2 3.2" />
+                  </svg>
+                </button>
+
+                <button
+                  type="button"
+                  class="min-w-[54px] border-x border-white/10 px-2 text-[9px] font-semibold tracking-[0.1em] text-white/75 transition hover:bg-white/[0.06] hover:text-white"
+                  :aria-label="`Reset zoom, currently ${zoomPercent}%`"
+                  @click.stop="resetZoomView"
+                >
+                  {{ zoomPercent }}%
+                </button>
+
+                <button
+                  type="button"
+                  class="flex h-11 w-11 items-center justify-center text-white transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:text-white/25"
+                  :disabled="!canZoomIn"
+                  aria-label="Zoom in"
+                  @click.stop="zoomIn"
+                >
+                  <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.25">
+                    <circle cx="8.5" cy="8.5" r="5" />
+                    <path d="M5.8 8.5h5.4M8.5 5.8v5.4M12.2 12.2l3.2 3.2" />
+                  </svg>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                class="flex h-11 w-11 items-center justify-center rounded-full border border-white/18 bg-white/[0.04] text-white transition duration-300 hover:border-white/45 hover:bg-white/[0.08]"
+                aria-label="Close image gallery"
+                @click="closeZoom"
+              >
+                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.2">
+                  <path d="m5 5 10 10M15 5 5 15" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           <div class="relative min-h-0 flex-1 overflow-hidden">
-            <div class="absolute inset-0 flex items-center justify-center px-5 pb-24 pt-4 sm:px-20 sm:pb-28 sm:pt-6 lg:px-28 xl:px-36">
+            <div
+              class="absolute inset-0 flex touch-none items-center justify-center overflow-hidden px-5 pb-24 pt-4 sm:px-20 sm:pb-28 sm:pt-6 lg:px-28 xl:px-36"
+              @wheel.prevent="onZoomWheel"
+              @pointerdown="onZoomPointerDown"
+              @pointermove="onZoomPointerMove"
+              @pointerup="onZoomPointerEnd"
+              @pointercancel="onZoomPointerEnd"
+              @dblclick.stop="toggleZoomLevel"
+            >
               <Transition :name="zoomTransitionName">
-                <NuxtImg
+                <div
                   :key="zoomImage.id ?? imageUrl(zoomImage, 'zoom') ?? zoomImageIndex"
-                  :src="imageUrl(zoomImage, 'zoom') || imageUrl(zoomImage, 'detail')!"
-                  :alt="zoomImage.alt_text || `${product.name} image ${zoomImageIndex + 1}`"
-                  class="absolute max-h-[calc(100%-7rem)] max-w-[calc(100%-2rem)] select-none object-contain sm:max-h-[calc(100%-7.5rem)] sm:max-w-[calc(100%-9rem)] lg:max-w-[calc(100%-14rem)]"
-                  draggable="false"
-                />
+                  class="absolute inset-0 flex items-center justify-center px-5 pb-24 pt-4 sm:px-20 sm:pb-28 sm:pt-6 lg:px-28 xl:px-36"
+                >
+                  <NuxtImg
+                    :src="imageUrl(zoomImage, 'zoom') || imageUrl(zoomImage, 'detail')!"
+                    :alt="zoomImage.alt_text || `${product.name} image ${zoomImageIndex + 1}`"
+                    class="max-h-[calc(100%-7rem)] max-w-[calc(100%-2rem)] select-none object-contain will-change-transform sm:max-h-[calc(100%-7.5rem)] sm:max-w-[calc(100%-9rem)] lg:max-w-[calc(100%-14rem)]"
+                    :style="zoomImageStyle"
+                    draggable="false"
+                  />
+                </div>
               </Transition>
+
+              <div
+                class="pointer-events-none absolute bottom-[5.5rem] left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/10 bg-black/25 px-3 py-1.5 text-[8px] font-medium uppercase tracking-[0.12em] text-white/55 backdrop-blur-md transition-opacity sm:bottom-[6.5rem]"
+                :class="zoomScale > 1 ? 'opacity-100' : 'opacity-0'"
+              >
+                Drag to inspect · double-click to reset
+              </div>
             </div>
 
             <template v-if="galleryImages.length > 1">
@@ -1456,7 +1636,7 @@ watch(product, () => {
                 </svg>
               </button>
 
-              <div class="absolute inset-x-0 bottom-0 z-30 border-t border-white/10 bg-charcoal-950/88 px-4 py-4 backdrop-blur-xl sm:px-7 sm:py-5">
+              <div class="absolute inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#0f110f]/90 px-4 py-4 backdrop-blur-xl sm:px-7 sm:py-5">
                 <div class="mx-auto flex max-w-3xl items-center gap-4">
                   <span class="hidden text-[9px] font-semibold uppercase tracking-[0.14em] text-white/45 sm:block">
                     {{ zoomImageIndex + 1 }} of {{ galleryImages.length }}

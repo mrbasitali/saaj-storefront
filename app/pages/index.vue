@@ -338,7 +338,7 @@ useHead({
             </p>
             <NuxtLink
               to="/shop"
-              class="mt-8 inline-flex min-h-12 items-center justify-center bg-charcoal-950 px-7 text-[10px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-charcoal-800"
+              class="mt-8 inline-flex min-h-12 items-center justify-center bg-[#151714] px-7 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#f7f6f2] transition duration-300 hover:bg-[#292d28] active:scale-[0.985]"
             >
               Discover SAAJ
             </NuxtLink>
