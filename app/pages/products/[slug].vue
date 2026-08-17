@@ -71,7 +71,10 @@ type ProductDetail = {
   active_variants: Variant[]
 }
 
-type ProductResponse = { data: ProductDetail }
+type ProductResponse = {
+  data: ProductDetail
+  preview?: { expires_at?: string | null }
+}
 
 type RelatedProduct = {
   id: number
@@ -97,14 +100,23 @@ const cart = useCartStore()
 const customerToken = useCookie<string | null>('saaj_customer_token')
 
 const slug = computed(() => String(route.params.slug || ''))
+const previewToken = computed(() => {
+  const value = route.query.preview
+  return typeof value === 'string' ? value.trim() : ''
+})
+const isPreviewMode = computed(() => previewToken.value !== '')
 
-// Product data is SEO-critical, so wait for it during SSR. This ensures
-// the initial HTML source already contains the product title, description,
-// canonical URL, JSON-LD, price/availability, and primary content.
+// Product data is SEO-critical, so wait for it during SSR. Draft preview uses
+// a separate token-protected API endpoint and a separate async-data key so a
+// preview response can never be confused with the public product response.
 const { data, pending, error, refresh } = await useAsyncData<ProductResponse>(
-  () => `product-${slug.value}`,
-  () => $api<ProductResponse>(`/products/${encodeURIComponent(slug.value)}`),
-  { watch: [slug] },
+  () => `product-${slug.value}-${isPreviewMode.value ? 'preview' : 'public'}`,
+  () => isPreviewMode.value
+    ? $api<ProductResponse>(`/products/${encodeURIComponent(slug.value)}`, {
+        query: { preview: previewToken.value },
+      })
+    : $api<ProductResponse>(`/products/${encodeURIComponent(slug.value)}`),
+  { watch: [slug, previewToken] },
 )
 
 const product = computed(() => data.value?.data ?? null)
@@ -113,9 +125,14 @@ const product = computed(() => data.value?.data ?? null)
 // should receive the actual upstream status when a product does not exist.
 if (import.meta.server && error.value) {
   const upstreamStatus = Number((error.value as any)?.statusCode || (error.value as any)?.status || 500)
+  const previewDenied = isPreviewMode.value && [401, 403, 410].includes(upstreamStatus)
   throw createError({
-    statusCode: upstreamStatus === 404 ? 404 : 502,
-    statusMessage: upstreamStatus === 404 ? 'Product not found' : 'Product service unavailable',
+    statusCode: upstreamStatus === 404 ? 404 : previewDenied ? 403 : 502,
+    statusMessage: upstreamStatus === 404
+      ? 'Product not found'
+      : previewDenied
+        ? 'Product preview unavailable'
+        : 'Product service unavailable',
   })
 }
 
@@ -140,7 +157,7 @@ const productSeoDescription = computed(() => product.value?.meta_description
 
 const productJsonLd = computed(() => {
   const value = product.value
-  if (!value) return null
+  if (!value || isPreviewMode.value) return null
 
   const images = dedupeImages([
     value.primary_image,
@@ -207,9 +224,13 @@ function safeJson(value: unknown) {
 }
 
 useSeoMeta({
-  title: () => product.value?.meta_title || (product.value ? `${product.value.name} | SAAJ` : 'Product | SAAJ'),
+  title: () => isPreviewMode.value
+    ? `Preview · ${product.value?.name || 'Product'} | SAAJ`
+    : product.value?.meta_title || (product.value ? `${product.value.name} | SAAJ` : 'Product | SAAJ'),
   description: () => productSeoDescription.value,
-  robots: 'index,follow,max-image-preview:large',
+  robots: () => isPreviewMode.value
+    ? 'noindex,nofollow,noarchive,nosnippet'
+    : 'index,follow,max-image-preview:large',
   ogTitle: () => product.value?.meta_title || (product.value ? `${product.value.name} | SAAJ` : 'Product | SAAJ'),
   ogDescription: () => productSeoDescription.value,
   ogUrl: () => productCanonicalUrl.value,
@@ -225,18 +246,20 @@ useSeoMeta({
 
 useHead(() => ({
   link: [{ rel: 'canonical', href: productCanonicalUrl.value }],
-  script: [
-    ...(productJsonLd.value ? [{
-      key: 'product-jsonld',
-      type: 'application/ld+json',
-      innerHTML: safeJson(productJsonLd.value),
-    }] : []),
-    {
-      key: 'product-breadcrumb-jsonld',
-      type: 'application/ld+json',
-      innerHTML: safeJson(productBreadcrumbJsonLd.value),
-    },
-  ],
+  script: isPreviewMode.value
+    ? []
+    : [
+        ...(productJsonLd.value ? [{
+          key: 'product-jsonld',
+          type: 'application/ld+json',
+          innerHTML: safeJson(productJsonLd.value),
+        }] : []),
+        {
+          key: 'product-breadcrumb-jsonld',
+          type: 'application/ld+json',
+          innerHTML: safeJson(productBreadcrumbJsonLd.value),
+        },
+      ],
 }))
 
 const attributeGroups = computed(() => {
@@ -699,7 +722,7 @@ function formatPrice(value: string | number | null | undefined) {
   return `Rs ${Number(value).toLocaleString()}`
 }
 
-const canAddToBag = computed(() => !!matchedVariant.value && matchedVariant.value.is_available !== false)
+const canAddToBag = computed(() => !isPreviewMode.value && !!matchedVariant.value && matchedVariant.value.is_available !== false)
 
 const maxPurchaseQuantity = computed(() => {
   const variant = matchedVariant.value
@@ -738,6 +761,15 @@ function increaseQuantity() {
 
 const adding = ref(false)
 const justAdded = ref(false)
+
+const addToBagLabel = computed(() => {
+  if (isPreviewMode.value) return 'Preview only'
+  if (!matchedVariant.value) return 'Select options'
+  if (!canAddToBag.value) return 'Sold out'
+  if (adding.value) return 'Adding…'
+  if (justAdded.value) return 'Added'
+  return 'Add to bag'
+})
 let justAddedTimer: ReturnType<typeof setTimeout> | null = null
 const addedMessage = ref('')
 let addedTimer: ReturnType<typeof setTimeout> | null = null
@@ -852,6 +884,7 @@ watch([product, customerToken], () => {
 }, { immediate: true })
 
 async function toggleWishlist() {
+  if (isPreviewMode.value) return
   if (!product.value) return
 
   if (!customerToken.value) {
@@ -961,6 +994,14 @@ watch(product, () => {
     v-else-if="product"
     class="product-detail-page min-h-screen bg-paper-50 pb-24 lg:pb-0"
   >
+    <div
+      v-if="isPreviewMode"
+      class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-[#181b18] px-4 py-2.5 text-center text-[#f7f6f2]"
+    >
+      <span class="text-[9px] font-semibold uppercase tracking-[0.16em]">Preview mode</span>
+      <span class="hidden h-3 w-px bg-white/20 sm:block" />
+      <span class="text-[10px] text-white/65">This product is not public. Shopping actions are disabled.</span>
+    </div>
     <div class="border-b border-charcoal-950/[0.07] px-4 py-3 sm:px-7 lg:px-10 xl:px-12">
       <nav class="shop-breadcrumb" aria-label="Breadcrumb">
         <NuxtLink to="/" class="shop-breadcrumb-link">
@@ -1175,7 +1216,7 @@ watch(product, () => {
               type="button"
               class="flex h-11 w-11 shrink-0 items-center justify-center border border-charcoal-950/[0.12] text-charcoal-700 transition hover:border-charcoal-950 hover:text-charcoal-950 disabled:opacity-45"
               :aria-label="isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'"
-              :disabled="wishlistBusy"
+              :disabled="wishlistBusy || isPreviewMode"
               @click="toggleWishlist"
             >
               <svg
@@ -1324,7 +1365,7 @@ watch(product, () => {
                 <svg v-else-if="justAdded" class="product-add-check" viewBox="0 0 18 18" fill="none" aria-hidden="true">
                   <path d="m4.5 9.2 2.8 2.8 6.2-6.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
-                <span>{{ !matchedVariant ? 'Select options' : canAddToBag ? (adding ? 'Adding…' : justAdded ? 'Added' : 'Add to bag') : 'Sold out' }}</span>
+                <span>{{ addToBagLabel }}</span>
               </span>
               <span v-if="adding" class="product-add-progress" aria-hidden="true" />
             </button>
@@ -1426,7 +1467,7 @@ watch(product, () => {
             <svg v-else-if="justAdded" class="product-add-check" viewBox="0 0 18 18" fill="none" aria-hidden="true">
               <path d="m4.5 9.2 2.8 2.8 6.2-6.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
-            <span>{{ !matchedVariant ? 'Select options' : canAddToBag ? (adding ? 'Adding…' : justAdded ? 'Added' : 'Add to bag') : 'Sold out' }}</span>
+            <span>{{ addToBagLabel }}</span>
           </span>
           <span v-if="adding" class="product-add-progress" aria-hidden="true" />
         </button>

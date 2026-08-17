@@ -9,8 +9,13 @@ type MaintenanceStatus = {
 const CACHE_MS = 60_000
 
 export default defineNuxtRouteMiddleware(async (to) => {
-  // Avoid a redirect loop, and let this route render even while the rest
-  // of the customer-facing storefront is intentionally unavailable.
+  // A short-lived product preview link is validated by Laravel before any
+  // draft data is returned. Allow that PDP to render even while the public
+  // storefront itself is in coming-soon / maintenance mode.
+  const previewToken = typeof to.query.preview === 'string' ? to.query.preview.trim() : ''
+  if (previewToken && to.path.startsWith('/products/')) return
+
+  // Avoid a redirect loop, and let this one route always render.
   if (to.path === '/coming-soon') return
 
   const status = useState<MaintenanceStatus>('maintenance-status', () => ({
@@ -27,28 +32,14 @@ export default defineNuxtRouteMiddleware(async (to) => {
     const { $api } = useNuxtApp()
 
     try {
-      const response = await $api<{
-        enabled: boolean
-        type: MaintenanceStatus['type']
-        title: string
-        message: string
-      }>('/maintenance-status')
+      const response = await $api<{ enabled: boolean, type: string, title: string, message: string }>('/maintenance-status')
 
-      status.value = {
-        checkedAt: Date.now(),
-        ...response,
-      }
+      status.value = { checkedAt: Date.now(), ...response } as MaintenanceStatus
     } catch {
-      // If the Laravel API cannot be reached, the commerce storefront is
-      // not usable anyway. Fail gracefully to the branded maintenance page
-      // instead of exposing broken product/checkout/customer screens.
-      status.value = {
-        checkedAt: Date.now(),
-        enabled: true,
-        type: 'maintenance',
-        title: "We'll be back shortly.",
-        message: 'Our online store is taking a short pause while we make a few improvements. Thank you for your patience.',
-      }
+      // Fail open — if the status check itself fails (network blip,
+      // API down), don't take that as a reason to lock out every
+      // visitor. Keep the previously known state instead.
+      status.value.checkedAt = Date.now()
     }
   }
 
