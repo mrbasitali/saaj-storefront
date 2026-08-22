@@ -97,6 +97,7 @@ type RelatedResponse = {
 const route = useRoute()
 const { $api } = useNuxtApp()
 const cart = useCartStore()
+const siteSettings = useSiteSettingsStore()
 const customerToken = useCookie<string | null>('saaj_customer_token')
 
 const slug = computed(() => String(route.params.slug || ''))
@@ -105,6 +106,10 @@ const previewToken = computed(() => {
   return typeof value === 'string' ? value.trim() : ''
 })
 const isPreviewMode = computed(() => previewToken.value !== '')
+
+const stackedGalleryEnabled = computed(() => siteSettings.settings?.storefront?.stacked_product_gallery_enabled ?? false)
+const editorialGalleryPaddingEnabled = computed(() => siteSettings.settings?.storefront?.editorial_gallery_padding_enabled ?? true)
+const directBuyNowEnabled = computed(() => siteSettings.settings?.storefront?.direct_buy_now_enabled ?? false)
 
 // Product data is SEO-critical, so wait for it during SSR. Draft preview uses
 // a separate token-protected API endpoint and a separate async-data key so a
@@ -425,6 +430,65 @@ const galleryImages = computed(() => {
 const currentImageIndex = ref(0)
 const galleryScroller = ref<HTMLElement | null>(null)
 const galleryMotion = ref<'next' | 'previous'>('next')
+
+// Gallery position tracking. Mobile uses the horizontal scroller's active
+// image, while desktop editorial mode tracks whichever stacked image is
+// closest to the visual center of the viewport.
+const editorialStackItems = ref<Array<HTMLElement | null>>([])
+let editorialStackFrame: number | null = null
+
+function setEditorialStackItem(element: unknown, index: number) {
+  if (!import.meta.client) return
+
+  editorialStackItems.value[index] = element instanceof HTMLElement ? element : null
+  scheduleEditorialStackIndexUpdate()
+}
+
+function updateEditorialStackIndex() {
+  editorialStackFrame = null
+  if (!import.meta.client || !stackedGalleryEnabled.value || window.innerWidth < 1024) return
+
+  if (!editorialStackItems.value.some(Boolean)) return
+
+  // Slightly above the mathematical center feels more natural because the
+  // storefront header occupies the top edge of the viewport.
+  const focusY = Math.max(150, Math.min(window.innerHeight * 0.46, window.innerHeight - 150))
+  let nearestIndex = 0
+  let nearestDistance = Number.POSITIVE_INFINITY
+
+  editorialStackItems.value.forEach((item, index) => {
+    if (!item) return
+
+    const rect = item.getBoundingClientRect()
+    const center = rect.top + (rect.height / 2)
+    const distance = Math.abs(center - focusY)
+
+    if (distance < nearestDistance) {
+      nearestDistance = distance
+      nearestIndex = index
+    }
+  })
+
+  if (currentImageIndex.value !== nearestIndex) {
+    currentImageIndex.value = nearestIndex
+  }
+}
+
+function scheduleEditorialStackIndexUpdate() {
+  if (!import.meta.client || !stackedGalleryEnabled.value || window.innerWidth < 1024 || editorialStackFrame !== null) return
+  editorialStackFrame = window.requestAnimationFrame(updateEditorialStackIndex)
+}
+
+function scrollToEditorialImage(index: number) {
+  if (!import.meta.client) return
+  const target = editorialStackItems.value[index]
+  if (!target) return
+
+  const headerOffset = 104
+  const top = window.scrollY + target.getBoundingClientRect().top - headerOffset
+  window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+}
+
 const desktopGalleryImage = computed(() => galleryImages.value[currentImageIndex.value] ?? galleryImages.value[0] ?? null)
 const galleryTransitionName = computed(() => galleryMotion.value === 'previous' ? 'product-gallery-previous' : 'product-gallery-next')
 
@@ -503,6 +567,9 @@ const zoomDragStartX = ref(0)
 const zoomDragStartY = ref(0)
 const zoomDragPanX = ref(0)
 const zoomDragPanY = ref(0)
+const zoomPointers = new Map<number, { x: number, y: number }>()
+let zoomPinchStartDistance = 0
+let zoomPinchStartScale = 1
 const ZOOM_MIN = 1
 const ZOOM_MAX = 3
 const ZOOM_STEP = 0.25
@@ -537,6 +604,9 @@ function resetZoomView() {
   zoomPanY.value = 0
   zoomDragging.value = false
   zoomPointerId.value = null
+  zoomPointers.clear()
+  zoomPinchStartDistance = 0
+  zoomPinchStartScale = 1
 }
 
 function setZoomScale(value: number) {
@@ -557,28 +627,55 @@ function zoomOut() {
   setZoomScale(zoomScale.value - ZOOM_STEP)
 }
 
-function toggleZoomLevel() {
-  if (zoomScale.value > 1) resetZoomView()
-  else setZoomScale(2)
-}
-
 function onZoomWheel(event: WheelEvent) {
   if (event.deltaY < 0) zoomIn()
   else if (event.deltaY > 0) zoomOut()
 }
 
+function pointerDistance(points: Array<{ x: number, y: number }>) {
+  if (points.length < 2) return 0
+  return Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y)
+}
+
 function onZoomPointerDown(event: PointerEvent) {
+  zoomPointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+
+  if (event.pointerType === 'touch' && zoomPointers.size >= 2) {
+    ;(event.currentTarget as HTMLElement | null)?.setPointerCapture?.(event.pointerId)
+    zoomDragging.value = false
+    zoomPointerId.value = null
+    zoomPinchStartDistance = pointerDistance(Array.from(zoomPointers.values()).slice(0, 2))
+    zoomPinchStartScale = zoomScale.value
+    return
+  }
+
+  // Do not capture a normal 1x pointer. Pointer capture retargets the
+  // generated click to the gallery viewport, which prevents the image's
+  // click-to-zoom handler from firing. Capture is only needed while panning.
   if (zoomScale.value <= 1) return
+
+  ;(event.currentTarget as HTMLElement | null)?.setPointerCapture?.(event.pointerId)
   zoomDragging.value = true
   zoomPointerId.value = event.pointerId
   zoomDragStartX.value = event.clientX
   zoomDragStartY.value = event.clientY
   zoomDragPanX.value = zoomPanX.value
   zoomDragPanY.value = zoomPanY.value
-  ;(event.currentTarget as HTMLElement | null)?.setPointerCapture?.(event.pointerId)
 }
 
 function onZoomPointerMove(event: PointerEvent) {
+  if (zoomPointers.has(event.pointerId)) {
+    zoomPointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+  }
+
+  if (event.pointerType === 'touch' && zoomPointers.size >= 2) {
+    const distance = pointerDistance(Array.from(zoomPointers.values()).slice(0, 2))
+    if (zoomPinchStartDistance > 0 && distance > 0) {
+      setZoomScale(zoomPinchStartScale * (distance / zoomPinchStartDistance))
+    }
+    return
+  }
+
   if (!zoomDragging.value || zoomPointerId.value !== event.pointerId) return
   zoomPanX.value = zoomDragPanX.value + (event.clientX - zoomDragStartX.value)
   zoomPanY.value = zoomDragPanY.value + (event.clientY - zoomDragStartY.value)
@@ -586,10 +683,42 @@ function onZoomPointerMove(event: PointerEvent) {
 }
 
 function onZoomPointerEnd(event: PointerEvent) {
-  if (zoomPointerId.value !== event.pointerId) return
-  zoomDragging.value = false
-  zoomPointerId.value = null
-  ;(event.currentTarget as HTMLElement | null)?.releasePointerCapture?.(event.pointerId)
+  zoomPointers.delete(event.pointerId)
+
+  if (zoomPointerId.value === event.pointerId) {
+    zoomDragging.value = false
+    zoomPointerId.value = null
+  }
+
+  if (zoomPointers.size < 2) {
+    zoomPinchStartDistance = 0
+    zoomPinchStartScale = zoomScale.value
+  }
+
+  const target = event.currentTarget as HTMLElement | null
+  if (target?.hasPointerCapture?.(event.pointerId)) {
+    target.releasePointerCapture(event.pointerId)
+  }
+}
+
+function zoomAtPoint(clientX: number, clientY: number) {
+  if (!import.meta.client) return
+
+  if (zoomScale.value > 1) {
+    resetZoomView()
+    return
+  }
+
+  setZoomScale(2)
+  const offsetX = (window.innerWidth / 2 - clientX) * 0.38
+  const offsetY = (window.innerHeight / 2 - clientY) * 0.38
+  zoomPanX.value = offsetX
+  zoomPanY.value = offsetY
+  constrainZoomPan()
+}
+
+function onZoomImageClick(event: MouseEvent) {
+  zoomAtPoint(event.clientX, event.clientY)
 }
 
 function setZoomImage(index: number) {
@@ -693,6 +822,15 @@ function onKeydown(event: KeyboardEvent) {
 
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
+  window.addEventListener('scroll', scheduleEditorialStackIndexUpdate, { passive: true })
+  window.addEventListener('resize', scheduleEditorialStackIndexUpdate, { passive: true })
+  nextTick(() => scheduleEditorialStackIndexUpdate())
+})
+
+watch([stackedGalleryEnabled, () => galleryImages.value.length], () => {
+  if (!import.meta.client) return
+  editorialStackItems.value = editorialStackItems.value.slice(0, galleryImages.value.length)
+  nextTick(() => scheduleEditorialStackIndexUpdate())
 })
 
 watch(zoomOpen, (open) => {
@@ -704,9 +842,15 @@ onBeforeUnmount(() => {
   if (import.meta.client) {
     document.body.style.overflow = ''
     window.removeEventListener('keydown', onKeydown)
+    window.removeEventListener('scroll', scheduleEditorialStackIndexUpdate)
+    window.removeEventListener('resize', scheduleEditorialStackIndexUpdate)
+
+    if (editorialStackFrame !== null) {
+      window.cancelAnimationFrame(editorialStackFrame)
+      editorialStackFrame = null
+    }
   }
 
-  if (addedTimer) clearTimeout(addedTimer)
   if (justAddedTimer) clearTimeout(justAddedTimer)
 })
 
@@ -760,7 +904,11 @@ function increaseQuantity() {
 }
 
 const adding = ref(false)
+const buyingNow = ref(false)
 const justAdded = ref(false)
+const addedDrawerOpen = ref(false)
+
+const purchaseBusy = computed(() => adding.value || buyingNow.value)
 
 const addToBagLabel = computed(() => {
   if (isPreviewMode.value) return 'Preview only'
@@ -770,96 +918,90 @@ const addToBagLabel = computed(() => {
   if (justAdded.value) return 'Added'
   return 'Add to bag'
 })
+
+const buyNowLabel = computed(() => {
+  if (isPreviewMode.value) return 'Preview only'
+  if (!matchedVariant.value) return 'Select options'
+  if (!canAddToBag.value) return 'Sold out'
+  if (buyingNow.value) return 'Preparing…'
+  return 'Buy now'
+})
+
 let justAddedTimer: ReturnType<typeof setTimeout> | null = null
-const addedMessage = ref('')
-let addedTimer: ReturnType<typeof setTimeout> | null = null
-const toastDrag = reactive({ startX: 0, startY: 0, x: 0, y: 0, active: false })
 
-const toastStyle = computed(() => ({
-  transform: `translate3d(${toastDrag.x}px, ${Math.min(0, toastDrag.y)}px, 0)`,
-  opacity: String(Math.max(0.35, 1 - Math.min(160, Math.abs(toastDrag.x) + Math.max(0, -toastDrag.y)) / 210)),
-  transition: toastDrag.active ? 'none' : 'transform 220ms ease, opacity 220ms ease',
-}))
-
-function resetToastDrag() {
-  toastDrag.startX = 0
-  toastDrag.startY = 0
-  toastDrag.x = 0
-  toastDrag.y = 0
-  toastDrag.active = false
+function closeAddedDrawer() {
+  addedDrawerOpen.value = false
 }
 
-function dismissAddedToast() {
-  addedMessage.value = ''
-  resetToastDrag()
-  if (addedTimer) {
-    clearTimeout(addedTimer)
-    addedTimer = null
-  }
+async function continueToCart() {
+  addedDrawerOpen.value = false
+  await navigateTo('/cart')
 }
 
-function onToastTouchStart(event: TouchEvent) {
-  const touch = event.touches[0]
-  if (!touch) return
-  toastDrag.startX = touch.clientX
-  toastDrag.startY = touch.clientY
-  toastDrag.active = true
-}
-
-function onToastTouchMove(event: TouchEvent) {
-  const touch = event.touches[0]
-  if (!touch || !toastDrag.active) return
-  toastDrag.x = touch.clientX - toastDrag.startX
-  toastDrag.y = touch.clientY - toastDrag.startY
-}
-
-function onToastTouchEnd() {
-  const dismissHorizontal = Math.abs(toastDrag.x) > 52
-  const dismissUp = toastDrag.y < -46
-  if (dismissHorizontal || dismissUp) dismissAddedToast()
-  else resetToastDrag()
-}
-
-async function addToBag() {
+function addSelectedVariantToCart() {
   const variant = matchedVariant.value
-  if (!product.value || !variant || !canAddToBag.value || adding.value) return
+  const currentProduct = product.value
 
-  // Give immediate feedback at the exact button the customer used. The cart is
-  // currently local-first, but keeping this as an async state also means a
-  // future server-backed add can slot in here without changing the UI.
-  adding.value = true
-  justAdded.value = false
-  await nextTick()
+  if (!currentProduct || !variant) return false
 
   cart.add({
     variantId: variant.id,
-    productName: product.value.name,
-    productSlug: product.value.slug,
+    productName: currentProduct.name,
+    productSlug: currentProduct.slug,
     optionSummary: variant.option_summary,
     price: Number(displayPrice.value),
     imageUrl: imageUrl(galleryImages.value[0], 'card'),
     maxQuantity: maxPurchaseQuantity.value,
   }, quantity.value)
 
-  // Keep the pending treatment visible long enough to register visually even
-  // when the local cart update completes in a single frame.
-  await new Promise(resolve => setTimeout(resolve, 360))
+  return true
+}
+
+async function addToBag() {
+  if (!canAddToBag.value || purchaseBusy.value) return
+
+  adding.value = true
+  justAdded.value = false
+  await nextTick()
+
+  if (!addSelectedVariantToCart()) {
+    adding.value = false
+    return
+  }
+
+  // The cart store is local and effectively immediate. A short progress
+  // state makes the action feel intentional and avoids accidental double taps.
+  await new Promise(resolve => setTimeout(resolve, 260))
 
   adding.value = false
   justAdded.value = true
-  resetToastDrag()
-  addedMessage.value = 'Added to bag'
+  addedDrawerOpen.value = true
 
   if (justAddedTimer) clearTimeout(justAddedTimer)
   justAddedTimer = setTimeout(() => {
     justAdded.value = false
     justAddedTimer = null
   }, 900)
+}
 
-  if (addedTimer) clearTimeout(addedTimer)
-  addedTimer = setTimeout(() => {
-    addedMessage.value = ''
-  }, 4200)
+async function buyNow() {
+  if (!directBuyNowEnabled.value || !canAddToBag.value || purchaseBusy.value) return
+
+  buyingNow.value = true
+  justAdded.value = false
+  addedDrawerOpen.value = false
+  await nextTick()
+
+  if (!addSelectedVariantToCart()) {
+    buyingNow.value = false
+    return
+  }
+
+  // Buy now uses the exact same cart contract as normal shopping, but skips
+  // the confirmation drawer and moves directly into the existing checkout.
+  await new Promise(resolve => setTimeout(resolve, 220))
+  buyingNow.value = false
+  await navigateTo('/checkout')
 }
 
 const wishlistBusy = ref(false)
@@ -1036,9 +1178,17 @@ watch(product, () => {
       </nav>
     </div>
 
-    <section class="lg:grid lg:grid-cols-[minmax(0,1.22fr)_minmax(410px,0.78fr)] xl:grid-cols-[minmax(0,1.28fr)_minmax(430px,0.72fr)]">
-      <!-- Mobile swipe gallery -->
-      <div class="relative lg:hidden">
+    <section
+      class="lg:grid lg:grid-cols-[minmax(0,1.08fr)_minmax(450px,0.92fr)] xl:grid-cols-[minmax(0,1.04fr)_minmax(520px,0.96fr)]"
+      :class="{ 'product-editorial-layout': stackedGalleryEnabled }"
+    >
+      <!-- Mobile swipe gallery. Editorial mode keeps the familiar initial
+           product image size; the sticky/overlap effect begins only as the
+           customer scrolls into the product information. -->
+      <div
+        class="relative overflow-clip lg:hidden"
+        :class="{ 'product-editorial-mobile-media': stackedGalleryEnabled }"
+      >
         <div
           ref="galleryScroller"
           class="product-mobile-gallery flex snap-x snap-mandatory overflow-x-auto bg-mist-100 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -1066,33 +1216,90 @@ watch(product, () => {
           />
         </div>
 
-        <div
+        <!-- Minimal gallery position markers. The active image stretches into
+             a short pill so the shopper immediately understands there is more
+             content without covering the photography. -->
+        <nav
           v-if="galleryImages.length > 1"
-          class="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center"
+          class="product-mobile-gallery-indicators absolute bottom-4 left-1/2 z-30"
+          aria-label="Product images"
         >
-          <div class="flex items-center gap-1.5 bg-paper-50/88 px-3 py-2 backdrop-blur-md">
-            <button
-              v-for="(_, index) in galleryImages"
-              :key="index"
-              type="button"
-              class="pointer-events-auto h-1 transition-all duration-300"
-              :class="currentImageIndex === index ? 'w-6 bg-charcoal-950' : 'w-2.5 bg-charcoal-950/25'"
-              :aria-label="`View image ${index + 1}`"
-              @click="scrollToImage(index)"
-            />
-          </div>
-        </div>
-
-        <span
-          v-if="galleryImages.length > 1"
-          class="absolute right-4 top-4 bg-paper-50/88 px-2.5 py-1.5 text-[9px] font-semibold tracking-[0.12em] text-charcoal-700 backdrop-blur-md"
-        >
-          {{ currentImageIndex + 1 }} / {{ galleryImages.length }}
-        </span>
+          <button
+            v-for="(_, index) in galleryImages"
+            :key="`mobile-gallery-indicator-${index}`"
+            type="button"
+            class="product-gallery-indicator"
+            :class="{ 'is-active': currentImageIndex === index }"
+            :aria-label="`Show image ${index + 1} of ${galleryImages.length}`"
+            :aria-current="currentImageIndex === index ? 'true' : undefined"
+            @click="scrollToImage(index)"
+          >
+            <span />
+          </button>
+        </nav>
       </div>
 
-      <!-- Desktop gallery: portrait-first editorial stage -->
-      <div class="relative hidden overflow-hidden bg-mist-100 lg:block">
+      <!-- Desktop editorial gallery: full-bleed stacked images + sticky purchase panel -->
+      <div v-if="stackedGalleryEnabled" class="product-editorial-stack relative hidden bg-mist-100 lg:block">
+        <div
+          v-if="galleryImages.length > 1"
+          class="product-editorial-stack-indicator-layer"
+        >
+          <nav
+            class="product-editorial-stack-indicators"
+            aria-label="Product images"
+          >
+            <button
+              v-for="(_, index) in galleryImages"
+              :key="`editorial-gallery-indicator-${index}`"
+              type="button"
+              class="product-gallery-indicator product-gallery-indicator-vertical"
+              :class="{ 'is-active': currentImageIndex === index }"
+              :aria-label="`Scroll to image ${index + 1} of ${galleryImages.length}`"
+              :aria-current="currentImageIndex === index ? 'true' : undefined"
+              @click="scrollToEditorialImage(index)"
+            >
+              <span />
+            </button>
+          </nav>
+        </div>
+
+        <button
+          v-for="(image, index) in galleryImages"
+          :key="`editorial-${image.id ?? imageUrl(image, 'detail') ?? index}`"
+          :ref="(element) => setEditorialStackItem(element, index)"
+          type="button"
+          class="product-editorial-stack-image group relative block w-full overflow-hidden bg-mist-100"
+          :class="editorialGalleryPaddingEnabled
+            ? 'is-padded h-[min(78vh,760px)] min-h-[560px] xl:h-[min(80vh,820px)] xl:min-h-[600px]'
+            : 'is-full-bleed'"
+          :aria-label="`Open image ${index + 1} of ${galleryImages.length}`"
+          @click="openZoom(image)"
+        >
+          <NuxtImg
+            :src="imageUrl(image, 'detail')!"
+            :alt="image.alt_text || `${product.name} image ${index + 1}`"
+            class="product-editorial-stack-photo transition-transform duration-700 ease-out"
+            :class="editorialGalleryPaddingEnabled ? 'group-hover:scale-[1.006]' : ''"
+            :loading="index < 2 ? 'eager' : 'lazy'"
+            sizes="lg:54vw xl:52vw"
+          />
+          <span class="product-editorial-stack-counter">
+            {{ String(index + 1).padStart(2, '0') }} / {{ String(galleryImages.length).padStart(2, '0') }}
+          </span>
+          <span class="product-editorial-stack-zoom" aria-hidden="true">
+            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.2">
+              <circle cx="8" cy="8" r="4.5" />
+              <path d="m11.5 11.5 3.2 3.2M8 5.8v4.4M5.8 8h4.4" />
+            </svg>
+          </span>
+        </button>
+
+        <div v-if="!galleryImages.length" class="h-[min(78vh,760px)] min-h-[560px] bg-mist-100 xl:h-[min(80vh,820px)] xl:min-h-[600px]" />
+      </div>
+
+      <!-- Classic desktop gallery: current Saaj gallery, preserved when editorial mode is off -->
+      <div v-else class="relative hidden overflow-hidden bg-mist-100 lg:block">
         <div class="product-desktop-gallery relative h-[min(70vh,700px)] min-h-[520px] overflow-hidden bg-mist-100 xl:h-[min(72vh,720px)] xl:min-h-[560px]">
           <div
             v-if="galleryImages.length > 1"
@@ -1173,31 +1380,31 @@ watch(product, () => {
               </svg>
             </button>
 
-            <div class="pointer-events-none absolute inset-x-0 bottom-5 z-30 flex items-center justify-center xl:bottom-6">
-              <div class="product-gallery-progress flex items-center gap-3 bg-paper-50/84 px-4 py-3 backdrop-blur-md">
-                <span class="min-w-[40px] text-[9px] font-semibold tracking-[0.14em] text-charcoal-500">
-                  {{ String(currentImageIndex + 1).padStart(2, '0') }} / {{ String(galleryImages.length).padStart(2, '0') }}
-                </span>
-                <div class="flex w-[118px] items-center gap-1">
-                  <button
-                    v-for="(_, index) in galleryImages"
-                    :key="`gallery-progress-${index}`"
-                    type="button"
-                    class="pointer-events-auto h-px flex-1 bg-charcoal-950/18 transition-all duration-500"
-                    :class="currentImageIndex === index ? '!h-[2px] !bg-charcoal-950' : 'hover:!bg-charcoal-950/45'"
-                    :aria-label="`View image ${index + 1}`"
-                    @click="setGalleryImage(index)"
-                  />
-                </div>
-              </div>
+            <div
+              class="product-desktop-gallery-line pointer-events-none absolute inset-x-0 bottom-0 z-30 h-[2px] bg-charcoal-950/10"
+              aria-hidden="true"
+            >
+              <span
+                class="block h-full bg-charcoal-950 transition-transform duration-500 ease-out"
+                :style="{
+                  width: `${100 / galleryImages.length}%`,
+                  transform: `translateX(${currentImageIndex * 100}%)`,
+                }"
+              />
             </div>
           </template>
         </div>
       </div>
 
       <!-- Purchase column -->
-      <aside class="relative border-l border-charcoal-950/[0.06]">
-        <div class="px-5 py-7 sm:px-8 sm:py-9 lg:sticky lg:top-[118px] lg:px-8 lg:py-9 xl:px-10">
+      <aside
+        class="relative border-l border-charcoal-950/[0.06] bg-paper-50"
+        :class="{ 'product-editorial-purchase': stackedGalleryEnabled }"
+      >
+        <div
+          class="px-5 py-7 sm:px-8 sm:py-9 lg:px-8 lg:py-9 xl:px-10"
+          :class="stackedGalleryEnabled ? '' : 'lg:sticky lg:top-[118px]'"
+        >
           <div class="flex items-start justify-between gap-5">
             <div class="min-w-0">
               <p
@@ -1214,8 +1421,10 @@ watch(product, () => {
 
             <button
               type="button"
-              class="flex h-11 w-11 shrink-0 items-center justify-center border border-charcoal-950/[0.12] text-charcoal-700 transition hover:border-charcoal-950 hover:text-charcoal-950 disabled:opacity-45"
+              class="product-wishlist-button shrink-0 text-charcoal-700 disabled:opacity-45"
+              :class="{ 'is-active': isWishlisted }"
               :aria-label="isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'"
+              :aria-pressed="isWishlisted"
               :disabled="wishlistBusy || isPreviewMode"
               @click="toggleWishlist"
             >
@@ -1326,11 +1535,12 @@ watch(product, () => {
             <span v-if="matchedVariant?.sku" class="text-[9px] uppercase tracking-[0.12em] text-charcoal-350">{{ matchedVariant.sku }}</span>
           </div>
 
-          <div class="mt-5 grid grid-cols-[auto_1fr] gap-2">
-            <div class="flex min-h-[52px] items-center border border-charcoal-950/[0.14]">
+          <div class="mt-5 flex items-center justify-between gap-4 lg:hidden">
+            <span class="text-[10px] font-semibold uppercase tracking-[0.14em] text-charcoal-500">Quantity</span>
+            <div class="flex min-h-[46px] items-center border border-charcoal-950/[0.14]">
               <button
                 type="button"
-                class="flex h-12 w-11 items-center justify-center text-charcoal-600 transition hover:text-charcoal-950 disabled:opacity-30"
+                class="flex h-11 w-10 items-center justify-center text-charcoal-600 transition hover:text-charcoal-950 disabled:opacity-30"
                 :disabled="quantity <= 1"
                 aria-label="Decrease quantity"
                 @click="decreaseQuantity"
@@ -1340,8 +1550,37 @@ watch(product, () => {
               <span class="w-7 text-center text-[12px] text-charcoal-950">{{ quantity }}</span>
               <button
                 type="button"
-                class="flex h-12 w-11 items-center justify-center text-charcoal-600 transition hover:text-charcoal-950 disabled:opacity-30"
+                class="flex h-11 w-10 items-center justify-center text-charcoal-600 transition hover:text-charcoal-950 disabled:opacity-30"
                 :disabled="maxPurchaseQuantity !== null && quantity >= maxPurchaseQuantity"
+                aria-label="Increase quantity"
+                @click="increaseQuantity"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          <div
+            class="mt-5 hidden gap-2 lg:grid"
+            :class="directBuyNowEnabled
+              ? 'grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)]'
+              : 'grid-cols-[auto_minmax(0,1fr)]'"
+          >
+            <div class="flex min-h-[52px] items-center border border-charcoal-950/[0.14]">
+              <button
+                type="button"
+                class="flex h-12 w-11 items-center justify-center text-charcoal-600 transition hover:text-charcoal-950 disabled:opacity-30"
+                :disabled="quantity <= 1 || purchaseBusy"
+                aria-label="Decrease quantity"
+                @click="decreaseQuantity"
+              >
+                −
+              </button>
+              <span class="w-7 text-center text-[12px] text-charcoal-950">{{ quantity }}</span>
+              <button
+                type="button"
+                class="flex h-12 w-11 items-center justify-center text-charcoal-600 transition hover:text-charcoal-950 disabled:opacity-30"
+                :disabled="purchaseBusy || (maxPurchaseQuantity !== null && quantity >= maxPurchaseQuantity)"
                 aria-label="Increase quantity"
                 @click="increaseQuantity"
               >
@@ -1351,9 +1590,14 @@ watch(product, () => {
 
             <button
               type="button"
-              class="product-add-button min-h-[52px] bg-charcoal-950 px-6 text-[10px] font-semibold uppercase tracking-[0.16em] text-paper-50 hover:bg-charcoal-800 disabled:cursor-not-allowed disabled:opacity-45"
-              :class="{ 'is-adding': adding, 'is-added': justAdded }"
-              :disabled="!canAddToBag || adding"
+              class="product-add-button min-h-[52px] px-5 text-[10px] font-semibold uppercase tracking-[0.15em] disabled:cursor-not-allowed disabled:opacity-45"
+              :class="[
+                { 'is-adding': adding, 'is-added': justAdded, 'is-secondary': directBuyNowEnabled },
+                directBuyNowEnabled
+                  ? 'border border-charcoal-950/[0.16] bg-transparent text-charcoal-950 hover:border-charcoal-950 hover:bg-charcoal-950/[0.035]'
+                  : 'bg-charcoal-950 text-paper-50 hover:bg-charcoal-800',
+              ]"
+              :disabled="!canAddToBag || purchaseBusy"
               :aria-busy="adding"
               @click="addToBag"
             >
@@ -1368,6 +1612,25 @@ watch(product, () => {
                 <span>{{ addToBagLabel }}</span>
               </span>
               <span v-if="adding" class="product-add-progress" aria-hidden="true" />
+            </button>
+
+            <button
+              v-if="directBuyNowEnabled"
+              type="button"
+              class="product-add-button min-h-[52px] bg-charcoal-950 px-5 text-[10px] font-semibold uppercase tracking-[0.15em] text-paper-50 hover:bg-charcoal-800 disabled:cursor-not-allowed disabled:opacity-45"
+              :class="{ 'is-adding': buyingNow }"
+              :disabled="!canAddToBag || purchaseBusy"
+              :aria-busy="buyingNow"
+              @click="buyNow"
+            >
+              <span class="product-add-button-content">
+                <svg v-if="buyingNow" class="product-add-spinner" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                  <circle cx="9" cy="9" r="6.5" stroke="currentColor" stroke-opacity=".28" stroke-width="1.5" />
+                  <path d="M9 2.5a6.5 6.5 0 0 1 6.5 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                </svg>
+                <span>{{ buyNowLabel }}</span>
+              </span>
+              <span v-if="buyingNow" class="product-add-progress" aria-hidden="true" />
             </button>
           </div>
 
@@ -1444,9 +1707,58 @@ watch(product, () => {
       </div>
     </section>
 
-    <!-- Mobile sticky purchase bar -->
-    <div class="fixed inset-x-0 bottom-0 z-30 border-t border-charcoal-950/[0.08] bg-paper-50/94 px-4 py-3 shadow-[0_-12px_35px_rgba(0,0,0,0.05)] backdrop-blur-xl lg:hidden">
-      <div class="flex items-center gap-3">
+    <!-- Mobile sticky purchase bar. This is the only mobile purchase CTA;
+         there is no duplicate inline Add to bag / Buy now button. -->
+    <div class="product-mobile-purchase fixed inset-x-0 bottom-0 z-30 border-t border-charcoal-950/[0.08] bg-paper-50/94 px-4 py-3 shadow-[0_-12px_35px_rgba(0,0,0,0.05)] backdrop-blur-xl lg:hidden">
+      <div v-if="directBuyNowEnabled" class="space-y-2.5">
+        <div class="flex min-w-0 items-center justify-between gap-4">
+          <p class="min-w-0 truncate text-[11px] font-medium text-charcoal-950">{{ product.name }}</p>
+          <p class="shrink-0 text-[11px] text-charcoal-500">{{ formatPrice(displayPrice) }}</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            class="product-add-button is-secondary min-h-12 border border-charcoal-950/[0.16] bg-transparent px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-charcoal-950 disabled:opacity-45"
+            :class="{ 'is-adding': adding, 'is-added': justAdded }"
+            :disabled="!canAddToBag || purchaseBusy"
+            :aria-busy="adding"
+            @click="addToBag"
+          >
+            <span class="product-add-button-content">
+              <svg v-if="adding" class="product-add-spinner" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                <circle cx="9" cy="9" r="6.5" stroke="currentColor" stroke-opacity=".28" stroke-width="1.5" />
+                <path d="M9 2.5a6.5 6.5 0 0 1 6.5 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+              <svg v-else-if="justAdded" class="product-add-check" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                <path d="m4.5 9.2 2.8 2.8 6.2-6.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              <span>{{ addToBagLabel }}</span>
+            </span>
+            <span v-if="adding" class="product-add-progress" aria-hidden="true" />
+          </button>
+
+          <button
+            type="button"
+            class="product-add-button min-h-12 bg-charcoal-950 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-paper-50 disabled:opacity-45"
+            :class="{ 'is-adding': buyingNow }"
+            :disabled="!canAddToBag || purchaseBusy"
+            :aria-busy="buyingNow"
+            @click="buyNow"
+          >
+            <span class="product-add-button-content">
+              <svg v-if="buyingNow" class="product-add-spinner" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                <circle cx="9" cy="9" r="6.5" stroke="currentColor" stroke-opacity=".28" stroke-width="1.5" />
+                <path d="M9 2.5a6.5 6.5 0 0 1 6.5 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+              <span>{{ buyNowLabel }}</span>
+            </span>
+            <span v-if="buyingNow" class="product-add-progress" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+
+      <div v-else class="flex items-center gap-3">
         <div class="min-w-0 flex-1">
           <p class="truncate text-[11px] font-medium text-charcoal-950">{{ product.name }}</p>
           <p class="mt-0.5 text-[11px] text-charcoal-500">{{ formatPrice(displayPrice) }}</p>
@@ -1455,7 +1767,7 @@ watch(product, () => {
           type="button"
           class="product-add-button min-h-12 min-w-[150px] bg-charcoal-950 px-5 text-[10px] font-semibold uppercase tracking-[0.14em] text-paper-50 disabled:opacity-45"
           :class="{ 'is-adding': adding, 'is-added': justAdded }"
-          :disabled="!canAddToBag || adding"
+          :disabled="!canAddToBag || purchaseBusy"
           :aria-busy="adding"
           @click="addToBag"
         >
@@ -1474,73 +1786,17 @@ watch(product, () => {
       </div>
     </div>
 
-    <!-- Global add-to-bag confirmation: visible regardless of which purchase button was used -->
-    <Teleport to="body">
-      <Transition name="product-toast">
-        <div
-          v-if="addedMessage"
-          class="product-added-toast-shell"
-          role="status"
-          aria-live="polite"
-        >
-          <div
-            class="product-added-toast"
-            :style="toastStyle"
-            @touchstart.passive="onToastTouchStart"
-            @touchmove.passive="onToastTouchMove"
-            @touchend="onToastTouchEnd"
-            @touchcancel="resetToastDrag"
-          >
-            <div class="flex min-w-0 items-center gap-3">
-              <div class="relative h-[62px] w-[48px] shrink-0 overflow-hidden bg-mist-100">
-                <NuxtImg
-                  v-if="galleryImages[0]"
-                  :src="imageUrl(galleryImages[0], 'thumb') || imageUrl(galleryImages[0], 'card') || imageUrl(galleryImages[0], 'detail')!"
-                  :alt="product.name"
-                  class="h-full w-full object-cover"
-                />
-              </div>
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2">
-                  <span class="product-toast-check flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#657d6c] text-white">
-                    <svg class="h-2.5 w-2.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.7">
-                      <path d="m2.3 6.1 2.2 2.2 5.2-5" />
-                    </svg>
-                  </span>
-                  <p class="text-[9px] font-semibold uppercase tracking-[0.15em] text-charcoal-500">Added to bag</p>
-                </div>
-                <p class="mt-1 truncate text-[12px] font-medium text-charcoal-950">{{ product.name }}</p>
-                <p v-if="matchedVariant?.option_summary" class="mt-0.5 truncate text-[10px] text-charcoal-450">{{ matchedVariant.option_summary }}</p>
-              </div>
-            </div>
-
-            <div class="mt-3 flex items-center justify-between border-t border-charcoal-950/[0.07] pt-3">
-              <p class="text-[9px] text-charcoal-350 sm:hidden">Swipe up or sideways to dismiss</p>
-              <NuxtLink
-                to="/cart"
-                class="ml-auto inline-flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-charcoal-950"
-              >
-                View bag
-                <svg class="h-3 w-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25">
-                  <path d="M3 8h10M10 5l3 3-3 3" />
-                </svg>
-              </NuxtLink>
-            </div>
-
-            <button
-              type="button"
-              class="absolute right-2 top-2 flex h-8 w-8 items-center justify-center text-charcoal-350 transition hover:text-charcoal-950"
-              aria-label="Dismiss notification"
-              @click="dismissAddedToast"
-            >
-              <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2">
-                <path d="m4 4 8 8M12 4l-8 8" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <!-- Add-to-bag confirmation: desktop side drawer, mobile/PWA draggable bottom sheet -->
+    <AddedToBagDrawer
+      :open="addedDrawerOpen"
+      :product-name="product.name"
+      :option-summary="matchedVariant?.option_summary"
+      :image-url="galleryImages[0] ? (imageUrl(galleryImages[0], 'card') || imageUrl(galleryImages[0], 'detail')) : null"
+      :quantity="quantity"
+      :price="formatPrice(displayPrice)"
+      @close="closeAddedDrawer"
+      @view-cart="continueToCart"
+    />
 
     <!-- Full-screen image slider / zoom -->
     <Teleport to="body">
@@ -1623,18 +1879,17 @@ watch(product, () => {
 
           <div class="relative min-h-0 flex-1 overflow-hidden">
             <div
-              class="absolute inset-0 flex touch-none items-center justify-center overflow-hidden px-5 pb-24 pt-4 sm:px-20 sm:pb-28 sm:pt-6 lg:px-28 xl:px-36"
+              class="absolute inset-0 flex touch-none items-center justify-center overflow-hidden px-5 pb-32 pt-4 sm:px-20 sm:pb-36 sm:pt-6 lg:px-28 xl:px-36"
               @wheel.prevent="onZoomWheel"
               @pointerdown="onZoomPointerDown"
               @pointermove="onZoomPointerMove"
               @pointerup="onZoomPointerEnd"
               @pointercancel="onZoomPointerEnd"
-              @dblclick.stop="toggleZoomLevel"
             >
               <Transition :name="zoomTransitionName">
                 <div
                   :key="zoomImage.id ?? imageUrl(zoomImage, 'zoom') ?? zoomImageIndex"
-                  class="absolute inset-0 flex items-center justify-center px-5 pb-24 pt-4 sm:px-20 sm:pb-28 sm:pt-6 lg:px-28 xl:px-36"
+                  class="absolute inset-0 flex items-center justify-center px-5 pb-32 pt-4 sm:px-20 sm:pb-36 sm:pt-6 lg:px-28 xl:px-36"
                 >
                   <NuxtImg
                     :src="imageUrl(zoomImage, 'zoom') || imageUrl(zoomImage, 'detail')!"
@@ -1642,15 +1897,16 @@ watch(product, () => {
                     class="max-h-[calc(100%-7rem)] max-w-[calc(100%-2rem)] select-none object-contain will-change-transform sm:max-h-[calc(100%-7.5rem)] sm:max-w-[calc(100%-9rem)] lg:max-w-[calc(100%-14rem)]"
                     :style="zoomImageStyle"
                     draggable="false"
+                    @click.stop="onZoomImageClick"
                   />
                 </div>
               </Transition>
 
               <div
-                class="pointer-events-none absolute bottom-[5.5rem] left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/10 bg-black/25 px-3 py-1.5 text-[8px] font-medium uppercase tracking-[0.12em] text-white/55 backdrop-blur-md transition-opacity sm:bottom-[6.5rem]"
+                class="pointer-events-none absolute bottom-[7.5rem] left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/10 bg-black/25 px-3 py-1.5 text-[8px] font-medium uppercase tracking-[0.12em] text-white/55 backdrop-blur-md transition-opacity sm:bottom-[8.5rem]"
                 :class="zoomScale > 1 ? 'opacity-100' : 'opacity-0'"
               >
-                Drag to inspect · double-click to reset
+                Drag to inspect · pinch, wheel or tap to zoom
               </div>
             </div>
 
@@ -1677,30 +1933,38 @@ watch(product, () => {
                 </svg>
               </button>
 
-              <div class="absolute inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#0f110f]/90 px-4 py-4 backdrop-blur-xl sm:px-7 sm:py-5">
-                <div class="mx-auto flex max-w-3xl items-center gap-4">
-                  <span class="hidden text-[9px] font-semibold uppercase tracking-[0.14em] text-white/45 sm:block">
-                    {{ zoomImageIndex + 1 }} of {{ galleryImages.length }}
-                  </span>
-
-                  <div class="flex min-w-0 flex-1 items-center gap-1.5">
-                    <button
-                      v-for="(image, index) in galleryImages"
-                      :key="`zoom-progress-${image.id ?? index}`"
-                      type="button"
-                      class="group flex h-8 flex-1 items-center"
-                      :aria-label="`View image ${index + 1}`"
-                      :aria-current="zoomImageIndex === index ? 'true' : undefined"
-                      @click.stop="setZoomImage(index)"
-                    >
-                      <span
-                        class="block h-px w-full bg-white/20 transition-all duration-500 group-hover:bg-white/55"
-                        :class="zoomImageIndex === index ? '!h-[2px] !bg-white' : ''"
-                      />
-                    </button>
+              <div class="absolute inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#0f110f]/92 px-3 py-3 backdrop-blur-xl sm:px-7 sm:py-4">
+                <div class="mx-auto flex max-w-4xl items-center gap-3 sm:gap-4">
+                  <div class="hidden w-[72px] shrink-0 sm:block">
+                    <p class="text-[8px] font-semibold uppercase tracking-[0.14em] text-white/35">Image</p>
+                    <p class="mt-1 text-[10px] font-medium tracking-[0.12em] text-white/80">
+                      {{ String(zoomImageIndex + 1).padStart(2, '0') }} / {{ String(galleryImages.length).padStart(2, '0') }}
+                    </p>
                   </div>
 
-                  <span class="shrink-0 text-[9px] font-medium uppercase tracking-[0.12em] text-white/40 sm:hidden">
+                  <div class="product-zoom-thumbnails min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <div class="flex w-max min-w-full items-center justify-center gap-2">
+                      <button
+                        v-for="(image, index) in galleryImages"
+                        :key="`zoom-thumb-${image.id ?? index}`"
+                        type="button"
+                        class="product-zoom-thumbnail group relative h-[58px] w-[46px] shrink-0 overflow-hidden bg-white/[0.06] sm:h-[68px] sm:w-[54px]"
+                        :class="zoomImageIndex === index ? 'is-active' : ''"
+                        :aria-label="`View image ${index + 1}`"
+                        :aria-current="zoomImageIndex === index ? 'true' : undefined"
+                        @click.stop="setZoomImage(index)"
+                      >
+                        <NuxtImg
+                          :src="imageUrl(image, 'thumb') || imageUrl(image, 'detail')!"
+                          :alt="image.alt_text || `${product.name} image ${index + 1}`"
+                          class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.025]"
+                          loading="lazy"
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  <span class="shrink-0 text-[8px] font-medium uppercase tracking-[0.12em] text-white/35 sm:hidden">
                     Swipe
                   </span>
                 </div>

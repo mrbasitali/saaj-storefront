@@ -12,6 +12,7 @@ type Product = {
   name: string
   slug: string
   brand?: { name: string } | null
+  is_available?: boolean
   primary_image?: ProductImage | null
   images?: ProductImage[] | null
   default_variant?: {
@@ -69,6 +70,7 @@ const isOnSale = computed(() => {
 })
 
 const originalPrice = computed(() => priceVariant.value?.price ?? null)
+const isSoldOut = computed(() => props.product.is_available === false)
 
 function formatPrice(value: string | number) {
   return `Rs ${Number(value).toLocaleString()}`
@@ -104,9 +106,22 @@ function formatPrice(value: string | number) {
           class="h-full w-full bg-[linear-gradient(145deg,var(--color-mist-100),var(--color-paper-100))]"
         />
 
+        <div
+          v-if="isSoldOut"
+          class="product-card-soldout-overlay pointer-events-none absolute inset-0 z-[1]"
+        />
+
         <span
-          v-if="isOnSale"
-          class="absolute left-3 top-3 z-[2] bg-paper-50/94 px-2.5 py-1.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-charcoal-950 backdrop-blur"
+          v-if="isSoldOut"
+          class="product-sold-out-badge absolute left-3 top-3 z-[2]"
+        >
+          <span class="product-sold-out-dot" aria-hidden="true" />
+          <span>Sold out</span>
+        </span>
+
+        <span
+          v-else-if="isOnSale"
+          class="absolute left-3 top-3 z-[2] rounded-full bg-paper-50/92 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-charcoal-950 shadow-[0_6px_20px_rgb(0_0_0/0.04)] backdrop-blur-md"
         >
           Sale
         </span>

@@ -1136,6 +1136,53 @@ html.dark .bg-white {
   border: 1px solid color-mix(in srgb, var(--color-charcoal-950) 4%, transparent);
 }
 
+.product-card-soldout-overlay {
+  background:
+    linear-gradient(to bottom, rgb(255 255 255 / .08), rgb(255 255 255 / .18)),
+    color-mix(in srgb, var(--color-paper-50) 8%, transparent);
+  backdrop-filter: saturate(.82);
+  -webkit-backdrop-filter: saturate(.82);
+}
+
+.product-sold-out-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  min-height: 30px;
+  padding: .42rem .72rem .42rem .62rem;
+  border: 1px solid color-mix(in srgb, var(--color-charcoal-950) 7%, transparent);
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--color-paper-50) 91%, transparent);
+  color: var(--color-charcoal-800);
+  box-shadow: 0 7px 24px rgb(0 0 0 / .045);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: .13em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.product-sold-out-dot {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 auto;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: .58;
+}
+
+.dark .product-card-soldout-overlay {
+  background: color-mix(in srgb, var(--color-charcoal-950) 10%, transparent);
+}
+
+.dark .product-sold-out-badge {
+  border-color: rgb(255 255 255 / .10);
+  background: rgb(18 18 18 / .84);
+  color: rgb(255 255 255 / .88);
+}
+
 .dark .product-card-view {
   background: color-mix(in srgb, var(--color-paper-50) 93%, transparent);
 }
@@ -1159,6 +1206,46 @@ html.dark .bg-white {
 }
 
 /* Product detail --------------------------------------------------------- */
+.product-wishlist-button {
+  position: relative;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  outline: none;
+  transition:
+    color 180ms ease,
+    background-color 180ms ease,
+    transform 280ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.product-wishlist-button:hover,
+.product-wishlist-button:focus-visible {
+  background: color-mix(in srgb, var(--color-charcoal-950) 5%, transparent);
+  color: var(--color-charcoal-950);
+  transform: scale(1.035);
+}
+
+.product-wishlist-button:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-paper-50), 0 0 0 3px color-mix(in srgb, var(--color-charcoal-950) 30%, transparent);
+}
+
+.product-wishlist-button.is-active {
+  background: color-mix(in srgb, var(--color-charcoal-950) 5%, transparent);
+  color: var(--color-charcoal-950);
+}
+
+.product-wishlist-button.is-active svg {
+  transform: scale(1.04);
+}
+
+.product-wishlist-button svg {
+  transition: transform 280ms cubic-bezier(.22, 1, .36, 1);
+}
+
 .product-mobile-gallery {
   overscroll-behavior-x: contain;
   scroll-snap-stop: always;
@@ -1433,9 +1520,14 @@ html.dark .bg-white {
   color: var(--color-paper-50);
 }
 
-.product-gallery-progress {
-  border: 1px solid color-mix(in srgb, var(--color-charcoal-950) 7%, transparent);
-  box-shadow: 0 10px 32px rgb(0 0 0 / 0.035);
+.product-desktop-gallery-line,
+.product-mobile-gallery-line {
+  overflow: hidden;
+}
+
+.product-desktop-gallery-line > span,
+.product-mobile-gallery-line > span {
+  will-change: transform;
 }
 
 .product-gallery-next-enter-active,
@@ -1467,114 +1559,6 @@ html.dark .bg-white {
   opacity: 0;
   transform: translate3d(0.9%, 0, 0) scale(0.997);
 }
-
-/* Global add-to-bag confirmation ---------------------------------------- */
-.product-added-toast-shell {
-  position: fixed;
-  z-index: 110;
-  top: 78px;
-  left: 12px;
-  right: 12px;
-  will-change: transform, opacity, filter;
-}
-
-.product-added-toast {
-  position: relative;
-  padding: 14px;
-  border: 1px solid color-mix(in srgb, var(--color-charcoal-950) 9%, transparent);
-  background: color-mix(in srgb, var(--color-paper-50) 96%, transparent);
-  box-shadow: 0 18px 50px rgb(0 0 0 / 0.12);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  touch-action: none;
-  will-change: transform, opacity;
-}
-
-.product-toast-enter-active {
-  transition:
-    opacity 300ms ease,
-    transform 520ms cubic-bezier(0.16, 1, 0.3, 1),
-    filter 360ms ease;
-}
-
-.product-toast-leave-active {
-  transition:
-    opacity 210ms ease,
-    transform 300ms cubic-bezier(0.4, 0, 1, 1),
-    filter 240ms ease;
-}
-
-.product-toast-enter-from {
-  opacity: 0;
-  transform: translate3d(0, -20px, 0) scale(0.965);
-  filter: blur(5px);
-}
-
-.product-toast-leave-to {
-  opacity: 0;
-  transform: translate3d(0, -12px, 0) scale(0.985);
-  filter: blur(3px);
-}
-
-.product-toast-check {
-  animation: product-toast-check-in 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-@keyframes product-toast-check-in {
-  0% {
-    opacity: 0;
-    transform: scale(0.45) rotate(-10deg);
-  }
-  65% {
-    opacity: 1;
-    transform: scale(1.10) rotate(2deg);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) rotate(0);
-  }
-}
-
-@media (min-width: 640px) {
-  .product-added-toast-shell {
-    top: 94px;
-    left: auto;
-    right: 24px;
-    width: min(390px, calc(100vw - 48px));
-  }
-
-  .product-added-toast {
-    padding: 16px;
-  }
-
-  .product-toast-enter-from {
-    transform: translate3d(22px, -4px, 0) scale(0.975);
-  }
-
-  .product-toast-leave-to {
-    transform: translate3d(16px, -3px, 0) scale(0.985);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .product-gallery-next-enter-active,
-  .product-gallery-next-leave-active,
-  .product-gallery-previous-enter-active,
-  .product-gallery-previous-leave-active,
-  .product-gallery-thumb,
-  .product-gallery-thumb-indicator,
-  .product-gallery-arrow,
-  .product-toast-enter-active,
-  .product-toast-leave-active {
-    transition-duration: 1ms !important;
-  }
-
-  .product-toast-check {
-    animation: none !important;
-  }
-}
-
-
 
 /* Add-to-bag action feedback --------------------------------------------- */
 .product-add-button {
@@ -1641,6 +1625,22 @@ html.dark .bg-white {
 
 .product-add-button.is-added {
   background: #657d6c;
+}
+
+.product-add-button.is-secondary.is-added {
+  border-color: #657d6c;
+  color: var(--color-paper-50);
+}
+
+.product-add-button.is-secondary .product-add-progress {
+  background: linear-gradient(
+    105deg,
+    transparent 18%,
+    color-mix(in srgb, var(--color-charcoal-950) 4%, transparent) 38%,
+    color-mix(in srgb, var(--color-charcoal-950) 10%, transparent) 50%,
+    color-mix(in srgb, var(--color-charcoal-950) 4%, transparent) 62%,
+    transparent 82%
+  );
 }
 
 @keyframes product-add-spin {
@@ -1762,5 +1762,378 @@ html.dark .storefront-footer {
   .cart-mobile-checkout-enter-active,
   .cart-mobile-checkout-leave-active {
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Patch 2 — editorial PDP gallery + purchase experience ----------------- */
+.product-editorial-stack {
+  background: var(--color-mist-100);
+}
+
+.product-editorial-stack-image {
+  isolation: isolate;
+  border: 0;
+  text-align: left;
+}
+
+.product-editorial-stack-photo {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: clamp(10px, 1.6vw, 28px);
+}
+
+/*
+ * Full-bleed mode deliberately follows the source image's own aspect ratio.
+ * This removes the editorial padding without using object-cover, so "fill the
+ * media width" never turns into an artificial crop/zoom on portrait imagery.
+ */
+.product-editorial-stack-image.is-full-bleed {
+  height: auto;
+  min-height: 0;
+  background: transparent;
+}
+
+.product-editorial-stack-image.is-full-bleed .product-editorial-stack-photo {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  height: auto;
+  padding: 0;
+  object-fit: contain;
+}
+
+.product-editorial-stack-image + .product-editorial-stack-image {
+  border-top: 1px solid color-mix(in srgb, var(--color-charcoal-950) 5%, transparent);
+}
+
+.product-editorial-stack-counter,
+.product-editorial-stack-zoom {
+  position: absolute;
+  z-index: 2;
+  border: 1px solid color-mix(in srgb, var(--color-charcoal-950) 7%, transparent);
+  background: color-mix(in srgb, var(--color-paper-50) 88%, transparent);
+  color: var(--color-charcoal-700);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.product-editorial-stack-counter {
+  right: 1.25rem;
+  bottom: 1.25rem;
+  padding: .55rem .7rem;
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: .13em;
+}
+
+.product-editorial-stack-zoom {
+  top: 1.25rem;
+  right: 1.25rem;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 220ms ease, transform 320ms cubic-bezier(.22, 1, .36, 1), background-color 180ms ease, color 180ms ease;
+}
+
+.product-editorial-stack-zoom svg {
+  width: 16px;
+  height: 16px;
+}
+
+.product-editorial-stack-image:hover .product-editorial-stack-zoom,
+.product-editorial-stack-image:focus-visible .product-editorial-stack-zoom {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.product-editorial-stack-zoom:hover {
+  background: var(--color-charcoal-950);
+  color: var(--color-paper-50);
+}
+
+.product-zoom-thumbnail {
+  border: 1px solid transparent;
+  opacity: .48;
+  transition: opacity 180ms ease, border-color 180ms ease, transform 240ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.product-zoom-thumbnail:hover,
+.product-zoom-thumbnail.is-active {
+  opacity: 1;
+}
+
+.product-zoom-thumbnail.is-active {
+  border-color: rgb(255 255 255 / .88);
+  transform: translateY(-2px);
+}
+
+.product-zoom-thumbnails {
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+}
+
+.product-zoom-thumbnail {
+  scroll-snap-align: center;
+}
+
+.product-mobile-purchase {
+  padding-bottom: max(.75rem, env(safe-area-inset-bottom));
+}
+
+@media (max-width: 1023px) {
+  .product-editorial-layout {
+    position: relative;
+    isolation: isolate;
+  }
+
+  /*
+   * Keep the initial mobile gallery at Saaj's familiar 4:5 size. Once its
+   * top reaches the sticky header it pins in place, while the purchase/details
+   * panel keeps moving and naturally covers the image. This produces the
+   * editorial overlap without turning the first screen into a forced 100svh
+   * hero or adding a fake draggable-card treatment.
+   */
+  .product-editorial-mobile-media {
+    position: sticky;
+    z-index: 0;
+    top: 68px;
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--color-mist-100);
+  }
+
+  .product-editorial-mobile-media .product-mobile-gallery,
+  .product-editorial-mobile-media .product-mobile-gallery > button,
+  .product-editorial-mobile-media .product-mobile-gallery > div {
+    height: 100%;
+  }
+
+  .product-editorial-purchase {
+    position: relative;
+    z-index: 5;
+    margin-top: 0;
+    overflow: visible;
+    border-left: 0;
+    border-radius: 0;
+    box-shadow: 0 -16px 42px rgb(0 0 0 / .055);
+  }
+
+  .product-editorial-purchase::before {
+    content: none;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  .product-editorial-mobile-media {
+    top: 72px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .product-editorial-layout {
+    align-items: start;
+  }
+
+  /*
+   * In editorial mode the entire right rail is the sticky item. Making the
+   * grid item itself sticky is more reliable than a sticky child inside a
+   * stretched grid cell, especially while the left image stack is very tall.
+   */
+  .product-editorial-purchase {
+    position: sticky;
+    top: 114px;
+    align-self: start;
+    max-height: calc(100vh - 114px);
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .product-editorial-purchase::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-editorial-stack-image img,
+  .product-editorial-stack-zoom,
+  .product-zoom-thumbnail,
+  .product-wishlist-button,
+  .product-wishlist-button svg {
+    transition-duration: .01ms !important;
+  }
+}
+
+/* Patch 3.1 — persistent gallery position indicators --------------------- */
+.product-mobile-gallery-indicators {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  transform: translateX(-50%);
+  padding: 3px 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-paper-50) 26%, transparent);
+  backdrop-filter: blur(8px) saturate(115%);
+  -webkit-backdrop-filter: blur(8px) saturate(115%);
+}
+
+.product-gallery-indicator {
+  display: grid;
+  width: 13px;
+  height: 22px;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: width 420ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.product-gallery-indicator > span {
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-charcoal-950) 44%, transparent);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / .18);
+  opacity: .72;
+  transform: translateZ(0);
+  transition:
+    width 440ms cubic-bezier(.22, 1, .36, 1),
+    height 300ms cubic-bezier(.22, 1, .36, 1),
+    opacity 240ms ease,
+    background-color 240ms ease,
+    transform 440ms cubic-bezier(.22, 1, .36, 1);
+  will-change: width, transform;
+}
+
+.product-gallery-indicator.is-active {
+  width: 27px;
+}
+
+.product-gallery-indicator.is-active > span {
+  width: 19px;
+  height: 4px;
+  background: var(--color-charcoal-950);
+  opacity: .92;
+}
+
+.product-gallery-indicator:focus-visible {
+  outline: none;
+}
+
+.product-gallery-indicator:focus-visible > span {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-paper-50) 72%, transparent), 0 0 0 4px var(--color-charcoal-950);
+}
+
+/*
+ * The layer spans the full editorial image stack without taking up layout
+ * space. Its child can therefore stay vertically sticky while the images
+ * continue to scroll normally underneath it.
+ */
+.product-editorial-stack-indicator-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 24;
+  pointer-events: none;
+}
+
+.product-editorial-stack-indicators {
+  position: sticky;
+  top: 50vh;
+  display: flex;
+  width: max-content;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  margin-left: clamp(12px, 1.3vw, 22px);
+  padding: 5px 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-paper-50) 26%, transparent);
+  backdrop-filter: blur(8px) saturate(115%);
+  -webkit-backdrop-filter: blur(8px) saturate(115%);
+  transform: translateY(-50%);
+  pointer-events: auto;
+}
+
+/*
+ * Desktop uses the same dot language as mobile, rotated for the vertical
+ * gallery. The active marker grows DOWN/UP rather than sideways so the
+ * interaction matches the direction the customer is scrolling.
+ */
+.product-gallery-indicator-vertical {
+  width: 22px;
+  height: 13px;
+  justify-items: center;
+  transition: height 420ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.product-gallery-indicator-vertical.is-active {
+  width: 22px;
+  height: 27px;
+}
+
+.product-gallery-indicator-vertical > span {
+  width: 5px;
+  height: 5px;
+  background: color-mix(in srgb, var(--color-charcoal-950) 44%, transparent);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / .18);
+  opacity: .72;
+  transition:
+    width 300ms cubic-bezier(.22, 1, .36, 1),
+    height 440ms cubic-bezier(.22, 1, .36, 1),
+    opacity 240ms ease,
+    background-color 240ms ease,
+    transform 440ms cubic-bezier(.22, 1, .36, 1);
+  will-change: height, transform;
+}
+
+.product-gallery-indicator-vertical.is-active > span {
+  width: 4px;
+  height: 19px;
+  background: var(--color-charcoal-950);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / .12);
+  opacity: .92;
+}
+
+.dark .product-mobile-gallery-indicators,
+.dark .product-editorial-stack-indicators {
+  background: color-mix(in srgb, var(--color-charcoal-950) 18%, transparent);
+}
+
+.dark .product-gallery-indicator > span {
+  background: color-mix(in srgb, var(--color-paper-50) 60%, transparent);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / .15);
+}
+
+.dark .product-gallery-indicator.is-active > span,
+.dark .product-gallery-indicator-vertical.is-active > span {
+  background: var(--color-paper-50);
+}
+
+@media (hover: hover) {
+  .product-gallery-indicator:not(.is-active):hover > span {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-gallery-indicator,
+  .product-gallery-indicator > span {
+    transition-duration: .01ms !important;
   }
 }

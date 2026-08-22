@@ -202,6 +202,18 @@ function submitSearch() {
 
         <button
           type="button"
+          aria-label="Search"
+          class="header-utility-button lg:hidden"
+          @click="openSearch"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45" class="h-[18px] w-[18px]">
+            <circle cx="10.7" cy="10.7" r="6.5" />
+            <path d="m15.5 15.5 4.3 4.3" />
+          </svg>
+        </button>
+
+        <button
+          type="button"
           class="hidden items-center gap-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-charcoal-700 transition-colors duration-300 hover:text-charcoal-950 lg:inline-flex"
           @click="openSearch"
         >
@@ -239,20 +251,8 @@ function submitSearch() {
       <div class="flex min-w-0 items-center justify-end gap-0.5 sm:gap-1">
         <button
           type="button"
-          aria-label="Search"
-          class="header-utility-button lg:hidden"
-          @click="openSearch"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45" class="h-[18px] w-[18px]">
-            <circle cx="10.7" cy="10.7" r="6.5" />
-            <path d="m15.5 15.5 4.3 4.3" />
-          </svg>
-        </button>
-
-        <button
-          type="button"
           :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
-          class="header-utility-button hidden sm:flex"
+          class="header-utility-button flex"
           @click="toggleTheme"
         >
           <Transition name="theme-icon" mode="out-in">

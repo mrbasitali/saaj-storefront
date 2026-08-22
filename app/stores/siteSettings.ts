@@ -12,6 +12,11 @@ type SiteSettings = {
     address: string | null
   }
   social_links: Record<string, string>
+  storefront: {
+    stacked_product_gallery_enabled: boolean
+    editorial_gallery_padding_enabled: boolean
+    direct_buy_now_enabled: boolean
+  }
 }
 
 export const useSiteSettingsStore = defineStore('site-settings', () => {
@@ -31,8 +36,7 @@ export const useSiteSettingsStore = defineStore('site-settings', () => {
     } catch {
       // Fail quietly — a missing/unreachable settings endpoint should
       // never block the page from rendering. Every consumer below
-      // already falls back sensibly (text wordmark, no social icons)
-      // when settings is null.
+      // already falls back sensibly when settings is null.
       loaded.value = true
     }
   }

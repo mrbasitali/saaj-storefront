@@ -37,7 +37,10 @@ export function useStorefrontTheme() {
       return
     }
 
-    applyTheme(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light', false)
+    // SAAJ intentionally starts new visitors in light mode. Device/theme
+    // preference is ignored until the shopper explicitly changes the theme,
+    // after which their choice is persisted in localStorage.
+    applyTheme('light', false)
   }
 
   function toggleTheme() {
