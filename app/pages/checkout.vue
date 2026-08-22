@@ -53,6 +53,28 @@ type PlacedOrder = {
   placed_at: string | null
 }
 
+type CheckoutCreatedAccount = {
+  created: boolean
+  password_setup: 'now' | 'later'
+  setup_email_sent: boolean
+  token: string
+  customer: {
+    id: number
+    name: string
+    email: string | null
+    phone: string | null
+    secondary_phone: string | null
+    gender: string | null
+    date_of_birth: string | null
+    address: string | null
+    city: string | null
+    country: string | null
+    email_verified: boolean
+    phone_verified: boolean
+    is_active?: boolean
+  }
+}
+
 const { $api } = useNuxtApp()
 const authStore = useAuthStore()
 const cart = useCartStore()
@@ -75,6 +97,7 @@ if (customerToken.value && !authStore.isLoggedIn) {
 const savedAddresses = ref<SavedAddress[]>([])
 const addressesLoading = ref(false)
 const selectedAddressId = ref<number | 'new' | null>(null)
+const saveNewAddress = ref(true)
 
 async function loadSavedAddresses() {
   if (!authStore.isLoggedIn) {
@@ -116,6 +139,31 @@ const guest = reactive({
   email: '',
   phone: '',
 })
+
+const createAccount = ref(false)
+const accountPasswordMode = ref<'later' | 'now'>('later')
+const accountPassword = reactive({
+  password: '',
+  password_confirmation: '',
+})
+const showAccountPassword = ref(false)
+
+const accountPasswordChecks = computed(() => ({
+  length: accountPassword.password.length >= 8,
+  letter: /[A-Za-z]/.test(accountPassword.password),
+  number: /\d/.test(accountPassword.password),
+  match: !!accountPassword.password_confirmation && accountPassword.password === accountPassword.password_confirmation,
+}))
+
+const accountSetupComplete = computed(() => (
+  authStore.isLoggedIn
+  || !createAccount.value
+  || accountPasswordMode.value === 'later'
+  || (accountPasswordChecks.value.length
+    && accountPasswordChecks.value.letter
+    && accountPasswordChecks.value.number
+    && accountPasswordChecks.value.match)
+))
 
 // Guest Contact is the delivery recipient. Keep the backend payload fully
 // populated without asking the shopper to type the same name/phone twice.
@@ -219,7 +267,7 @@ const inlineAddressComplete = computed(() => (
 
 const guestContactComplete = computed(() => (
   authStore.isLoggedIn
-  || (!!guest.name.trim() && !!guest.phone.trim())
+  || (!!guest.name.trim() && !!guest.phone.trim() && !!guest.email.trim())
 ))
 
 const deliverySelectionComplete = computed(() => {
@@ -234,6 +282,7 @@ const canPlaceOrder = computed(() => (
   cart.hydrated
   && cart.items.length > 0
   && guestContactComplete.value
+  && accountSetupComplete.value
   && deliverySelectionComplete.value
   && !!shippingEstimate.value
   && !shippingPending.value
@@ -242,7 +291,8 @@ const canPlaceOrder = computed(() => (
 
 const placeOrderHint = computed(() => {
   if (submitting.value) return 'Placing your order…'
-  if (!guestContactComplete.value) return 'Add your contact name and phone number.'
+  if (!guestContactComplete.value) return 'Add your name, phone number and email for order confirmation.'
+  if (!accountSetupComplete.value) return 'Finish your account password or choose to set it later.'
   if (!deliverySelectionComplete.value) return 'Complete your delivery address.'
   if (shippingPending.value) return 'Calculating delivery for this location…'
   if (shippingError.value) return shippingError.value
@@ -309,16 +359,32 @@ async function submit() {
     payload.state_id = newAddress.state_id
     payload.city_id = newAddress.city_id
     payload.postal_code = newAddress.postal_code || undefined
+
+    // Saving is automatic for a checkout-created account. Signed-in shoppers
+    // keep control through the "Save for next time" switch, which defaults on.
+    payload.save_address = authStore.isLoggedIn ? saveNewAddress.value : createAccount.value
+    if ((authStore.isLoggedIn && saveNewAddress.value) || (!authStore.isLoggedIn && createAccount.value)) {
+      payload.address_label = newAddress.label.trim() || undefined
+    }
   }
 
   if (!authStore.isLoggedIn) {
     payload.guest_name = guest.name
-    payload.guest_email = guest.email || undefined
+    payload.guest_email = guest.email
     payload.guest_phone = guest.phone
+    payload.create_account = createAccount.value
+
+    if (createAccount.value) {
+      payload.account_password_mode = accountPasswordMode.value
+      if (accountPasswordMode.value === 'now') {
+        payload.password = accountPassword.password
+        payload.password_confirmation = accountPassword.password_confirmation
+      }
+    }
   }
 
   try {
-    const response = await $api<{ data: PlacedOrder }>('/customer/checkout', {
+    const response = await $api<{ data: PlacedOrder, account?: CheckoutCreatedAccount | null }>('/customer/checkout', {
       method: 'POST',
       body: payload,
     })
@@ -327,11 +393,28 @@ async function submit() {
     // for guests. Session storage also survives a refresh in the same tab.
     lastPlacedOrder.value = response.data
 
+    if (response.account?.created) {
+      authStore.acceptSession({
+        token: response.account.token,
+        customer: response.account.customer,
+      })
+    }
+
     if (import.meta.client) {
       sessionStorage.setItem(
         `saaj_order_confirmation_${response.data.order_number}`,
         JSON.stringify(response.data),
       )
+      if (response.account?.created) {
+        sessionStorage.setItem(
+          `saaj_order_account_${response.data.order_number}`,
+          JSON.stringify({
+            password_setup: response.account.password_setup,
+            setup_email_sent: response.account.setup_email_sent,
+            email: response.account.customer.email,
+          }),
+        )
+      }
     }
 
     submitSucceeded.value = true
@@ -497,9 +580,69 @@ onMounted(async () => {
                 <input v-model="guest.phone" type="tel" autocomplete="tel" inputmode="tel" required placeholder="03XXXXXXXXX">
               </label>
               <label class="checkout-field sm:col-span-2">
-                <span>Email <em>optional</em></span>
-                <input v-model="guest.email" type="email" autocomplete="email" placeholder="you@example.com">
+                <span>Email <em>for confirmation</em></span>
+                <input v-model="guest.email" type="email" autocomplete="email" required placeholder="you@example.com">
               </label>
+            </div>
+
+            <div class="mt-5 border border-charcoal-950/10 bg-mist-50/70 p-4 sm:p-5">
+              <div class="flex items-start justify-between gap-5">
+                <div class="min-w-0">
+                  <p class="text-[12px] font-semibold tracking-[-0.01em]">Create a SAAJ account with this order?</p>
+                  <p class="mt-1 text-[10px] leading-5 text-charcoal-500">See all your orders in one place, track updates, save delivery addresses and keep your wishlist synced.</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-label="Create a SAAJ account with this order"
+                  :aria-checked="createAccount"
+                  class="checkout-account-switch"
+                  :class="{ 'is-on': createAccount }"
+                  @click="createAccount = !createAccount"
+                >
+                  <span class="checkout-account-switch-knob" aria-hidden="true" />
+                </button>
+              </div>
+
+              <Transition name="checkout-reveal">
+                <div v-if="createAccount" class="mt-5 border-t border-charcoal-950/10 pt-4">
+                  <p class="text-[9px] font-semibold uppercase tracking-[0.14em] text-charcoal-400">Choose how to finish setup</p>
+                  <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                    <label class="checkout-account-option" :class="accountPasswordMode === 'later' ? 'is-selected' : ''">
+                      <input v-model="accountPasswordMode" class="sr-only" type="radio" value="later">
+                      <span class="checkout-radio-dot" aria-hidden="true" />
+                      <span><strong>Email me a setup link</strong><small>Fastest checkout. Choose your password securely after ordering.</small></span>
+                    </label>
+                    <label class="checkout-account-option" :class="accountPasswordMode === 'now' ? 'is-selected' : ''">
+                      <input v-model="accountPasswordMode" class="sr-only" type="radio" value="now">
+                      <span class="checkout-radio-dot" aria-hidden="true" />
+                      <span><strong>Set password now</strong><small>Your account is ready before you leave checkout.</small></span>
+                    </label>
+                  </div>
+
+                  <Transition name="checkout-reveal">
+                    <div v-if="accountPasswordMode === 'now'" class="mt-4 grid gap-4 sm:grid-cols-2">
+                      <label class="checkout-field">
+                        <span>Password</span>
+                        <div class="relative">
+                          <input v-model="accountPassword.password" :type="showAccountPassword ? 'text' : 'password'" autocomplete="new-password" required>
+                          <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-semibold uppercase tracking-[0.1em] text-charcoal-400" @click="showAccountPassword = !showAccountPassword">{{ showAccountPassword ? 'Hide' : 'Show' }}</button>
+                        </div>
+                      </label>
+                      <label class="checkout-field">
+                        <span>Confirm password</span>
+                        <input v-model="accountPassword.password_confirmation" :type="showAccountPassword ? 'text' : 'password'" autocomplete="new-password" required>
+                      </label>
+                      <div class="sm:col-span-2 flex flex-wrap gap-x-4 gap-y-1 text-[9px]">
+                        <span :class="accountPasswordChecks.length ? 'text-[#657d6c]' : 'text-charcoal-400'">{{ accountPasswordChecks.length ? '✓' : '○' }} 8+ characters</span>
+                        <span :class="accountPasswordChecks.letter ? 'text-[#657d6c]' : 'text-charcoal-400'">{{ accountPasswordChecks.letter ? '✓' : '○' }} Letter</span>
+                        <span :class="accountPasswordChecks.number ? 'text-[#657d6c]' : 'text-charcoal-400'">{{ accountPasswordChecks.number ? '✓' : '○' }} Number</span>
+                        <span :class="accountPasswordChecks.match ? 'text-[#657d6c]' : 'text-charcoal-400'">{{ accountPasswordChecks.match ? '✓' : '○' }} Passwords match</span>
+                      </div>
+                    </div>
+                  </Transition>
+                </div>
+              </Transition>
             </div>
 
             <NuxtLink to="/login?redirect=/checkout" class="mt-4 inline-flex text-[10px] font-semibold uppercase tracking-[0.12em] text-charcoal-500 sm:hidden">
@@ -593,11 +736,40 @@ onMounted(async () => {
 
             <Transition name="checkout-reveal">
               <div v-if="selectedAddressId === 'new'" :class="savedAddresses.length ? 'mt-7' : 'mt-5'">
-                <div class="mb-4 flex items-center justify-between gap-4 border-b border-charcoal-950/8 pb-3 text-[10px] leading-5 text-charcoal-400">
-                  <span>{{ authStore.isLoggedIn ? 'Use this address for this order. Saved addresses remain managed in your account.' : 'No account required — your Contact name and phone are used as the delivery recipient automatically.' }}</span>
+                <div class="mb-4 border-b border-charcoal-950/8 pb-4">
+                  <div v-if="authStore.isLoggedIn" class="checkout-save-address-row">
+                    <div class="min-w-0">
+                      <p class="text-[11px] font-medium">Save this address for next time</p>
+                      <p class="mt-0.5 text-[10px] leading-5 text-charcoal-400">It will appear here automatically on your next checkout.</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-label="Save this delivery address for next time"
+                      :aria-checked="saveNewAddress"
+                      class="checkout-account-switch"
+                      :class="{ 'is-on': saveNewAddress }"
+                      @click="saveNewAddress = !saveNewAddress"
+                    >
+                      <span class="checkout-account-switch-knob" aria-hidden="true" />
+                    </button>
+                  </div>
+
+                  <div v-else-if="createAccount" class="checkout-address-benefit">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="m5 12 4 4L19 6" />
+                    </svg>
+                    <span>This delivery address will be saved to your new account, ready for your next order.</span>
+                  </div>
+
+                  <p v-else class="text-[10px] leading-5 text-charcoal-400">
+                    No account required — your contact name and phone are used as the delivery recipient automatically.
+                  </p>
                 </div>
+
                 <AddressFields
                   :model-value="newAddress"
+                  :show-label="(authStore.isLoggedIn && saveNewAddress) || (!authStore.isLoggedIn && createAccount)"
                   :show-recipient-fields="authStore.isLoggedIn"
                   @update:model-value="applyNewAddress"
                 />
@@ -856,6 +1028,121 @@ onMounted(async () => {
 }
 
 .checkout-address-card.is-selected .checkout-radio-dot::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: inherit;
+  background: var(--color-charcoal-950);
+}
+
+
+
+.checkout-save-address-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.checkout-address-benefit {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: var(--color-charcoal-500);
+  font-size: 10px;
+  line-height: 1.8;
+}
+
+.checkout-address-benefit svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  margin-top: 1px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.checkout-account-switch {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  width: 44px;
+  height: 24px;
+  margin-top: 1px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-charcoal-950) 15%, transparent);
+  cursor: pointer;
+  vertical-align: middle;
+  transition: background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.checkout-account-switch.is-on {
+  background: var(--color-charcoal-950);
+}
+
+.checkout-account-switch-knob {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--color-paper-50);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .16);
+  transform: translate3d(0, 0, 0);
+  transition: transform 200ms cubic-bezier(.22, 1, .36, 1);
+  will-change: transform;
+}
+
+.checkout-account-switch.is-on .checkout-account-switch-knob {
+  transform: translate3d(20px, 0, 0);
+}
+
+.checkout-account-switch:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-charcoal-950) 55%, transparent);
+  outline-offset: 3px;
+}
+
+.checkout-account-option {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 11px;
+  cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--color-charcoal-950) 10%, transparent);
+  background: color-mix(in srgb, var(--color-paper-50) 78%, transparent);
+  padding: 13px;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.checkout-account-option.is-selected {
+  border-color: color-mix(in srgb, var(--color-charcoal-950) 65%, transparent);
+  background: var(--color-paper-50);
+}
+
+.checkout-account-option strong {
+  display: block;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.checkout-account-option small {
+  display: block;
+  margin-top: 4px;
+  color: var(--color-charcoal-400);
+  font-size: 9px;
+  line-height: 1.65;
+}
+
+.checkout-account-option.is-selected .checkout-radio-dot {
+  border-color: var(--color-charcoal-950);
+}
+.checkout-account-option.is-selected .checkout-radio-dot::after {
   content: '';
   position: absolute;
   inset: 4px;

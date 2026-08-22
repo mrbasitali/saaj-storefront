@@ -38,6 +38,10 @@ export const useAuthStore = defineStore('auth', () => {
     return response.customer
   }
 
+  function acceptSession(payload: { token: string, customer: Customer }) {
+    return acceptAuthResponse({ message: 'Session ready.', ...payload })
+  }
+
   async function fetchMe() {
     const { $api } = useNuxtApp()
 
@@ -162,6 +166,7 @@ export const useAuthStore = defineStore('auth', () => {
     customer,
     hydrated,
     isLoggedIn,
+    acceptSession,
     fetchMe,
     login,
     requestLoginOtp,

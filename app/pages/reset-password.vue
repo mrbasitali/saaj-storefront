@@ -2,9 +2,10 @@
 const route = useRoute()
 const router = useRouter()
 const { $api } = useNuxtApp()
+const isAccountSetup = computed(() => route.query.setup === '1')
 
 useSeoMeta({
-  title: 'Set new password | SAAJ',
+  title: isAccountSetup.value ? 'Finish account setup | SAAJ' : 'Set new password | SAAJ',
   robots: 'noindex,nofollow',
 })
 
@@ -28,7 +29,7 @@ async function submit() {
   try {
     await $api('/customer/reset-password', { method: 'POST', body: form })
     success.value = true
-    setTimeout(() => router.push('/login?reset=success'), 1800)
+    setTimeout(() => router.push(isAccountSetup.value ? `/login?setup=success&email=${encodeURIComponent(form.email)}` : '/login?reset=success'), 1800)
   } catch (err: any) {
     error.value = extractApiErrorMessage(err, 'This reset link is invalid or has expired.')
   } finally {
@@ -39,12 +40,12 @@ async function submit() {
 
 <template>
   <StorefrontAuthFrame
-    eyebrow="Account recovery"
-    :title="success ? 'Password updated.' : 'Set a new password.'"
-    :description="success ? 'Your new password is ready. We’ll return you to sign in.' : 'Choose a new password for your SAAJ account.'"
+    :eyebrow="isAccountSetup ? 'Account setup' : 'Account recovery'"
+    :title="success ? (isAccountSetup ? 'Account ready.' : 'Password updated.') : (isAccountSetup ? 'Finish your account.' : 'Set a new password.')"
+    :description="success ? (isAccountSetup ? 'Your password is ready. We’ll take you back to sign in.' : 'Your new password is ready. We’ll return you to sign in.') : (isAccountSetup ? 'Choose a password to finish the SAAJ account created with your order.' : 'Choose a new password for your SAAJ account.')"
   >
     <div v-if="success" class="border border-[#657d6c]/30 bg-[#657d6c]/[0.08] p-5 text-[12px] leading-5 text-[#52685a]">
-      ✓ Password updated successfully. Redirecting to sign in…
+      ✓ {{ isAccountSetup ? 'Account setup complete. Returning to sign in…' : 'Password updated successfully. Redirecting to sign in…' }}
     </div>
 
     <form v-else class="space-y-5" @submit.prevent="submit">
@@ -63,7 +64,7 @@ async function submit() {
       <div v-if="error" class="border border-[#bd6f6f]/35 bg-[#bd6f6f]/[0.07] px-4 py-3 text-[12px] leading-5 text-[#9a4f4f]">{{ error }}</div>
       <button type="submit" :disabled="submitting || !passwordsMatch" class="flex w-full items-center justify-center gap-3 bg-charcoal-950 px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-paper-50 disabled:opacity-45">
         <span v-if="submitting" class="h-3.5 w-3.5 animate-spin rounded-full border border-paper-50/30 border-t-paper-50" />
-        {{ submitting ? 'Saving…' : 'Set new password' }}
+        {{ submitting ? 'Saving…' : isAccountSetup ? 'Finish account' : 'Set new password' }}
       </button>
     </form>
   </StorefrontAuthFrame>

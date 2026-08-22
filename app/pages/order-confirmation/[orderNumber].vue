@@ -38,6 +38,7 @@ const lastPlacedOrder = useState<Order | null>('last-placed-order', () => null)
 const order = ref<Order | null>(lastPlacedOrder.value?.order_number === orderNumber ? lastPlacedOrder.value : null)
 const loading = ref(false)
 const copied = ref(false)
+const createdAccount = ref<{ password_setup: 'now' | 'later', setup_email_sent: boolean, email: string | null } | null>(null)
 let copyTimer: ReturnType<typeof setTimeout> | null = null
 
 useSeoMeta({
@@ -83,6 +84,13 @@ async function copyOrderNumber() {
 }
 
 onMounted(async () => {
+  try {
+    const accountRaw = sessionStorage.getItem(`saaj_order_account_${orderNumber}`)
+    if (accountRaw) createdAccount.value = JSON.parse(accountRaw)
+  } catch {
+    // Account setup message is optional confirmation context only.
+  }
+
   if (!order.value) {
     try {
       const raw = sessionStorage.getItem(`saaj_order_confirmation_${orderNumber}`)
@@ -146,6 +154,23 @@ onBeforeUnmount(() => {
           <span class="text-[9px] font-semibold uppercase tracking-[0.13em] text-charcoal-500 transition group-hover:text-charcoal-950">{{ copied ? 'Copied ✓' : 'Copy' }}</span>
         </button>
       </header>
+
+      <div v-if="createdAccount" class="mx-auto mt-8 max-w-[1040px] border border-charcoal-950/10 bg-mist-50 px-5 py-4 sm:flex sm:items-center sm:justify-between sm:gap-8 sm:px-6">
+        <div>
+          <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-charcoal-950">Your SAAJ account is ready</p>
+          <p class="mt-1 text-[11px] leading-5 text-charcoal-500">
+            <template v-if="createdAccount.password_setup === 'later'">
+              <template v-if="createdAccount.setup_email_sent">We sent {{ createdAccount.email }} a secure link to choose a password. You’re already signed in on this device.</template>
+              <template v-else>Your account was created and you’re signed in on this device. Use “Forgot password” later with {{ createdAccount.email }} to choose a password.</template>
+            </template>
+            <template v-else>
+              <template v-if="createdAccount.setup_email_sent">You’re signed in now. Check {{ createdAccount.email }} for the email verification link.</template>
+              <template v-else>You’re signed in now. You can resend your email verification link any time from your account.</template>
+            </template>
+          </p>
+        </div>
+        <NuxtLink to="/account/orders" class="mt-4 inline-flex shrink-0 text-[9px] font-semibold uppercase tracking-[0.13em] text-charcoal-950 underline underline-offset-4 sm:mt-0">View my orders →</NuxtLink>
+      </div>
 
       <div v-if="loading" class="mx-auto mt-11 grid max-w-[1040px] gap-6 lg:grid-cols-[1fr_.78fr]">
         <div class="skeleton h-80" />

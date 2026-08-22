@@ -10,8 +10,8 @@ useSeoMeta({
 
 const form = reactive({
   name: '',
-  email: '',
-  phone: '',
+  email: typeof route.query.email === 'string' ? route.query.email : '',
+  phone: typeof route.query.phone === 'string' ? route.query.phone : '',
   password: '',
   password_confirmation: '',
 })

@@ -21,6 +21,8 @@ const submitting = ref(false)
 const requestingOtp = ref(false)
 const error = ref('')
 const notice = ref('')
+const phoneAccountMissing = ref(false)
+const phoneNotVerified = ref(false)
 const { remaining, formattedRemaining, canResend, start: startCooldown } = useOtpCooldown(30)
 
 const redirectTo = computed(() => {
@@ -32,6 +34,8 @@ function switchMode(next: 'email' | 'phone') {
   mode.value = next
   error.value = ''
   notice.value = ''
+  phoneAccountMissing.value = false
+  phoneNotVerified.value = false
 }
 
 async function finishLogin(customer: { email_verified: boolean }) {
@@ -57,6 +61,16 @@ async function submitEmail() {
   }
 }
 
+function apiErrorData(err: any) {
+  return err?.data ?? err?.response?._data ?? err?.response?.data ?? null
+}
+
+watch(phone, () => {
+  phoneAccountMissing.value = false
+  phoneNotVerified.value = false
+  error.value = ''
+})
+
 function applyServerOtpCooldown(err: any) {
   const seconds = Number(err?.data?.retry_after ?? err?.response?._data?.retry_after ?? 0)
   if (Number.isFinite(seconds) && seconds > 0) startCooldown(seconds)
@@ -77,6 +91,9 @@ async function requestOtp() {
     startCooldown()
   } catch (err: any) {
     applyServerOtpCooldown(err)
+    const data = apiErrorData(err)
+    phoneAccountMissing.value = data?.code === 'phone_account_not_found'
+    phoneNotVerified.value = data?.code === 'phone_not_verified'
     error.value = extractApiErrorMessage(err, 'Could not request a code right now. Please try again.')
   } finally {
     requestingOtp.value = false
@@ -107,6 +124,9 @@ async function submitOtp() {
   >
     <div v-if="route.query.reset === 'success'" class="mb-6 border border-[#657d6c]/30 bg-[#657d6c]/[0.08] px-4 py-3 text-[12px] leading-5 text-[#52685a]">
       ✓ Your password has been updated. Sign in with your new password.
+    </div>
+    <div v-if="route.query.setup === 'success'" class="mb-6 border border-[#657d6c]/30 bg-[#657d6c]/[0.08] px-4 py-3 text-[12px] leading-5 text-[#52685a]">
+      ✓ Your SAAJ account is ready. Sign in with the password you just chose.
     </div>
 
     <div class="grid grid-cols-2 border-b border-charcoal-950/10">
@@ -231,7 +251,21 @@ async function submitOtp() {
       <div v-if="notice" class="mt-5 border border-[#657d6c]/30 bg-[#657d6c]/[0.08] px-4 py-3 text-[12px] leading-5 text-[#52685a]">
         {{ notice }}
       </div>
-      <div v-if="error" class="mt-5 border border-[#bd6f6f]/35 bg-[#bd6f6f]/[0.07] px-4 py-3 text-[12px] leading-5 text-[#9a4f4f]">
+
+      <div v-if="phoneAccountMissing" class="mt-5 border border-charcoal-950/12 bg-mist-50 p-4">
+        <p class="text-[12px] font-semibold text-charcoal-950">We didn’t find that phone number.</p>
+        <p class="mt-1 text-[11px] leading-5 text-charcoal-500">No SMS was sent. Create an account with this number, or use email sign in if you already have an account under a different phone.</p>
+        <div class="mt-4 flex flex-wrap gap-3">
+          <NuxtLink :to="`/register?phone=${encodeURIComponent(phone)}${route.query.redirect ? `&redirect=${encodeURIComponent(String(route.query.redirect))}` : ''}`" class="inline-flex min-h-10 items-center bg-charcoal-950 px-4 text-[9px] font-semibold uppercase tracking-[0.13em] text-paper-50">Create account</NuxtLink>
+          <button type="button" class="text-[9px] font-semibold uppercase tracking-[0.13em] text-charcoal-500 underline underline-offset-4" @click="switchMode('email')">Use email instead</button>
+        </div>
+      </div>
+
+      <div v-else-if="phoneNotVerified" class="mt-5 border border-[#b58b4b]/30 bg-[#b58b4b]/[0.07] p-4 text-[12px] leading-5 text-[#806433]">
+        {{ error }}
+        <button type="button" class="mt-3 block text-[9px] font-semibold uppercase tracking-[0.13em] underline underline-offset-4" @click="switchMode('email')">Sign in with email to verify phone</button>
+      </div>
+      <div v-else-if="error" class="mt-5 border border-[#bd6f6f]/35 bg-[#bd6f6f]/[0.07] px-4 py-3 text-[12px] leading-5 text-[#9a4f4f]">
         {{ error }}
       </div>
 

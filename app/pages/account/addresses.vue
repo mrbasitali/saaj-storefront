@@ -91,13 +91,46 @@ function closeForm() {
   formOpen.value = false
 }
 
+function applyAddressFields(value: AddressFieldsValue) {
+  // Keep the same reactive form object alive. Replacing a reactive object via
+  // component v-model can leave dependent Country / Province / City updates
+  // working with an older snapshot and wipe fields the customer already typed.
+  Object.assign(form, value)
+}
+
+const formComplete = computed(() => (
+  !!form.recipient_name.trim()
+  && !!form.recipient_phone.trim()
+  && !!form.address_line1.trim()
+  && !!form.country_id
+  && !!form.state_id
+  && !!form.city_id
+))
+
 async function submit() {
   if (saving.value) return
-  saving.value = true
   formError.value = ''
 
+  if (!formComplete.value) {
+    formError.value = 'Please complete the recipient, street address, country, province and city.'
+    return
+  }
+
+  saving.value = true
+
   try {
-    const payload = { ...form, is_default: isDefault.value }
+    const payload = {
+      label: form.label.trim() || null,
+      recipient_name: form.recipient_name.trim(),
+      recipient_phone: form.recipient_phone.trim(),
+      address_line1: form.address_line1.trim(),
+      address_line2: form.address_line2.trim() || null,
+      country_id: form.country_id,
+      state_id: form.state_id,
+      city_id: form.city_id,
+      postal_code: form.postal_code.trim() || null,
+      is_default: isDefault.value,
+    }
 
     if (editingId.value) {
       await $api(`/customer/addresses/${editingId.value}`, { method: 'PUT', body: payload })
@@ -224,7 +257,11 @@ async function remove() {
           </header>
 
           <form class="min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8 sm:py-8" @submit.prevent="submit">
-            <AddressFields v-model="form" show-label />
+            <AddressFields
+              :model-value="form"
+              show-label
+              @update:model-value="applyAddressFields"
+            />
 
             <label class="mt-6 flex cursor-pointer items-center gap-3 border-t border-charcoal-950/10 pt-5 text-[10px] text-charcoal-600">
               <input v-model="isDefault" type="checkbox" class="h-4 w-4 accent-charcoal-950">
