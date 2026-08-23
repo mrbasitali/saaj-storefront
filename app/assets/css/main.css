@@ -3865,3 +3865,95 @@ html.dark .storefront-footer {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Patch 6.5.4 — symmetric mobile menu open / close motion ---------------- */
+/*
+ * Opening already feels like a reveal from the navbar: the shell expands
+ * downward and its content settles down into place. Closing now deliberately
+ * mirrors that movement instead of using a generic opacity teardown.
+ *
+ * Phase 1: menu copy/actions fade and travel upward.
+ * Phase 2: the shell and its independent Chromium-safe glass layer collapse
+ *          upward together using the same top-origin reveal geometry.
+ */
+@keyframes mobileMenuItemOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}
+
+/* Keep the content container itself stable; animate the same staggered items
+   that animate on entry so the close reads as the true inverse gesture. */
+.mobile-menu-content.is-closing {
+  opacity: 1;
+  transform: none;
+  pointer-events: none;
+}
+
+.mobile-menu-content.is-closing .mobile-stagger {
+  animation: mobileMenuItemOut 135ms both cubic-bezier(0.4, 0, 1, 1) !important;
+  animation-delay: 0ms !important;
+}
+
+/* Preserve the existing polished enter motion but make the leave motion an
+   explicit upward collapse. */
+.mobile-shell-leave-active {
+  transform-origin: top center;
+  transition:
+    clip-path 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 260ms ease-out,
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+.mobile-shell-leave-from {
+  opacity: 1;
+  clip-path: inset(0 0 0 0);
+  transform: translateY(0);
+}
+
+.mobile-shell-leave-to {
+  opacity: 0;
+  clip-path: inset(0 0 100% 0);
+  transform: translateY(-12px);
+}
+
+/* The real glass sibling follows the same reverse geometry instead of fading
+   as a full-screen sheet after the menu has already disappeared. */
+.mobile-menu-preblur.storefront-real-glass-layer {
+  clip-path: inset(0 0 0 0);
+  transform: translateY(0) translateZ(0);
+  transform-origin: top center;
+  opacity: 1;
+  transition:
+    clip-path 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 250ms ease-out,
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.mobile-menu-preblur.storefront-real-glass-layer.is-closing {
+  opacity: 0;
+  clip-path: inset(0 0 100% 0);
+  transform: translateY(-12px) translateZ(0);
+  transition-duration: 420ms, 250ms, 420ms;
+  transition-timing-function:
+    cubic-bezier(0.22, 1, 0.36, 1),
+    ease-out,
+    cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-menu-content.is-closing .mobile-stagger {
+    animation-duration: 0.01ms !important;
+  }
+
+  .mobile-shell-leave-active,
+  .mobile-menu-preblur.storefront-real-glass-layer {
+    transition-duration: 0.01ms !important;
+  }
+}
+

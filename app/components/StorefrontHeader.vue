@@ -182,10 +182,12 @@ function closeMobileMenu() {
     return
   }
 
-  // Close in two deliberate paint stages. First remove every readable menu
-  // item while the already-composited glass is still fully present. Once the
-  // content is visually gone, immediately reverse the shell and glass. This
-  // prevents a one-frame text glimpse on Chromium/Android during teardown.
+  // Mirror the opening choreography in reverse:
+  // 1) readable menu content fades and travels upward,
+  // 2) the shell + pre-composited glass collapse upward together,
+  // 3) the glass is unmounted only after the reverse motion is complete.
+  // This keeps close motion intentional while preserving the Chromium-safe
+  // preblur layer and avoiding any one-frame text/background flash.
   mobileMenuContentClosing.value = true
 
   mobileMenuCloseTimer = window.setTimeout(() => {
@@ -198,8 +200,8 @@ function closeMobileMenu() {
       mobileMenuContentClosing.value = false
       mobileCategoryId.value = null
       mobileMenuCloseTimer = null
-    }, 230)
-  }, 85)
+    }, 440)
+  }, 145)
 }
 
 function openMobileCategory(category: Category) {
