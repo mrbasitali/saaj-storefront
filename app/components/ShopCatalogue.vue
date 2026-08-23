@@ -612,7 +612,8 @@ function closePanels() {
     <!-- Product controls -->
     <section class="mx-auto max-w-[1760px] px-4 pb-20 sm:px-6 lg:px-10 xl:px-12">
       <div class="shop-toolbar storefront-glass-surface sticky top-[68px] z-30 -mx-4 border-b border-charcoal-950/[0.07] px-4 sm:-mx-6 sm:px-6 lg:top-[114px] lg:-mx-10 lg:px-10 xl:-mx-12 xl:px-12">
-        <div class="flex min-h-[62px] items-center justify-between gap-4">
+        <StorefrontGlassLayer variant="toolbar" />
+        <div class="relative z-[1] flex min-h-[62px] items-center justify-between gap-4">
           <div class="min-w-0">
             <p v-if="meta" class="text-[10px] font-semibold uppercase tracking-[0.14em] text-charcoal-500">
               {{ meta.total }} {{ meta.total === 1 ? 'piece' : 'pieces' }}

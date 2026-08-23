@@ -187,7 +187,9 @@ function submitSearch() {
 
 <template>
   <header class="storefront-header sticky top-0 z-50">
-    <div class="storefront-header-main">
+    <StorefrontGlassLayer variant="nav" />
+
+    <div class="storefront-header-main relative z-[1]">
       <div class="flex min-w-0 items-center">
         <button
           type="button"
@@ -307,7 +309,7 @@ function submitSearch() {
     </div>
 
     <nav
-      class="storefront-desktop-nav hidden lg:flex"
+      class="storefront-desktop-nav relative z-[1] hidden lg:flex"
       aria-label="Main navigation"
       @mouseleave="scheduleDesktopClose"
     >
@@ -356,7 +358,8 @@ function submitSearch() {
         @mouseenter="clearDesktopCloseTimer"
         @mouseleave="scheduleDesktopClose"
       >
-        <div class="mx-auto grid max-w-[1500px] grid-cols-[0.72fr_1.28fr] gap-16 px-10 py-10 xl:px-14 xl:py-12">
+        <StorefrontGlassLayer variant="menu" />
+        <div class="relative z-[1] mx-auto grid max-w-[1500px] grid-cols-[0.72fr_1.28fr] gap-16 px-10 py-10 xl:px-14 xl:py-12">
           <div class="pr-8">
             <p class="section-kicker">Explore</p>
             <h2 class="mt-3 font-display text-[44px] font-medium leading-[0.95] tracking-[-0.045em] text-charcoal-950 xl:text-[52px]">
@@ -405,7 +408,8 @@ function submitSearch() {
 
   <Transition name="mobile-shell">
     <div v-if="mobileMenuOpen" class="mobile-menu-shell lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
-      <div class="relative min-h-0 flex-1 overflow-hidden">
+      <StorefrontGlassLayer variant="mobile-menu" />
+      <div class="relative z-[1] min-h-0 flex-1 overflow-hidden">
         <Transition :name="mobileDirection === 'forward' ? 'mobile-level-forward' : 'mobile-level-back'" mode="out-in">
           <div v-if="!mobileCategory" key="root" class="mobile-menu-level">
             <nav class="mobile-menu-scroll" aria-label="Mobile navigation">

@@ -337,7 +337,8 @@ function decrease(variantId: number) {
         v-if="cart.hydrated && cart.items.length"
         class="mobile-safe-action-bar fixed inset-x-0 bottom-0 z-40 border-t border-charcoal-950/10 bg-paper-50/96 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_35px_rgba(0,0,0,0.06)] backdrop-blur-xl lg:hidden"
       >
-        <div class="mx-auto flex max-w-xl items-center gap-4">
+        <StorefrontGlassLayer variant="action" />
+        <div class="relative z-[1] mx-auto flex max-w-xl items-center gap-4">
           <div class="min-w-0 flex-1">
             <p class="text-[9px] font-semibold uppercase tracking-[0.13em] text-charcoal-400">Subtotal</p>
             <p class="mt-0.5 truncate text-[15px] font-medium tabular-nums text-charcoal-950">{{ formatPrice(cart.subtotal) }}</p>

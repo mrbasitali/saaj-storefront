@@ -921,7 +921,8 @@ onMounted(async () => {
         v-if="cart.hydrated && cart.items.length"
         class="mobile-safe-action-bar fixed inset-x-0 bottom-0 z-40 border-t border-charcoal-950/10 bg-paper-50/95 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl lg:hidden"
       >
-        <div class="mx-auto flex max-w-xl items-center gap-4">
+        <StorefrontGlassLayer variant="action" />
+        <div class="relative z-[1] mx-auto flex max-w-xl items-center gap-4">
           <div class="min-w-0 flex-1">
             <p class="text-[8px] font-semibold uppercase tracking-[0.14em] text-charcoal-400">{{ !canPlaceOrder && placeOrderHint ? 'Next step' : 'Total' }}</p>
             <p v-if="!canPlaceOrder && placeOrderHint" class="mt-0.5 truncate text-[10px] text-charcoal-500">{{ placeOrderHint }}</p>

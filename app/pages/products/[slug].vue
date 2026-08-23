@@ -1744,7 +1744,8 @@ watch(product, () => {
     <!-- Mobile sticky purchase bar. This is the only mobile purchase CTA;
          there is no duplicate inline Add to bag / Buy now button. -->
     <div class="product-mobile-purchase mobile-safe-action-bar fixed inset-x-0 bottom-0 z-30 border-t border-charcoal-950/[0.08] bg-paper-50/94 px-4 py-3 shadow-[0_-12px_35px_rgba(0,0,0,0.05)] backdrop-blur-xl lg:hidden">
-      <div v-if="directBuyNowEnabled" class="space-y-2.5">
+      <StorefrontGlassLayer variant="action" />
+      <div v-if="directBuyNowEnabled" class="relative z-[1] space-y-2.5">
         <div class="flex min-w-0 items-center justify-between gap-4">
           <p class="min-w-0 truncate text-[11px] font-medium text-charcoal-950">{{ product.name }}</p>
           <p class="shrink-0 text-[11px] text-charcoal-500">{{ formatPrice(displayPrice) }}</p>
@@ -1792,7 +1793,7 @@ watch(product, () => {
         </div>
       </div>
 
-      <div v-else class="flex items-center gap-3">
+      <div v-else class="relative z-[1] flex items-center gap-3">
         <div class="min-w-0 flex-1">
           <p class="truncate text-[11px] font-medium text-charcoal-950">{{ product.name }}</p>
           <p class="mt-0.5 text-[11px] text-charcoal-500">{{ formatPrice(displayPrice) }}</p>

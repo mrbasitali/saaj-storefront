@@ -3658,3 +3658,122 @@ html.dark .storefront-footer {
     display: none !important;
   }
 }
+
+
+/* Patch 6.5 — production Chromium real-DOM glass ------------------------ */
+/*
+ * Live Chrome proved that backdrop-filter works on the deployed page when it
+ * is applied to a real element, while the production cascade computed the
+ * previous ::before layer's backdrop-filter as `none`. Keep the actual blur
+ * inline on StorefrontGlassLayer.vue so PostCSS/Tailwind/minification cannot
+ * discard or rewrite the critical declaration.
+ */
+.storefront-header,
+.storefront-mega-menu,
+.storefront-glass-surface,
+.mobile-menu-shell,
+.mobile-safe-action-bar,
+.product-mobile-purchase {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  isolation: auto !important;
+}
+
+.storefront-header::before,
+.storefront-mega-menu::before,
+.storefront-glass-surface::before,
+.mobile-menu-shell::before,
+.mobile-safe-action-bar::before,
+.product-mobile-purchase::before {
+  content: none !important;
+  display: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.storefront-real-glass-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: rgb(247 246 242 / 64%);
+}
+
+.dark .storefront-real-glass-layer {
+  background: rgb(15 17 15 / 66%);
+}
+
+.storefront-real-glass-layer.is-menu {
+  background: rgb(247 246 242 / 72%);
+}
+
+.dark .storefront-real-glass-layer.is-menu {
+  background: rgb(15 17 15 / 73%);
+}
+
+.storefront-real-glass-layer.is-mobile-menu {
+  background: rgb(247 246 242 / 74%);
+}
+
+.dark .storefront-real-glass-layer.is-mobile-menu {
+  background: rgb(15 17 15 / 75%);
+}
+
+.storefront-real-glass-layer.is-toolbar {
+  background: rgb(247 246 242 / 68%);
+}
+
+.dark .storefront-real-glass-layer.is-toolbar {
+  background: rgb(15 17 15 / 70%);
+}
+
+.storefront-real-glass-layer.is-action {
+  background: rgb(247 246 242 / 80%);
+}
+
+.dark .storefront-real-glass-layer.is-action {
+  background: rgb(15 17 15 / 81%);
+}
+
+/* The hosts already provide sticky/fixed/absolute positioning. Their content
+   must simply paint above the real glass child. */
+.storefront-header-main,
+.storefront-desktop-nav {
+  position: relative;
+  z-index: 1;
+}
+
+.storefront-mega-menu > .storefront-real-glass-layer,
+.mobile-menu-shell > .storefront-real-glass-layer,
+.storefront-glass-surface > .storefront-real-glass-layer,
+.mobile-safe-action-bar > .storefront-real-glass-layer,
+.product-mobile-purchase > .storefront-real-glass-layer {
+  z-index: 0;
+}
+
+/* Browsers without backdrop-filter still receive an intentionally denser,
+   readable translucent material. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .storefront-real-glass-layer {
+    background: rgb(247 246 242 / 96%);
+  }
+
+  .dark .storefront-real-glass-layer {
+    background: rgb(15 17 15 / 96%);
+  }
+}
+
+/* Respect accessibility requests even though the critical filter is inline. */
+@media (prefers-reduced-transparency: reduce) {
+  .storefront-real-glass-layer {
+    background: rgb(247 246 242 / 97%) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .dark .storefront-real-glass-layer {
+    background: rgb(15 17 15 / 97%) !important;
+  }
+}
