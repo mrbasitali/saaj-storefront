@@ -17,6 +17,7 @@ const route = useRoute()
 const { theme, isDark, toggleTheme } = useStorefrontTheme()
 
 const mobileMenuOpen = ref(false)
+const mobileMenuGlassOpen = ref(false)
 const mobileCategoryId = ref<number | null>(null)
 const mobileDirection = ref<'forward' | 'back'>('forward')
 const searchOpen = ref(false)
@@ -25,6 +26,7 @@ const searchInput = ref<HTMLInputElement | null>(null)
 const desktopCategoryId = ref<number | null>(null)
 const headerWishlistBurst = ref(0)
 let desktopCloseTimer: ReturnType<typeof setTimeout> | null = null
+let mobileMenuCloseTimer: ReturnType<typeof setTimeout> | null = null
 
 const visibleCategories = computed(() => props.categories.slice(0, 6))
 const desktopCategory = computed(() => props.categories.find(category => category.id === desktopCategoryId.value) ?? null)
@@ -45,7 +47,8 @@ const headerLogo = computed(() => {
     : (logos.navbar_light || logos.navbar_dark)
 })
 
-const overlayOpen = computed(() => mobileMenuOpen.value || searchOpen.value)
+const mobileMenuActive = computed(() => mobileMenuOpen.value || mobileMenuGlassOpen.value)
+const overlayOpen = computed(() => mobileMenuActive.value || searchOpen.value)
 const selectedCategory = computed(() => {
   if (route.path.startsWith('/shop/')) {
     return route.path
@@ -92,12 +95,13 @@ onBeforeUnmount(() => {
     window.removeEventListener('keydown', onKeydown)
   }
   clearDesktopCloseTimer()
+  if (mobileMenuCloseTimer) clearTimeout(mobileMenuCloseTimer)
 })
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key !== 'Escape') return
   if (searchOpen.value) closeSearch()
-  else if (mobileMenuOpen.value) closeMobileMenu()
+  else if (mobileMenuActive.value) closeMobileMenu()
   else closeDesktopMenu()
 }
 
@@ -125,24 +129,55 @@ function closeDesktopMenu() {
   desktopCategoryId.value = null
 }
 
-function openMobileMenu() {
+async function openMobileMenu() {
   closeSearch()
   closeDesktopMenu()
+
+  if (mobileMenuCloseTimer) {
+    clearTimeout(mobileMenuCloseTimer)
+    mobileMenuCloseTimer = null
+  }
+
   mobileDirection.value = 'back'
   mobileCategoryId.value = null
-  mobileMenuOpen.value = true
+
+  // Prime the real fixed backdrop layer before revealing menu content.
+  // Chromium can otherwise paint the first menu frame before its backdrop
+  // compositor surface is ready, which creates a visible sharp -> blur pop.
+  mobileMenuGlassOpen.value = true
+
+  if (!import.meta.client) {
+    mobileMenuOpen.value = true
+    return
+  }
+
+  await nextTick()
+  await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()))
+  await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()))
+
+  if (mobileMenuGlassOpen.value) mobileMenuOpen.value = true
 }
 
 function closeMobileMenu() {
   mobileMenuOpen.value = false
 
+  if (mobileMenuCloseTimer) {
+    clearTimeout(mobileMenuCloseTimer)
+    mobileMenuCloseTimer = null
+  }
+
   if (!import.meta.client) {
+    mobileMenuGlassOpen.value = false
     mobileCategoryId.value = null
     return
   }
 
-  window.setTimeout(() => {
+  // Keep the already-composited blur in place until the shell finishes its
+  // leave animation, then remove both the glass and the nested category state.
+  mobileMenuCloseTimer = window.setTimeout(() => {
+    mobileMenuGlassOpen.value = false
     mobileCategoryId.value = null
+    mobileMenuCloseTimer = null
   }, 540)
 }
 
@@ -158,7 +193,7 @@ function goMobileBack() {
 
 function openSearch() {
   closeDesktopMenu()
-  if (mobileMenuOpen.value) closeMobileMenu()
+  if (mobileMenuActive.value) closeMobileMenu()
 
   const activeSearch = typeof route.query.search === 'string' ? route.query.search : ''
   if (activeSearch) searchQuery.value = activeSearch
@@ -193,12 +228,12 @@ function submitSearch() {
       <div class="flex min-w-0 items-center">
         <button
           type="button"
-          :aria-label="mobileMenuOpen ? 'Close menu' : 'Open menu'"
-          :aria-expanded="mobileMenuOpen"
+          :aria-label="mobileMenuActive ? 'Close menu' : 'Open menu'"
+          :aria-expanded="mobileMenuActive"
           class="header-utility-button lg:hidden"
-          @click="mobileMenuOpen ? closeMobileMenu() : openMobileMenu()"
+          @click="mobileMenuActive ? closeMobileMenu() : openMobileMenu()"
         >
-          <span class="hamburger-icon" :class="{ 'is-open': mobileMenuOpen }" aria-hidden="true">
+          <span class="hamburger-icon" :class="{ 'is-open': mobileMenuActive }" aria-hidden="true">
             <span />
             <span />
           </span>
@@ -406,9 +441,17 @@ function submitSearch() {
     />
   </Transition>
 
+  <!-- Prime this sibling glass before mounting the menu shell. Keeping the
+       filter outside the animated shell also avoids Chromium's first-frame
+       backdrop compositor flash on Android and desktop Chrome. -->
+  <StorefrontGlassLayer
+    v-if="mobileMenuGlassOpen"
+    variant="mobile-menu"
+    class="mobile-menu-preblur lg:hidden"
+  />
+
   <Transition name="mobile-shell">
     <div v-if="mobileMenuOpen" class="mobile-menu-shell lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
-      <StorefrontGlassLayer variant="mobile-menu" />
       <div class="relative z-[1] min-h-0 flex-1 overflow-hidden">
         <Transition :name="mobileDirection === 'forward' ? 'mobile-level-forward' : 'mobile-level-back'" mode="out-in">
           <div v-if="!mobileCategory" key="root" class="mobile-menu-level">

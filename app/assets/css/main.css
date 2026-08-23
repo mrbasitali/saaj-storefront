@@ -3777,3 +3777,28 @@ html.dark .storefront-footer {
     background: rgb(15 17 15 / 97%) !important;
   }
 }
+
+/* Patch 6.5.1 — mobile menu pre-composited glass ------------------------- */
+/*
+ * Keep the mobile menu's actual blur outside the animated menu shell. The
+ * layer is mounted a couple of paint frames before the shell, so Chromium has
+ * already created the backdrop compositor surface when menu content appears.
+ * This removes the sharp-background -> blurred-background flash seen on open.
+ */
+.mobile-menu-preblur.storefront-real-glass-layer {
+  position: fixed;
+  inset-inline: 0;
+  top: 68px;
+  bottom: 0;
+  z-index: 48;
+  border-radius: 0;
+  pointer-events: none;
+  will-change: backdrop-filter;
+  transform: translateZ(0);
+}
+
+@media (min-width: 1024px) {
+  .mobile-menu-preblur.storefront-real-glass-layer {
+    display: none !important;
+  }
+}
