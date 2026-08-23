@@ -335,7 +335,7 @@ function decrease(variantId: number) {
     <Transition name="cart-mobile-checkout">
       <div
         v-if="cart.hydrated && cart.items.length"
-        class="fixed inset-x-0 bottom-0 z-40 border-t border-charcoal-950/10 bg-paper-50/96 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_35px_rgba(0,0,0,0.06)] backdrop-blur-xl lg:hidden"
+        class="mobile-safe-action-bar fixed inset-x-0 bottom-0 z-40 border-t border-charcoal-950/10 bg-paper-50/96 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_35px_rgba(0,0,0,0.06)] backdrop-blur-xl lg:hidden"
       >
         <div class="mx-auto flex max-w-xl items-center gap-4">
           <div class="min-w-0 flex-1">

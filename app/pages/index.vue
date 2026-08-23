@@ -35,12 +35,26 @@ type Product = {
   }> | null
 }
 
+type HeroPanel = {
+  image_url: string | null
+  eyebrow?: string | null
+  title?: string | null
+  description?: string | null
+  alt_text?: string | null
+  cta_label?: string | null
+  cta_url?: string | null
+  text_theme?: 'light' | 'dark'
+  text_position?: 'bottom-left' | 'center-left' | 'center' | 'bottom-center' | 'bottom-right' | 'center-right'
+}
+
 type HeroSlide = {
   id: number | string
+  layout_type?: 'single' | 'panels'
   media_type: 'image' | 'video'
   desktop_media_url: string | null
   mobile_media_url?: string | null
   poster_url?: string | null
+  panels?: HeroPanel[]
   eyebrow?: string | null
   title?: string | null
   description?: string | null
@@ -64,7 +78,12 @@ type HomepageResponse = {
       pause_on_hover: boolean
       show_arrows: boolean
       show_dots: boolean
+      title_size: number
       slides: HeroSlide[]
+    }
+    sections?: {
+      category_columns?: number
+      editorial_image_url?: string | null
     }
   }
 }
@@ -77,9 +96,7 @@ function categoryPath(slug: string | null | undefined) {
   return segments.length ? `/shop/${segments.join('/')}` : '/shop'
 }
 
-// The hero is critical, so it is fetched normally and can be rendered on
-// the server. Secondary merchandising sections are lazy so client-side
-// navigation can paint immediately and use stable skeletons while loading.
+// Hero remains SSR-critical. Secondary merchandising sections can hydrate lazily.
 const { data: homepageResponse } = await useAsyncData('homepage-config', () =>
   $api<HomepageResponse>('/homepage'),
 )
@@ -96,7 +113,7 @@ const { data: featuredResponse, status: featuredStatus } = await useLazyAsyncDat
   }),
 )
 
-const categories = computed(() => (categoriesResponse.value?.data ?? []).slice(0, 4))
+const categories = computed(() => categoriesResponse.value?.data ?? [])
 const featuredProducts = computed(() => featuredResponse.value?.data ?? [])
 
 const heroCategory = computed(() =>
@@ -127,11 +144,13 @@ const heroConfig = computed(() => homepageResponse.value?.data.hero ?? {
   pause_on_hover: true,
   show_arrows: false,
   show_dots: false,
+  title_size: 102,
   slides: [],
 })
 
 const fallbackSlide = computed<HeroSlide>(() => ({
   id: 'saaj-fallback-hero',
+  layout_type: 'single',
   media_type: 'image',
   desktop_media_url: heroImage.value,
   eyebrow: 'The new edit',
@@ -151,21 +170,28 @@ const heroSlides = computed(() =>
   heroConfig.value.slides.length ? heroConfig.value.slides : [fallbackSlide.value],
 )
 
+// The homepage category rail intentionally uses the square/portrait category image.
+// Banner imagery is reserved for collection/category landing pages.
+function categoryImage(category: Category, _index: number) {
+  return category.image_url || null
+}
+
+const categoryColumns = computed(() => {
+  const value = Number(homepageResponse.value?.data.sections?.category_columns ?? 4)
+  return Math.min(6, Math.max(2, Number.isFinite(value) ? value : 4))
+})
+
+const categoryGridStyle = computed(() => ({
+  '--home-category-columns': String(categoryColumns.value),
+}))
+
 const editorialImage = computed(() =>
-  featuredProducts.value[4]?.primary_image?.optimized_urls?.detail
+  homepageResponse.value?.data.sections?.editorial_image_url
+  || featuredProducts.value[4]?.primary_image?.optimized_urls?.detail
   || featuredProducts.value[1]?.primary_image?.optimized_urls?.detail
-  || categories.value[1]?.banner_image_url
   || categories.value[1]?.image_url
   || null,
 )
-
-function categoryImage(category: Category, index: number) {
-  return category.banner_image_url
-    || category.image_url
-    || featuredProducts.value[index + 1]?.primary_image?.optimized_urls?.detail
-    || featuredProducts.value[index + 1]?.primary_image?.optimized_urls?.card
-    || null
-}
 
 const homeCanonical = 'https://www.saaj.pk/'
 
@@ -202,87 +228,108 @@ useHead({
       :slides="heroSlides"
     />
 
-    <section class="mx-auto max-w-[1600px] px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-28">
-      <div class="grid gap-8 lg:grid-cols-[0.7fr_1.3fr] lg:items-end">
-        <p class="section-kicker">SAAJ / 2026</p>
+    <!-- Compact brand statement: intentionally visible beneath the shorter hero. -->
+    <section class="mx-auto max-w-[1600px] px-5 py-12 sm:px-8 sm:py-14 lg:px-10 lg:py-16">
+      <div class="grid gap-5 border-b border-charcoal-950/[0.08] pb-12 sm:pb-14 lg:grid-cols-[0.55fr_1.45fr] lg:items-end lg:gap-14 lg:pb-16">
+        <div class="flex items-center gap-3">
+          <span class="h-px w-8 bg-charcoal-950/35" />
+          <p class="section-kicker">SAAJ / The wardrobe</p>
+        </div>
         <div>
-          <h2 class="max-w-4xl font-display text-[clamp(2.4rem,4.2vw,4.8rem)] font-medium leading-[0.98] tracking-[-0.05em] text-charcoal-950">
+          <h2 class="max-w-4xl font-display text-[clamp(2.15rem,3.6vw,4.25rem)] font-medium leading-[0.98] tracking-[-0.05em] text-charcoal-950">
             Clothes that feel current now, and considered long after.
           </h2>
-          <p class="mt-5 max-w-2xl text-sm leading-7 text-charcoal-500 sm:text-base">
-            Built around proportion, texture, and ease — the SAAJ wardrobe is designed to feel polished without feeling overdone.
-          </p>
+          <div class="mt-5 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <p class="max-w-2xl text-[13px] leading-6 text-charcoal-500 sm:text-sm sm:leading-7">
+              Built around proportion, texture, and ease — the SAAJ wardrobe is designed to feel polished without feeling overdone.
+            </p>
+            <NuxtLink to="/shop" class="home-inline-action shrink-0">
+              <span>Explore all</span>
+              <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.25" class="h-4 w-4">
+                <path d="M3.5 9h11M10.5 5l4 4-4 4" />
+              </svg>
+            </NuxtLink>
+          </div>
         </div>
       </div>
     </section>
 
-    <section class="mx-auto max-w-[1600px] px-5 pb-16 sm:px-8 sm:pb-20 lg:px-10 lg:pb-28">
-      <div class="mb-7 flex items-end justify-between gap-6 sm:mb-9">
-        <div>
-          <p class="section-kicker">Shop by category</p>
-          <h2 class="mt-2 font-display text-4xl font-medium tracking-[-0.04em] text-charcoal-950 sm:text-5xl">
-            Find your edit
+    <!-- Immersive category discovery: image-led, compact, and touch-native. -->
+    <section class="home-category-section mx-auto max-w-[1600px] px-5 pb-16 sm:px-8 sm:pb-20 lg:px-10 lg:pb-24">
+      <div class="flex items-end justify-between gap-6 border-b border-charcoal-950/[0.07] pb-5 sm:pb-6">
+        <div class="max-w-3xl">
+          <p class="section-kicker">Explore SAAJ</p>
+          <h2 class="mt-2 font-display text-[clamp(2.15rem,3.1vw,3.55rem)] font-medium leading-[0.98] tracking-[-0.048em] text-charcoal-950">
+            Shop the collections
           </h2>
+          <p class="mt-3 max-w-xl text-[12px] leading-5 text-charcoal-500 sm:text-[13px] sm:leading-6">
+            Move through the wardrobe by mood, silhouette, and occasion.
+          </p>
         </div>
-        <NuxtLink v-if="categoriesStatus !== 'pending'" to="/shop" class="text-link hidden sm:inline-flex">Shop all</NuxtLink>
+        <NuxtLink v-if="categoriesStatus !== 'pending'" to="/shop" class="home-inline-action hidden shrink-0 sm:inline-flex">
+          <span>View all</span>
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.25" class="h-4 w-4"><path d="M3.5 9h11M10.5 5l4 4-4 4" /></svg>
+        </NuxtLink>
       </div>
 
       <div
         v-if="categoriesStatus === 'pending'"
-        class="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-12 lg:gap-5"
+        class="home-category-grid mt-5 grid grid-flow-col auto-cols-[82%] gap-2 overflow-hidden sm:auto-cols-[46%] lg:grid-flow-row lg:gap-2.5"
+        :style="categoryGridStyle"
         aria-label="Loading categories"
       >
-        <StorefrontSkeleton class="aspect-[3/4] lg:col-span-7 lg:aspect-[4/5]" />
-        <StorefrontSkeleton class="aspect-[3/4] lg:col-span-5 lg:aspect-[4/5]" />
-        <StorefrontSkeleton class="aspect-[3/4] lg:col-span-5 lg:aspect-[5/4]" />
-        <StorefrontSkeleton class="aspect-[3/4] lg:col-span-7 lg:aspect-[5/4]" />
+        <StorefrontSkeleton v-for="index in categoryColumns" :key="index" class="aspect-[3/4]" />
       </div>
 
       <div
         v-else-if="categories.length"
-        class="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-12 lg:gap-5"
+        class="home-category-rail home-category-grid mt-5 grid grid-flow-col auto-cols-[82%] gap-2 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] sm:auto-cols-[46%] sm:gap-2.5 lg:grid-flow-row lg:overflow-visible lg:pb-0 [&::-webkit-scrollbar]:hidden"
+        :style="categoryGridStyle"
       >
         <NuxtLink
           v-for="(category, index) in categories"
           :key="category.id"
           :to="categoryPath(category.full_slug)"
-          class="group relative overflow-hidden bg-mist-100"
-          :class="[
-            index === 0 || index === 3 ? 'lg:col-span-7' : 'lg:col-span-5',
-            index === 0 || index === 1 ? 'aspect-[3/4] sm:aspect-[4/5] lg:aspect-[4/5]' : 'aspect-[3/4] sm:aspect-[4/5] lg:aspect-[5/4]',
-          ]"
+          class="home-category-card group relative min-w-0 snap-start overflow-hidden bg-mist-100"
         >
-          <NuxtImg
-            v-if="categoryImage(category, index)"
-            :src="categoryImage(category, index)!"
-            :alt="category.name"
-            class="absolute inset-0 h-full w-full object-cover transition duration-700 ease-out group-hover:scale-[1.025]"
-            loading="lazy"
-          />
-          <div v-else class="absolute inset-0 bg-[linear-gradient(145deg,#dfe5df,#f3f1eb)]" />
-          <div class="absolute inset-0 bg-gradient-to-t from-black/52 via-black/7 to-transparent" />
+          <div class="relative aspect-[3/4] overflow-hidden">
+            <NuxtImg
+              v-if="categoryImage(category, index)"
+              :src="categoryImage(category, index)!"
+              :alt="category.name"
+              class="home-category-image absolute inset-0 h-full w-full object-cover"
+              loading="lazy"
+              sizes="(max-width: 639px) 82vw, (max-width: 1023px) 46vw, 25vw"
+            />
+            <div v-else class="absolute inset-0 bg-[linear-gradient(145deg,#dfe5df,#f3f1eb)]" />
+            <div class="home-category-shade absolute inset-0" />
 
-          <div class="absolute inset-x-0 bottom-0 p-4 text-white sm:p-6 lg:p-8">
-            <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/68">Explore</p>
-            <div class="mt-1.5 flex items-end justify-between gap-4">
-              <h3 class="font-display text-[28px] font-medium tracking-[-0.035em] sm:text-[34px] lg:text-[42px]">
-                {{ category.name }}
-              </h3>
-              <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/45 transition duration-300 group-hover:bg-white group-hover:text-charcoal-950">
-                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path d="M5 12h14M14 7l5 5-5 5" />
-                </svg>
-              </span>
+            <div class="absolute inset-0 flex flex-col justify-end p-4 sm:p-5 lg:p-4 xl:p-5">
+              <p class="text-[9px] font-semibold uppercase tracking-[0.18em] text-white/66">
+                Collection {{ String(index + 1).padStart(2, '0') }}
+              </p>
+              <div class="mt-2 flex items-end justify-between gap-4">
+                <h3 class="min-w-0 font-display text-[clamp(1.65rem,2.2vw,2.6rem)] font-medium leading-[0.96] tracking-[-0.045em] text-white">
+                  {{ category.name }}
+                </h3>
+                <span class="home-category-cta shrink-0" aria-hidden="true">
+                  <span>Explore</span>
+                  <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.25" class="h-3.5 w-3.5"><path d="M4 14 14 4M7 4h7v7" /></svg>
+                </span>
+              </div>
             </div>
           </div>
         </NuxtLink>
       </div>
 
-      <NuxtLink v-if="categoriesStatus !== 'pending'" to="/shop" class="text-link mt-6 sm:hidden">Shop all</NuxtLink>
+      <NuxtLink v-if="categoriesStatus !== 'pending'" to="/shop" class="home-inline-action mt-5 sm:hidden">
+        <span>View all collections</span>
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.25" class="h-4 w-4"><path d="M3.5 9h11M10.5 5l4 4-4 4" /></svg>
+      </NuxtLink>
     </section>
 
     <section class="border-y border-black/8 bg-white">
-      <div class="mx-auto max-w-[1600px] px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-24">
+      <div class="mx-auto max-w-[1600px] px-5 py-14 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
         <div class="flex items-end justify-between gap-5">
           <div>
             <p class="section-kicker">Selected for you</p>
@@ -313,42 +360,50 @@ useHead({
       </div>
     </section>
 
-    <section class="bg-mist-100">
-      <div class="mx-auto grid max-w-[1600px] lg:grid-cols-2">
-        <div class="relative min-h-[520px] overflow-hidden sm:min-h-[640px] lg:min-h-[760px]">
+    <!-- Dedicated backoffice-controlled editorial image. -->
+    <section class="mx-auto max-w-[1600px] px-0 py-0 lg:px-10 lg:py-24">
+      <div class="home-editorial-story relative isolate overflow-hidden bg-mist-100 lg:min-h-[690px]">
+        <div class="relative aspect-[4/5] min-h-[520px] sm:aspect-[16/10] sm:min-h-[600px] lg:absolute lg:inset-0 lg:aspect-auto lg:min-h-0">
           <NuxtImg
             v-if="editorialImage"
             :src="editorialImage"
             alt="SAAJ editorial"
             class="absolute inset-0 h-full w-full object-cover"
             loading="lazy"
+            sizes="100vw lg:1520px"
           />
           <StorefrontSkeleton v-else-if="featuredStatus === 'pending'" class="absolute inset-0" />
           <div v-else class="absolute inset-0 bg-[linear-gradient(145deg,#cfd8d0,#edeae2)]" />
+          <div class="absolute inset-0 bg-gradient-to-t from-black/32 via-transparent to-black/5 lg:bg-gradient-to-r lg:from-transparent lg:via-transparent lg:to-black/10" />
         </div>
 
-        <div class="flex items-center px-5 py-16 sm:px-10 sm:py-20 lg:px-16 lg:py-24 xl:px-24">
-          <div class="max-w-xl">
-            <p class="section-kicker">The SAAJ point of view</p>
-            <h2 class="mt-4 font-display text-[clamp(3rem,5vw,5.8rem)] font-medium leading-[0.9] tracking-[-0.06em] text-charcoal-950">
+        <div class="relative z-10 -mt-24 px-5 pb-5 sm:-mt-28 sm:px-8 sm:pb-8 lg:ml-auto lg:mr-10 lg:mt-0 lg:flex lg:min-h-[690px] lg:w-[44%] lg:items-end lg:px-0 lg:pb-10 xl:mr-14 xl:w-[40%]">
+          <div class="w-full bg-paper-50/96 p-7 shadow-[0_22px_70px_rgba(0,0,0,0.08)] backdrop-blur-xl sm:p-9 lg:p-10 xl:p-12">
+            <div class="flex items-center gap-3">
+              <span class="h-px w-7 bg-charcoal-950/35" />
+              <p class="section-kicker">The SAAJ point of view</p>
+            </div>
+            <h2 class="mt-5 font-display text-[clamp(2.75rem,4.3vw,5rem)] font-medium leading-[0.9] tracking-[-0.06em] text-charcoal-950">
               Less noise.<br>More character.
             </h2>
-            <p class="mt-6 max-w-lg text-sm leading-7 text-charcoal-600 sm:text-base">
+            <p class="mt-5 max-w-lg text-[13px] leading-6 text-charcoal-600 sm:text-sm sm:leading-7">
               We prefer pieces that earn attention through cut, movement, texture, and detail — not through excess.
             </p>
-            <NuxtLink
-              to="/shop"
-              class="mt-8 inline-flex min-h-12 items-center justify-center bg-[#151714] px-7 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#f7f6f2] transition duration-300 hover:bg-[#292d28] active:scale-[0.985]"
-            >
-              Discover SAAJ
+            <NuxtLink to="/shop" class="home-editorial-cta mt-7">
+              <span>Discover SAAJ</span>
+              <span class="home-editorial-cta-icon">
+                <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.25" class="h-4 w-4">
+                  <path d="M3.5 9h11M10.5 5l4 4-4 4" />
+                </svg>
+              </span>
             </NuxtLink>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="mx-auto max-w-[1600px] px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-24">
-      <div class="grid gap-10 border-t border-black/8 pt-10 sm:grid-cols-3 sm:gap-6">
+    <section class="mx-auto max-w-[1600px] px-5 py-14 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
+      <div class="grid gap-8 border-t border-black/8 pt-9 sm:grid-cols-3 sm:gap-6 sm:pt-10">
         <div>
           <p class="section-kicker">01 / Detail</p>
           <p class="mt-3 max-w-xs text-sm leading-6 text-charcoal-600">

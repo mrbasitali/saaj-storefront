@@ -154,6 +154,36 @@ const primaryCategory = computed(() => {
   return [...categories].sort((a, b) => (b.depth ?? 0) - (a.depth ?? 0))[0] ?? null
 })
 
+function breadcrumbLabelFromSlug(segment: string) {
+  return decodeURIComponent(segment)
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b\w/g, letter => letter.toUpperCase())
+}
+
+const productCategoryTrail = computed(() => {
+  const deepest = primaryCategory.value
+  if (!deepest?.full_slug) return []
+
+  const assignedByPath = new Map(
+    (product.value?.categories ?? [])
+      .filter(category => !!category.full_slug)
+      .map(category => [category.full_slug, category]),
+  )
+
+  const segments = deepest.full_slug.split('/').filter(Boolean)
+  let fullSlug = ''
+
+  return segments.map((segment) => {
+    fullSlug = fullSlug ? `${fullSlug}/${segment}` : segment
+    const assigned = assignedByPath.get(fullSlug)
+
+    return {
+      name: assigned?.name || breadcrumbLabelFromSlug(segment),
+      full_slug: fullSlug,
+    }
+  })
+})
+
 const productCanonicalUrl = computed(() => `${siteOrigin}/products/${encodeURIComponent(slug.value)}`)
 const productSeoDescription = computed(() => product.value?.meta_description
   || product.value?.short_description
@@ -205,15 +235,15 @@ const productBreadcrumbJsonLd = computed(() => ({
   itemListElement: [
     { '@type': 'ListItem', position: 1, name: 'Home', item: `${siteOrigin}/` },
     { '@type': 'ListItem', position: 2, name: 'Shop', item: `${siteOrigin}/shop` },
-    ...(primaryCategory.value ? [{
+    ...productCategoryTrail.value.map((category, index) => ({
       '@type': 'ListItem',
-      position: 3,
-      name: primaryCategory.value.name,
-      item: `${siteOrigin}${categoryPath(primaryCategory.value.full_slug)}`,
-    }] : []),
+      position: index + 3,
+      name: category.name,
+      item: `${siteOrigin}${categoryPath(category.full_slug)}`,
+    })),
     {
       '@type': 'ListItem',
-      position: primaryCategory.value ? 4 : 3,
+      position: productCategoryTrail.value.length + 3,
       name: valueOrFallback(product.value?.name, 'Product'),
       item: productCanonicalUrl.value,
     },
@@ -1006,6 +1036,7 @@ async function buyNow() {
 
 const wishlistBusy = ref(false)
 const isWishlisted = ref(false)
+const wishlistBurstKey = ref(0)
 
 async function checkWishlist() {
   if (!product.value || !customerToken.value) {
@@ -1046,6 +1077,8 @@ async function toggleWishlist() {
         body: { product_id: product.value.id },
       })
       isWishlisted.value = true
+      wishlistBurstKey.value += 1
+      if (import.meta.client && 'vibrate' in navigator) navigator.vibrate?.(10)
     }
   } finally {
     wishlistBusy.value = false
@@ -1159,22 +1192,22 @@ watch(product, () => {
 
         <NuxtLink to="/shop" class="shop-breadcrumb-link">Shop</NuxtLink>
 
-        <template v-if="primaryCategory">
+        <template v-for="category in productCategoryTrail" :key="category.full_slug">
           <svg class="shop-breadcrumb-separator" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.1">
             <path d="m4.3 2.6 3.4 3.4-3.4 3.4" />
           </svg>
           <NuxtLink
-            :to="categoryPath(primaryCategory.full_slug)"
+            :to="categoryPath(category.full_slug)"
             class="shop-breadcrumb-link"
           >
-            {{ primaryCategory.name }}
+            {{ category.name }}
           </NuxtLink>
         </template>
 
         <svg class="shop-breadcrumb-separator" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.1">
           <path d="m4.3 2.6 3.4 3.4-3.4 3.4" />
         </svg>
-        <span class="shop-breadcrumb-current">{{ product.name }}</span>
+        <span class="shop-breadcrumb-current" aria-current="page">{{ product.name }}</span>
       </nav>
     </div>
 
@@ -1186,7 +1219,7 @@ watch(product, () => {
            product image size; the sticky/overlap effect begins only as the
            customer scrolls into the product information. -->
       <div
-        class="relative overflow-clip lg:hidden"
+        class="relative overflow-clip bg-paper-50 lg:hidden"
         :class="{ 'product-editorial-mobile-media': stackedGalleryEnabled }"
       >
         <div
@@ -1216,27 +1249,36 @@ watch(product, () => {
           />
         </div>
 
-        <!-- Minimal gallery position markers. The active image stretches into
-             a short pill so the shopper immediately understands there is more
-             content without covering the photography. -->
-        <nav
-          v-if="galleryImages.length > 1"
-          class="product-mobile-gallery-indicators absolute bottom-4 left-1/2 z-30"
-          aria-label="Product images"
-        >
-          <button
-            v-for="(_, index) in galleryImages"
-            :key="`mobile-gallery-indicator-${index}`"
-            type="button"
-            class="product-gallery-indicator"
-            :class="{ 'is-active': currentImageIndex === index }"
-            :aria-label="`Show image ${index + 1} of ${galleryImages.length}`"
-            :aria-current="currentImageIndex === index ? 'true' : undefined"
-            @click="scrollToImage(index)"
+        <!-- Keep product photography completely clean on mobile. The full-width
+             position rail sits immediately below the image, followed by the
+             small interactive markers in their own quiet row. -->
+        <template v-if="galleryImages.length > 1">
+          <div class="product-mobile-gallery-progress-line" aria-hidden="true">
+            <span
+              :style="{
+                width: `${100 / galleryImages.length}%`,
+                transform: `translateX(${currentImageIndex * 100}%)`,
+              }"
+            />
+          </div>
+          <nav
+            class="product-mobile-gallery-indicators"
+            aria-label="Product images"
           >
-            <span />
-          </button>
-        </nav>
+            <button
+              v-for="(_, index) in galleryImages"
+              :key="`mobile-gallery-indicator-${index}`"
+              type="button"
+              class="product-gallery-indicator"
+              :class="{ 'is-active': currentImageIndex === index }"
+              :aria-label="`Show image ${index + 1} of ${galleryImages.length}`"
+              :aria-current="currentImageIndex === index ? 'true' : undefined"
+              @click="scrollToImage(index)"
+            >
+              <span />
+            </button>
+          </nav>
+        </template>
       </div>
 
       <!-- Desktop editorial gallery: full-bleed stacked images + sticky purchase panel -->
@@ -1428,15 +1470,7 @@ watch(product, () => {
               :disabled="wishlistBusy || isPreviewMode"
               @click="toggleWishlist"
             >
-              <svg
-                class="h-[19px] w-[19px]"
-                viewBox="0 0 24 24"
-                :fill="isWishlisted ? 'currentColor' : 'none'"
-                stroke="currentColor"
-                stroke-width="1.35"
-              >
-                <path d="M12 20.5s-7.5-4.6-9.8-9.2C.6 7.8 2.3 4.5 5.6 4.1c2-.3 3.7.7 4.9 2.4C11.7 4.8 13.4 3.8 15.4 4.1c3.3.4 5 3.7 3.4 7.2C16.5 15.9 12 20.5 12 20.5Z" />
-              </svg>
+              <WishlistHeart :active="isWishlisted" :burst-key="wishlistBurstKey" :size="21" />
             </button>
           </div>
 
@@ -1709,7 +1743,7 @@ watch(product, () => {
 
     <!-- Mobile sticky purchase bar. This is the only mobile purchase CTA;
          there is no duplicate inline Add to bag / Buy now button. -->
-    <div class="product-mobile-purchase fixed inset-x-0 bottom-0 z-30 border-t border-charcoal-950/[0.08] bg-paper-50/94 px-4 py-3 shadow-[0_-12px_35px_rgba(0,0,0,0.05)] backdrop-blur-xl lg:hidden">
+    <div class="product-mobile-purchase mobile-safe-action-bar fixed inset-x-0 bottom-0 z-30 border-t border-charcoal-950/[0.08] bg-paper-50/94 px-4 py-3 shadow-[0_-12px_35px_rgba(0,0,0,0.05)] backdrop-blur-xl lg:hidden">
       <div v-if="directBuyNowEnabled" class="space-y-2.5">
         <div class="flex min-w-0 items-center justify-between gap-4">
           <p class="min-w-0 truncate text-[11px] font-medium text-charcoal-950">{{ product.name }}</p>

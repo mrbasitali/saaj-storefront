@@ -919,7 +919,7 @@ onMounted(async () => {
     <Transition name="checkout-sticky">
       <div
         v-if="cart.hydrated && cart.items.length"
-        class="fixed inset-x-0 bottom-0 z-40 border-t border-charcoal-950/10 bg-paper-50/95 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl lg:hidden"
+        class="mobile-safe-action-bar fixed inset-x-0 bottom-0 z-40 border-t border-charcoal-950/10 bg-paper-50/95 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl lg:hidden"
       >
         <div class="mx-auto flex max-w-xl items-center gap-4">
           <div class="min-w-0 flex-1">

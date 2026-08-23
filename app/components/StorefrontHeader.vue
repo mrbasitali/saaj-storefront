@@ -23,6 +23,7 @@ const searchOpen = ref(false)
 const searchQuery = ref('')
 const searchInput = ref<HTMLInputElement | null>(null)
 const desktopCategoryId = ref<number | null>(null)
+const headerWishlistBurst = ref(0)
 let desktopCloseTimer: ReturnType<typeof setTimeout> | null = null
 
 const visibleCategories = computed(() => props.categories.slice(0, 6))
@@ -56,6 +57,7 @@ const selectedCategory = computed(() => {
   return typeof route.query.category === 'string' ? route.query.category : ''
 })
 const isNewInActive = computed(() => route.path === '/shop' && !selectedCategory.value && !route.query.search)
+const isWishlistRoute = computed(() => route.path.startsWith('/account/wishlist'))
 
 function isCategoryActive(category: Category) {
   if (!selectedCategory.value) return false
@@ -266,10 +268,13 @@ function submitSearch() {
           </Transition>
         </button>
 
-        <NuxtLink to="/account/wishlist" aria-label="Wishlist" class="header-utility-button hidden sm:flex">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="h-[18px] w-[18px]">
-            <path d="M12 20.3s-7.4-4.6-9.3-9.1C1.2 7.9 2.9 4.8 6 4.4c1.9-.2 3.6.7 4.7 2.4 1.1-1.7 2.8-2.6 4.7-2.4 3.1.4 4.8 3.5 3.3 6.8C16.8 15.7 12 20.3 12 20.3Z" />
-          </svg>
+        <NuxtLink
+          to="/account/wishlist"
+          aria-label="Wishlist"
+          class="header-utility-button hidden sm:flex"
+          @click="headerWishlistBurst += 1"
+        >
+          <WishlistHeart :active="isWishlistRoute" :burst-key="headerWishlistBurst" :size="18" />
         </NuxtLink>
 
         <NuxtLink :to="authStore.isLoggedIn ? '/account' : '/login'" aria-label="Account" class="header-utility-button relative flex">
@@ -383,7 +388,7 @@ function submitSearch() {
       v-if="desktopCategory"
       type="button"
       aria-label="Close menu"
-      class="fixed inset-0 z-40 hidden bg-black/16 backdrop-blur-[1px] lg:block"
+      class="storefront-menu-backdrop fixed inset-0 z-40 hidden lg:block"
       @mouseenter="scheduleDesktopClose"
       @click="closeDesktopMenu"
     />

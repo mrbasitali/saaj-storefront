@@ -2137,3 +2137,1157 @@ html.dark .storefront-footer {
     transition-duration: .01ms !important;
   }
 }
+
+/* Patch 5 — homepage editorial refresh -------------------------------- */
+.storefront-hero {
+  height: clamp(540px, 72svh, 700px);
+  min-height: 540px;
+  max-height: 700px;
+}
+
+.storefront-hero-inner {
+  min-height: 100%;
+}
+
+.hero-button {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border-radius: 999px;
+  padding: 5px 6px 5px 20px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  transition:
+    transform 260ms cubic-bezier(.22, 1, .36, 1),
+    background-color 260ms ease,
+    color 260ms ease,
+    border-color 260ms ease,
+    box-shadow 260ms ease;
+}
+
+.hero-button:hover {
+  transform: translateY(-1px);
+}
+
+.hero-button:active {
+  transform: translateY(0) scale(.985);
+}
+
+.hero-button-icon {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  transition: transform 320ms cubic-bezier(.22, 1, .36, 1), background-color 240ms ease;
+}
+
+.hero-button:hover .hero-button-icon {
+  transform: translateX(2px);
+}
+
+.hero-button-light {
+  background: rgba(255, 255, 255, .96);
+  color: #151714;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, .08);
+}
+
+.hero-button-light .hero-button-icon {
+  background: rgba(21, 23, 20, .08);
+}
+
+.hero-button-light:hover {
+  background: #fff;
+}
+
+.hero-button-dark {
+  background: rgba(21, 23, 20, .96);
+  color: #fff;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, .08);
+}
+
+.hero-button-dark .hero-button-icon {
+  background: rgba(255, 255, 255, .12);
+}
+
+.hero-button-dark:hover {
+  background: #151714;
+}
+
+.hero-button-outline {
+  min-height: 46px;
+  padding-inline: 18px;
+  gap: 9px;
+  background: transparent;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.hero-button-outline-light {
+  border: 1px solid rgba(255, 255, 255, .34);
+  background: rgba(0, 0, 0, .08);
+  color: #fff;
+}
+
+.hero-button-outline-light:hover {
+  border-color: rgba(255, 255, 255, .58);
+  background: rgba(255, 255, 255, .16);
+  color: #fff;
+}
+
+.hero-button-outline-dark {
+  border: 1px solid rgba(21, 23, 20, .22);
+  background: rgba(255, 255, 255, .22);
+  color: #151714;
+}
+
+.hero-button-outline-dark:hover {
+  border-color: rgba(21, 23, 20, .38);
+  background: rgba(21, 23, 20, .07);
+  color: #151714;
+}
+
+.hero-progress-shell {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, .13);
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
+}
+
+.home-inline-action,
+.home-editorial-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-charcoal-950);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  transition: gap 300ms cubic-bezier(.22, 1, .36, 1), opacity 200ms ease;
+}
+
+.home-inline-action:hover,
+.home-editorial-cta:hover {
+  gap: 14px;
+}
+
+.home-category-index {
+  display: inline-flex;
+  height: 28px;
+  min-width: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(247, 246, 242, .78);
+  padding-inline: 8px;
+  color: #151714;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.home-category-arrow {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(247, 246, 242, .82);
+  color: #151714;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: transform 340ms cubic-bezier(.22, 1, .36, 1), background-color 240ms ease;
+}
+
+.group:hover .home-category-arrow {
+  transform: rotate(4deg) scale(1.04);
+  background: rgba(255, 255, 255, .96);
+}
+
+.home-category-rail {
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.home-editorial-story {
+  box-shadow: 0 0 0 1px rgba(21, 23, 20, .035);
+}
+
+.home-editorial-cta {
+  min-height: 46px;
+  gap: 14px;
+}
+
+.home-editorial-cta-icon {
+  display: inline-flex;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--color-charcoal-950);
+  color: var(--color-paper-50);
+  transition: transform 320ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.home-editorial-cta:hover .home-editorial-cta-icon {
+  transform: translateX(3px);
+}
+
+@media (min-width: 640px) {
+  .storefront-hero {
+    height: clamp(580px, 72svh, 720px);
+    min-height: 580px;
+    max-height: 720px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .storefront-hero {
+    height: clamp(600px, 72svh, 760px);
+    min-height: 600px;
+    max-height: 760px;
+  }
+}
+
+@media (max-width: 639px) {
+  .storefront-hero {
+    height: min(72svh, 620px);
+    min-height: 520px;
+  }
+
+  .hero-progress-shell {
+    bottom: 12px;
+  }
+}
+
+.dark .home-category-index,
+.dark .home-category-arrow {
+  background: rgba(20, 22, 20, .68);
+  color: #f7f6f2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-button,
+  .hero-button-icon,
+  .home-inline-action,
+  .home-editorial-cta,
+  .home-category-arrow,
+  .home-editorial-cta-icon {
+    transition-duration: .01ms !important;
+  }
+}
+
+/* Patch 5.2 — advanced homepage composer ------------------------------- */
+.storefront-hero-title {
+  font-size: clamp(3rem, 6vw, var(--hero-title-max, 102px));
+}
+
+.home-category-grid {
+  --home-category-columns: 4;
+}
+
+.hero-panel-track {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+}
+
+.hero-panel {
+  flex: 1 1 0;
+  transition: flex-grow 700ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.hero-panel-image {
+  transform: scale(1.001);
+  transition: transform 900ms cubic-bezier(.22, 1, .36, 1), filter 500ms ease;
+}
+
+.hero-panel-scrim {
+  opacity: 0;
+  transition: opacity 460ms ease;
+}
+
+.hero-panel-scrim-dark {
+  background: linear-gradient(to top, rgba(0, 0, 0, .66) 0%, rgba(0, 0, 0, .12) 56%, transparent 82%);
+}
+
+.hero-panel-scrim-light {
+  background: linear-gradient(to top, rgba(247, 246, 242, .86) 0%, rgba(247, 246, 242, .18) 58%, transparent 84%);
+}
+
+.hero-panel-copy {
+  opacity: 0;
+  transform: translateY(14px);
+  pointer-events: none;
+  transition: opacity 360ms ease, transform 520ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.hero-panel-description {
+  max-height: 4.8em;
+  overflow: hidden;
+}
+
+.hero-panel-action {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 999px;
+  padding: 0 16px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  transition: transform 280ms cubic-bezier(.22, 1, .36, 1), background-color 220ms ease, color 220ms ease;
+}
+
+.hero-panel-action:hover {
+  transform: translateY(-1px);
+}
+
+.hero-panel-action-light {
+  background: rgba(255, 255, 255, .94);
+  color: #151714;
+}
+
+.hero-panel-action-dark {
+  background: rgba(21, 23, 20, .94);
+  color: #fff;
+}
+
+.hero-panel-mobile-progress {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, .18);
+  backdrop-filter: blur(12px) saturate(125%);
+  -webkit-backdrop-filter: blur(12px) saturate(125%);
+}
+
+.hero-panel-mobile-dot {
+  display: inline-flex;
+  width: 18px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-panel-mobile-dot > span {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .55);
+  transition: width 360ms cubic-bezier(.22, 1, .36, 1), background-color 220ms ease;
+}
+
+.hero-panel-mobile-dot.is-active > span {
+  width: 15px;
+  background: #fff;
+}
+
+@media (hover: hover) and (pointer: fine) and (min-width: 768px) {
+  .hero-panel:hover,
+  .hero-panel:focus-within {
+    flex-grow: 1.12;
+  }
+
+  .hero-panel:hover .hero-panel-image,
+  .hero-panel:focus-within .hero-panel-image {
+    transform: scale(1.025);
+  }
+
+  .hero-panel:hover .hero-panel-scrim,
+  .hero-panel:focus-within .hero-panel-scrim,
+  .hero-panel:hover .hero-panel-copy,
+  .hero-panel:focus-within .hero-panel-copy {
+    opacity: 1;
+  }
+
+  .hero-panel:hover .hero-panel-copy,
+  .hero-panel:focus-within .hero-panel-copy {
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+}
+
+@media (min-width: 1024px) {
+  .home-category-grid {
+    grid-template-columns: repeat(var(--home-category-columns), minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .storefront-hero-title {
+    font-size: clamp(2.65rem, 12vw, min(var(--hero-title-max, 102px), 72px));
+  }
+
+  .storefront-hero-panels {
+    height: min(74svh, 650px);
+    min-height: 540px;
+  }
+
+  .hero-panel-track {
+    gap: 2px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-left: 16px;
+    padding-right: 12vw;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .hero-panel-track::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hero-panel {
+    flex: 0 0 88vw;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+
+  .hero-panel-scrim,
+  .hero-panel-copy {
+    opacity: 1;
+  }
+
+  .hero-panel-copy {
+    transform: none;
+    pointer-events: auto;
+    padding-bottom: 4.3rem;
+  }
+
+  .hero-panel-mobile-progress {
+    display: flex;
+    bottom: 12px;
+  }
+
+  .hero-panel-mobile-progress.has-slide-progress {
+    bottom: 44px;
+  }
+
+  .hero-progress-shell-panels {
+    bottom: 10px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-panel,
+  .hero-panel-image,
+  .hero-panel-scrim,
+  .hero-panel-copy,
+  .hero-panel-action,
+  .hero-panel-mobile-dot > span {
+    transition-duration: .01ms !important;
+  }
+}
+
+/* Multi-panel CTAs live inside the media layer, unlike classic hero copy. */
+.storefront-hero-panels .hero-media-layer.is-active {
+  pointer-events: auto;
+}
+
+/* Patch 5.3 — storefront visual system polish -------------------------- */
+
+/* Navbar and catalogue controls share the same translucent material. */
+.storefront-header,
+.storefront-glass-surface {
+  background: color-mix(in srgb, var(--color-paper-50) 80%, transparent);
+  backdrop-filter: blur(34px) saturate(165%);
+  -webkit-backdrop-filter: blur(34px) saturate(165%);
+}
+
+.storefront-header {
+  border-bottom-color: color-mix(in srgb, var(--color-charcoal-950) 7%, transparent);
+  box-shadow: 0 10px 36px rgba(21, 23, 20, .025);
+}
+
+.storefront-glass-surface {
+  box-shadow: 0 10px 30px rgba(21, 23, 20, .025);
+}
+
+.dark .storefront-header,
+.dark .storefront-glass-surface {
+  background: color-mix(in srgb, var(--color-paper-50) 78%, transparent);
+  border-color: rgba(255, 255, 255, .07);
+}
+
+/* Multi-panel copy can now be positioned independently per panel. */
+.hero-panel-copy-inner {
+  transform: translateZ(0);
+}
+
+/* Panel CTAs use an editorial text-action rather than a generic filled pill. */
+.hero-panel-action {
+  min-height: 36px;
+  gap: 11px;
+  border-radius: 0;
+  padding: 0;
+  background: transparent !important;
+  box-shadow: none;
+  font-size: 9px;
+  letter-spacing: .13em;
+  transition: opacity 220ms ease;
+}
+
+.hero-panel-action:hover {
+  transform: none;
+  opacity: .9;
+}
+
+.hero-panel-action-label {
+  position: relative;
+  padding-bottom: 4px;
+}
+
+.hero-panel-action-label::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: currentColor;
+  opacity: .58;
+  transform: scaleX(.55);
+  transform-origin: left center;
+  transition: transform 360ms cubic-bezier(.22, 1, .36, 1), opacity 220ms ease;
+}
+
+.hero-panel-action:hover .hero-panel-action-label::after,
+.hero-panel-action:focus-visible .hero-panel-action-label::after {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.hero-panel-action-icon {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  backdrop-filter: blur(12px) saturate(135%);
+  -webkit-backdrop-filter: blur(12px) saturate(135%);
+  transition: transform 360ms cubic-bezier(.22, 1, .36, 1), background-color 220ms ease;
+}
+
+.hero-panel-action:hover .hero-panel-action-icon {
+  transform: translateX(3px);
+}
+
+.hero-panel-action-light {
+  color: #fff;
+}
+
+.hero-panel-action-light .hero-panel-action-icon {
+  border: 1px solid rgba(255, 255, 255, .2);
+  background: rgba(255, 255, 255, .14);
+}
+
+.hero-panel-action-dark {
+  color: #151714;
+}
+
+.hero-panel-action-dark .hero-panel-action-icon {
+  border: 1px solid rgba(21, 23, 20, .12);
+  background: rgba(247, 246, 242, .42);
+}
+
+/* One mobile timeline represents slide-level autoplay. No stacked dots. */
+.hero-mobile-slide-timeline {
+  height: 16px;
+  align-items: flex-end;
+  background: transparent;
+  pointer-events: auto;
+}
+
+.hero-mobile-slide-segment {
+  display: flex;
+  height: 16px;
+  min-width: 0;
+  flex: 1 1 0;
+  align-items: flex-end;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.hero-mobile-slide-track {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 2px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, .32);
+  box-shadow: 0 -1px 0 rgba(0, 0, 0, .08);
+}
+
+.hero-mobile-slide-fill {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, .98);
+  box-shadow: 0 0 8px rgba(255, 255, 255, .18);
+  transform-origin: left center;
+  will-change: transform;
+}
+
+/* Immersive homepage category tiles. */
+.home-category-section {
+  isolation: isolate;
+}
+
+.home-category-card {
+  transform: translateZ(0);
+}
+
+.home-category-image {
+  transform: scale(1.002);
+  transition: transform 900ms cubic-bezier(.22, 1, .36, 1), filter 500ms ease;
+}
+
+.home-category-shade {
+  background: linear-gradient(to top, rgba(0, 0, 0, .62) 0%, rgba(0, 0, 0, .2) 36%, rgba(0, 0, 0, .025) 72%, transparent 100%);
+  opacity: .82;
+  transition: opacity 360ms ease;
+}
+
+.home-category-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid rgba(255, 255, 255, .52);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  opacity: .72;
+  transition: gap 340ms cubic-bezier(.22, 1, .36, 1), opacity 220ms ease, border-color 220ms ease;
+}
+
+.home-category-card:hover .home-category-image,
+.home-category-card:focus-visible .home-category-image {
+  transform: scale(1.035);
+}
+
+.home-category-card:hover .home-category-shade,
+.home-category-card:focus-visible .home-category-shade {
+  opacity: .94;
+}
+
+.home-category-card:hover .home-category-cta,
+.home-category-card:focus-visible .home-category-cta {
+  gap: 11px;
+  border-color: rgba(255, 255, 255, .92);
+  opacity: 1;
+}
+
+/* Compact category masthead: banner is integrated into the header, never
+   displayed as a second oversized block underneath it. */
+.shop-collection-banner {
+  height: clamp(250px, 28vw, 380px);
+}
+
+.shop-collection-banner-image {
+  transform: scale(1.001);
+}
+
+.shop-collection-banner-shade {
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, .56) 0%, rgba(0, 0, 0, .25) 43%, rgba(0, 0, 0, .04) 76%, transparent 100%),
+    linear-gradient(to top, rgba(0, 0, 0, .28), transparent 48%);
+}
+
+.shop-breadcrumb-on-media,
+.shop-breadcrumb-on-media .shop-breadcrumb-link,
+.shop-breadcrumb-on-media .shop-breadcrumb-current {
+  color: rgba(255, 255, 255, .72);
+}
+
+.shop-breadcrumb-on-media .shop-breadcrumb-link:hover {
+  color: #fff;
+}
+
+.shop-breadcrumb-on-media .shop-breadcrumb-separator {
+  color: rgba(255, 255, 255, .36);
+}
+
+.shop-child-chip {
+  display: inline-flex;
+  min-height: 34px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-charcoal-950) 5%, transparent);
+  padding: 0 12px;
+  color: var(--color-charcoal-700);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  transition: background-color 220ms ease, color 220ms ease, transform 260ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.shop-child-chip:hover {
+  background: color-mix(in srgb, var(--color-charcoal-950) 9%, transparent);
+  color: var(--color-charcoal-950);
+  transform: translateY(-1px);
+}
+
+.shop-child-chip-on-media {
+  border: 1px solid rgba(255, 255, 255, .18);
+  background: rgba(255, 255, 255, .11);
+  color: rgba(255, 255, 255, .9);
+  backdrop-filter: blur(14px) saturate(130%);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+}
+
+.shop-child-chip-on-media:hover {
+  background: rgba(255, 255, 255, .19);
+  color: #fff;
+}
+
+/* Product photography remains entirely unobstructed on mobile. */
+.product-mobile-gallery-progress-line {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  height: 2px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--color-charcoal-950) 11%, transparent);
+}
+
+.product-mobile-gallery-progress-line > span {
+  display: block;
+  height: 100%;
+  background: var(--color-charcoal-950);
+  transition: transform 480ms cubic-bezier(.22, 1, .36, 1), width 300ms ease;
+  will-change: transform;
+}
+
+.product-mobile-gallery-indicators {
+  position: relative;
+  left: auto;
+  z-index: 3;
+  width: 100%;
+  min-height: 30px;
+  justify-content: center;
+  gap: 1px;
+  padding: 4px 0;
+  border-radius: 0;
+  background: var(--color-paper-50);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transform: none;
+}
+
+.dark .product-mobile-gallery-indicators {
+  background: var(--color-paper-50);
+}
+
+@media (max-width: 767px) {
+  .storefront-hero-panels {
+    height: min(74svh, 650px);
+    min-height: 540px;
+  }
+
+  .hero-panel-track {
+    gap: 3px;
+    padding-right: 0;
+    scroll-padding-left: 0;
+  }
+
+  .hero-panel {
+    flex: 0 0 calc(100% - 30px);
+  }
+
+  /* The next card peeks throughout the story, while the final panel closes
+     flush to the viewport so the user never lands on an empty trailing gap. */
+  .hero-panel:last-child {
+    flex-basis: 100%;
+  }
+
+  .hero-panel-copy {
+    padding-bottom: 2.35rem;
+  }
+
+  .hero-panel-scrim-dark {
+    background: linear-gradient(to top, rgba(0, 0, 0, .68) 0%, rgba(0, 0, 0, .18) 55%, rgba(0, 0, 0, .06) 100%);
+  }
+
+  .hero-panel-scrim-light {
+    background: linear-gradient(to top, rgba(247, 246, 242, .88) 0%, rgba(247, 246, 242, .28) 58%, rgba(247, 246, 242, .08) 100%);
+  }
+
+  .hero-panel-mobile-progress,
+  .hero-progress-shell-panels {
+    display: none !important;
+  }
+
+  .home-category-rail {
+    scroll-padding-inline: 0;
+  }
+
+  .home-category-cta {
+    opacity: .92;
+  }
+
+  .shop-collection-banner {
+    height: min(52svh, 340px);
+    min-height: 270px;
+  }
+
+  .shop-collection-banner-shade {
+    background:
+      linear-gradient(to top, rgba(0, 0, 0, .62) 0%, rgba(0, 0, 0, .2) 58%, rgba(0, 0, 0, .08) 100%);
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .home-category-cta {
+    opacity: .92;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-panel-action-label::after,
+  .hero-panel-action-icon,
+  .home-category-image,
+  .home-category-shade,
+  .home-category-cta,
+  .product-mobile-gallery-progress-line > span {
+    transition-duration: .01ms !important;
+  }
+}
+
+@media (max-width: 1023px) {
+  /* Editorial sticky media now includes the clean progress row below the 4:5
+     photograph, so the image itself keeps its exact visual proportions. */
+  .product-editorial-mobile-media {
+    aspect-ratio: auto;
+  }
+
+  .product-editorial-mobile-media .product-mobile-gallery {
+    height: auto;
+    aspect-ratio: 4 / 5;
+  }
+
+  .product-editorial-mobile-media .product-mobile-gallery > button,
+  .product-editorial-mobile-media .product-mobile-gallery > div {
+    height: 100%;
+  }
+}
+
+/* Patch 5.4.1 — final hero/product micro-polish -------------------------- */
+
+/* The full-width timeline is the only hero progress UI. Legacy/small dot
+   controls are intentionally suppressed on every viewport. */
+.hero-mobile-frame-dots,
+.storefront-hero .hero-progress-shell {
+  display: none !important;
+}
+
+/* Keep the product marker row visually part of the page, not a separate
+   tinted strip. The parent now owns the theme background. */
+.product-mobile-gallery-indicators {
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.dark .product-mobile-gallery-indicators {
+  background: transparent !important;
+}
+
+/* Use the foreground token for indicators. It is dark in light mode and
+   automatically becomes light in dark mode. */
+.product-gallery-indicator > span,
+.product-gallery-indicator-vertical > span {
+  background: color-mix(in srgb, var(--color-charcoal-950) 46%, transparent);
+  box-shadow: none;
+}
+
+.product-gallery-indicator.is-active > span,
+.product-gallery-indicator-vertical.is-active > span {
+  background: var(--color-charcoal-950);
+  box-shadow: none;
+  opacity: .96;
+}
+
+.dark .product-gallery-indicator > span,
+.dark .product-gallery-indicator-vertical > span {
+  background: color-mix(in srgb, var(--color-charcoal-950) 58%, transparent);
+  box-shadow: none;
+}
+
+.dark .product-gallery-indicator.is-active > span,
+.dark .product-gallery-indicator-vertical.is-active > span {
+  background: var(--color-charcoal-950);
+  box-shadow: none;
+}
+
+/* A little more optical balance for the new symmetric heart glyph. */
+.product-wishlist-button svg {
+  overflow: visible;
+  transform-origin: center;
+}
+
+.product-wishlist-button.is-active svg {
+  transform: scale(1.02);
+}
+
+/* Patch 5.4.2 — mobile hero frame sizing + product gallery surface fix --- */
+
+/*
+ * The flattened mobile hero frames contain absolutely positioned media/copy,
+ * so they have no intrinsic width of their own. Give every frame a real flex
+ * basis so the mobile carousel cannot collapse to zero width. Keep the next
+ * frame peeking in, while the final frame closes flush with the viewport.
+ */
+@media (max-width: 1023px) {
+  .hero-mobile-sequence {
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 0;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .hero-mobile-sequence::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hero-mobile-frame {
+    flex: 0 0 calc(100% - 30px);
+    width: calc(100% - 30px);
+    min-width: calc(100% - 30px);
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+
+  .hero-mobile-frame:last-child {
+    flex-basis: 100%;
+    width: 100%;
+    min-width: 100%;
+  }
+
+  /* The indicator/progress area belongs to the product information surface,
+     not the photography surface. This keeps the entire strip identical to the
+     content background in both themes, including editorial sticky mode. */
+  .product-editorial-mobile-media {
+    background: var(--color-paper-50) !important;
+  }
+
+  .product-mobile-gallery-indicators {
+    background: var(--color-paper-50) !important;
+  }
+
+  .dark .product-mobile-gallery-indicators {
+    background: var(--color-paper-50) !important;
+  }
+}
+
+/* Patch 5.4.3 — consistent mobile hero height + exact product content surface */
+
+@media (max-width: 1023px) {
+  /*
+   * Mobile flattens panel stories and standard slides into one visual sequence.
+   * The root hero used to switch between the standard and panel height rules as
+   * activeIndex followed the source slide, which made the entire homepage jump.
+   * Keep one physical hero viewport for every mobile frame instead.
+   */
+  .storefront-hero,
+  .storefront-hero.storefront-hero-panels {
+    height: clamp(540px, 74svh, 650px) !important;
+    min-height: 540px !important;
+    max-height: 650px !important;
+  }
+
+  .hero-mobile-sequence,
+  .hero-mobile-frame {
+    height: 100%;
+    min-height: 100%;
+  }
+
+  /*
+   * The product purchase/details panel visually uses a true white surface in
+   * light mode (and #171a17 through the storefront's dark .bg-white mapping).
+   * Match that exact surface for the gallery navigation strip instead of the
+   * warmer paper token, so there is no tinted band between media and details.
+   */
+  .product-mobile-gallery-indicators {
+    background-color: #ffffff !important;
+  }
+
+  .dark .product-mobile-gallery-indicators {
+    background-color: #171a17 !important;
+  }
+}
+
+/* Patch 5.4.4 — breadcrumb hierarchy + mobile campaign breathing room */
+
+/* The current breadcrumb is context, not an action. Keep it quiet and
+   deliberately non-button-like on every surface. */
+.shop-breadcrumb-current {
+  background: transparent !important;
+  color: var(--color-charcoal-450) !important;
+  font-weight: 600;
+  opacity: 0.72;
+  cursor: default;
+  user-select: none;
+}
+
+.shop-breadcrumb-on-media .shop-breadcrumb-current {
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  opacity: 1;
+}
+
+.dark .shop-breadcrumb-current {
+  color: var(--color-charcoal-450) !important;
+}
+
+/* Restore a small luxury-editorial gutter between mobile campaign frames.
+   The frame is narrowed by the gutter amount as well, so the next frame keeps
+   the same useful peek. The final frame remains full width and therefore has
+   no trailing blank area after it. */
+@media (max-width: 1023px) {
+  .hero-mobile-sequence {
+    gap: 8px;
+  }
+
+  .hero-mobile-frame {
+    flex-basis: calc(100% - 38px);
+    width: calc(100% - 38px);
+    min-width: calc(100% - 38px);
+  }
+
+  .hero-mobile-frame:last-child {
+    flex-basis: 100%;
+    width: 100%;
+    min-width: 100%;
+  }
+}
+
+
+/* Patch 6 — unified wishlist motion, PWA safe actions and glass navigation */
+
+/* Desktop mega menu now belongs to the same translucent material system as
+   the navbar instead of switching to an opaque sheet when it opens. */
+.storefront-mega-menu {
+  background: color-mix(in srgb, var(--color-paper-50) 80%, transparent) !important;
+  backdrop-filter: blur(36px) saturate(170%);
+  -webkit-backdrop-filter: blur(36px) saturate(170%);
+  box-shadow: 0 28px 76px rgba(10, 12, 10, .075);
+}
+
+.dark .storefront-mega-menu {
+  background: color-mix(in srgb, var(--color-paper-50) 77%, transparent) !important;
+  box-shadow: 0 30px 82px rgba(0, 0, 0, .3);
+}
+
+/* Keep the touch menu visually related to the desktop glass material too,
+   while retaining enough opacity for long navigation lists to stay readable. */
+.mobile-menu-shell {
+  background: color-mix(in srgb, var(--color-paper-50) 88%, transparent);
+  backdrop-filter: blur(30px) saturate(160%);
+  -webkit-backdrop-filter: blur(30px) saturate(160%);
+}
+
+.dark .mobile-menu-shell {
+  background: color-mix(in srgb, var(--color-paper-50) 86%, transparent);
+}
+
+/* The shared heart component owns the actual glyph. Keep the product button
+   itself completely clean so the gradient heart is the visual focus. */
+.product-wishlist-button.is-active {
+  background: transparent;
+  color: var(--color-charcoal-950);
+}
+
+.product-wishlist-button.is-active svg,
+.product-wishlist-button svg {
+  transform: none;
+}
+
+/* Installed PWAs need both the viewport-fit meta tag and real safe-area
+   spacing. Backgrounds still reach the physical edge, but all controls sit
+   comfortably above the home indicator and inside rounded screen corners. */
+@media (max-width: 1023px) {
+  .mobile-safe-action-bar {
+    padding-left: calc(1rem + env(safe-area-inset-left)) !important;
+    padding-right: calc(1rem + env(safe-area-inset-right)) !important;
+    padding-bottom: calc(.75rem + env(safe-area-inset-bottom)) !important;
+  }
+
+  .product-mobile-purchase {
+    padding-bottom: calc(.75rem + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+@media (display-mode: standalone) and (max-width: 1023px) {
+  .mobile-safe-action-bar {
+    padding-bottom: calc(.9rem + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+
+/* Patch 6.1 — stronger menu depth and background separation */
+/* The page behind an open desktop mega menu should read as atmosphere, not
+   competing content. Keep the overlay translucent, but blur it enough that
+   product imagery/text cannot visually fight with navigation. */
+.storefront-menu-backdrop {
+  background: rgba(18, 20, 18, .16);
+  backdrop-filter: blur(12px) saturate(118%);
+  -webkit-backdrop-filter: blur(12px) saturate(118%);
+}
+
+.dark .storefront-menu-backdrop {
+  background: rgba(0, 0, 0, .28);
+}
+
+/* Slightly denser glass than Patch 6. The navbar remains visually related,
+   while menu content gets stronger separation from the page below it. */
+.storefront-mega-menu {
+  background: color-mix(in srgb, var(--color-paper-50) 88%, transparent) !important;
+  backdrop-filter: blur(42px) saturate(178%);
+  -webkit-backdrop-filter: blur(42px) saturate(178%);
+}
+
+.dark .storefront-mega-menu {
+  background: color-mix(in srgb, var(--color-paper-50) 86%, transparent) !important;
+}
+
+/* Touch navigation covers more of the viewport, so give it a little more
+   density while preserving the same blurred-glass character. */
+.mobile-menu-shell {
+  background: color-mix(in srgb, var(--color-paper-50) 94%, transparent);
+  backdrop-filter: blur(40px) saturate(170%);
+  -webkit-backdrop-filter: blur(40px) saturate(170%);
+}
+
+.dark .mobile-menu-shell {
+  background: color-mix(in srgb, var(--color-paper-50) 92%, transparent);
+}

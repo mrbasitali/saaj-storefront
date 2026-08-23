@@ -122,6 +122,33 @@ const { data: categoryResponse, error: categoryError } = await useAsyncData(
 
 const category = computed(() => categoryResponse.value?.data ?? null)
 
+function breadcrumbLabelFromSlug(segment: string) {
+  return decodeURIComponent(segment)
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b\w/g, letter => letter.toUpperCase())
+}
+
+const categoryBreadcrumbTrail = computed(() => {
+  const fullSlug = category.value?.full_slug || categorySlug.value
+  if (!fullSlug) return []
+
+  const segments = fullSlug.split('/').filter(Boolean)
+  let path = ''
+
+  return segments.map((segment, index) => {
+    path = path ? `${path}/${segment}` : segment
+    const isCurrent = index === segments.length - 1
+
+    return {
+      name: isCurrent && category.value?.name
+        ? category.value.name
+        : breadcrumbLabelFromSlug(segment),
+      full_slug: path,
+      is_current: isCurrent,
+    }
+  })
+})
+
 if (import.meta.server && categorySlug.value && categoryError.value) {
   const upstreamStatus = Number((categoryError.value as any)?.statusCode || (categoryError.value as any)?.status || 500)
   throw createError({
@@ -286,7 +313,12 @@ const pageDescription = computed(() => {
   return 'Explore the complete SAAJ edit — considered pieces designed to live well beyond a season.'
 })
 
-const categoryMedia = computed(() => category.value?.banner_image_url || category.value?.image_url || null)
+const categoryBanner = computed(() => category.value?.banner_image_url || null)
+// Category landing pages intentionally show media only when a dedicated
+// banner exists. The square category image belongs to homepage/navigation
+// discovery and is never substituted into the collection masthead.
+const categoryMedia = computed(() => categoryBanner.value)
+const showCategoryBanner = computed(() => !!categoryBanner.value && !searchTerm.value)
 
 const activeFilterChips = computed(() => {
   const routeAttributes = attributesFromRoute()
@@ -337,12 +369,12 @@ const breadcrumbSchema = computed(() => ({
       name: 'Shop',
       item: `${siteOrigin}/shop`,
     },
-    ...(category.value ? [{
+    ...categoryBreadcrumbTrail.value.map((item, index) => ({
       '@type': 'ListItem',
-      position: 3,
-      name: category.value.name,
-      item: `${siteOrigin}${categoryPath(category.value.full_slug)}`,
-    }] : []),
+      position: index + 3,
+      name: item.name,
+      item: `${siteOrigin}${categoryPath(item.full_slug)}`,
+    })),
   ],
 }))
 
@@ -485,95 +517,101 @@ function closePanels() {
 
 <template>
   <main class="shop-page min-h-screen bg-paper-50">
-    <!-- Editorial category/search header -->
-    <section
-      class="border-b border-charcoal-950/[0.07]"
-      :class="categoryMedia && !searchTerm ? 'lg:grid lg:min-h-[300px] lg:grid-cols-[0.95fr_1.05fr]' : ''"
-    >
-      <div class="flex flex-col justify-center px-5 pb-7 pt-7 sm:px-8 sm:pb-8 sm:pt-8 lg:px-12 lg:py-9 xl:px-16">
+    <!-- Compact collection masthead. Dedicated banner only; category images never substitute here. -->
+    <section class="shop-collection-header border-b border-charcoal-950/[0.07]">
+      <div v-if="showCategoryBanner" class="shop-collection-banner relative isolate overflow-hidden bg-mist-100">
+        <NuxtImg
+          :src="categoryBanner!"
+          :alt="`${category?.name || 'SAAJ'} collection banner`"
+          class="shop-collection-banner-image absolute inset-0 h-full w-full object-cover"
+          sizes="100vw"
+          fetchpriority="high"
+        />
+        <div class="shop-collection-banner-shade absolute inset-0" />
+
+        <div class="relative z-10 mx-auto flex h-full max-w-[1760px] flex-col justify-between px-5 py-5 text-white sm:px-8 sm:py-6 lg:px-12 lg:py-7 xl:px-16">
+          <nav class="shop-breadcrumb shop-breadcrumb-on-media" aria-label="Breadcrumb">
+            <NuxtLink to="/" class="shop-breadcrumb-link">
+              <svg class="h-3 w-3 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25"><path d="M2.5 7.2 8 2.8l5.5 4.4v6H9.8V9.7H6.2v3.5H2.5v-6Z" /></svg>
+              <span>Home</span>
+            </NuxtLink>
+            <svg class="shop-breadcrumb-separator" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.1"><path d="m4.3 2.6 3.4 3.4-3.4 3.4" /></svg>
+            <NuxtLink to="/shop" class="shop-breadcrumb-link">Shop</NuxtLink>
+            <template v-for="item in categoryBreadcrumbTrail" :key="`banner-${item.full_slug}`">
+              <svg class="shop-breadcrumb-separator" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.1"><path d="m4.3 2.6 3.4 3.4-3.4 3.4" /></svg>
+              <span v-if="item.is_current" class="shop-breadcrumb-current" aria-current="page">{{ item.name }}</span>
+              <NuxtLink v-else :to="categoryPath(item.full_slug)" class="shop-breadcrumb-link">{{ item.name }}</NuxtLink>
+            </template>
+          </nav>
+
+          <div class="max-w-[780px]">
+            <p class="text-[9px] font-semibold uppercase tracking-[0.2em] text-white/64">{{ pageKicker }}</p>
+            <h1 class="mt-2 font-display text-[clamp(2.5rem,4.6vw,5.4rem)] font-medium leading-[0.9] tracking-[-0.055em] text-white">{{ pageHeading }}</h1>
+            <div v-if="pageDescription" class="shop-description shop-description-on-media mt-3 line-clamp-2 max-w-2xl text-[12px] leading-5 text-white/72 sm:text-[13px] sm:leading-6" v-html="pageDescription" />
+
+            <div v-if="childCategories.length" class="mt-4 flex max-w-full gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <NuxtLink v-for="child in childCategories" :key="child.id" :to="categoryPath(child.full_slug)" class="shop-child-chip shop-child-chip-on-media">
+                {{ child.name }}
+                <svg class="h-3 w-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M3 8h9M9 5l3 3-3 3" /></svg>
+              </NuxtLink>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-else class="mx-auto max-w-[1760px] px-5 py-6 sm:px-8 sm:py-7 lg:px-12 lg:py-8 xl:px-16">
         <nav class="shop-breadcrumb mb-4" aria-label="Breadcrumb">
           <NuxtLink to="/" class="shop-breadcrumb-link">
-            <svg class="h-3 w-3 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25">
-              <path d="M2.5 7.2 8 2.8l5.5 4.4v6H9.8V9.7H6.2v3.5H2.5v-6Z" />
-            </svg>
+            <svg class="h-3 w-3 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25"><path d="M2.5 7.2 8 2.8l5.5 4.4v6H9.8V9.7H6.2v3.5H2.5v-6Z" /></svg>
             <span>Home</span>
           </NuxtLink>
+          <svg class="shop-breadcrumb-separator" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.1"><path d="m4.3 2.6 3.4 3.4-3.4 3.4" /></svg>
+          <NuxtLink v-if="category || searchTerm" to="/shop" class="shop-breadcrumb-link">Shop</NuxtLink>
+          <span v-else class="shop-breadcrumb-current" aria-current="page">Shop</span>
 
-          <svg class="shop-breadcrumb-separator" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.1">
-            <path d="m4.3 2.6 3.4 3.4-3.4 3.4" />
-          </svg>
+          <template v-if="category">
+            <template v-for="item in categoryBreadcrumbTrail" :key="`plain-${item.full_slug}`">
+              <svg class="shop-breadcrumb-separator" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.1"><path d="m4.3 2.6 3.4 3.4-3.4 3.4" /></svg>
+              <span v-if="item.is_current" class="shop-breadcrumb-current" aria-current="page">{{ item.name }}</span>
+              <NuxtLink v-else :to="categoryPath(item.full_slug)" class="shop-breadcrumb-link">{{ item.name }}</NuxtLink>
+            </template>
+          </template>
 
-          <NuxtLink
-            v-if="category || searchTerm"
-            to="/shop"
-            class="shop-breadcrumb-link"
-          >
-            Shop
-          </NuxtLink>
-          <span v-else class="shop-breadcrumb-current">Shop</span>
-
-          <template v-if="category || searchTerm">
-            <svg class="shop-breadcrumb-separator" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.1">
-              <path d="m4.3 2.6 3.4 3.4-3.4 3.4" />
-            </svg>
-            <span class="shop-breadcrumb-current">{{ category?.name || 'Search' }}</span>
+          <template v-else-if="searchTerm">
+            <svg class="shop-breadcrumb-separator" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.1"><path d="m4.3 2.6 3.4 3.4-3.4 3.4" /></svg>
+            <span class="shop-breadcrumb-current" aria-current="page">Search</span>
           </template>
         </nav>
 
-        <p class="section-kicker">{{ pageKicker }}</p>
-        <h1 class="mt-2 max-w-3xl font-display text-[40px] font-medium leading-[0.94] tracking-[-0.038em] text-charcoal-950 sm:text-[48px] lg:text-[56px]">
-          {{ pageHeading }}
-        </h1>
-        <div
-          class="shop-description mt-3 max-w-xl text-[13px] leading-[1.65] text-charcoal-600 sm:text-[14px]"
-          v-html="pageDescription"
-        />
+        <div class="grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)] lg:items-end lg:gap-12">
+          <div>
+            <p class="section-kicker">{{ pageKicker }}</p>
+            <h1 class="mt-1.5 font-display text-[clamp(2.35rem,3.8vw,4.6rem)] font-medium leading-[0.92] tracking-[-0.052em] text-charcoal-950">{{ pageHeading }}</h1>
+          </div>
+          <div class="shop-description max-w-2xl text-[12px] leading-5 text-charcoal-500 sm:text-[13px] sm:leading-6 lg:justify-self-end" v-html="pageDescription" />
+        </div>
 
         <NuxtLink
           v-if="searchTerm"
           to="/shop"
-          class="mt-4 inline-flex w-fit items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.13em] text-charcoal-500 transition hover:text-charcoal-950"
+          class="mt-4 inline-flex w-fit items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.13em] text-charcoal-500 transition hover:text-charcoal-950"
         >
           <span>Clear search</span>
-          <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2">
-            <path d="m4 4 8 8M12 4l-8 8" />
-          </svg>
+          <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><path d="m4 4 8 8M12 4l-8 8" /></svg>
         </NuxtLink>
 
-        <div
-          v-if="childCategories.length"
-          class="mt-5 flex max-w-full gap-x-6 gap-y-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          <NuxtLink
-            v-for="child in childCategories"
-            :key="child.id"
-            :to="categoryPath(child.full_slug)"
-            class="group flex shrink-0 items-center gap-2 border-b border-charcoal-300 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.13em] text-charcoal-700 transition hover:border-charcoal-950 hover:text-charcoal-950"
-          >
+        <div v-if="childCategories.length" class="mt-4 flex max-w-full gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <NuxtLink v-for="child in childCategories" :key="child.id" :to="categoryPath(child.full_slug)" class="shop-child-chip">
             {{ child.name }}
-            <svg class="h-3 w-3 transition-transform duration-300 group-hover:translate-x-0.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2">
-              <path d="M3 8h9M9 5l3 3-3 3" />
-            </svg>
+            <svg class="h-3 w-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M3 8h9M9 5l3 3-3 3" /></svg>
           </NuxtLink>
         </div>
-      </div>
-
-      <div
-        v-if="categoryMedia && !searchTerm"
-        class="relative hidden min-h-[300px] overflow-hidden bg-mist-100 lg:block"
-      >
-        <NuxtImg
-          :src="categoryMedia"
-          :alt="category?.name || 'SAAJ collection'"
-          class="absolute inset-0 h-full w-full object-cover transition duration-[1200ms] ease-out hover:scale-[1.015]"
-          sizes="lg:55vw xl:58vw"
-        />
       </div>
     </section>
 
     <!-- Product controls -->
     <section class="mx-auto max-w-[1760px] px-4 pb-20 sm:px-6 lg:px-10 xl:px-12">
-      <div class="shop-toolbar sticky top-[68px] z-30 -mx-4 border-b border-charcoal-950/[0.07] bg-paper-50/94 px-4 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:top-[114px] lg:-mx-10 lg:px-10 xl:-mx-12 xl:px-12">
+      <div class="shop-toolbar storefront-glass-surface sticky top-[68px] z-30 -mx-4 border-b border-charcoal-950/[0.07] px-4 sm:-mx-6 sm:px-6 lg:top-[114px] lg:-mx-10 lg:px-10 xl:-mx-12 xl:px-12">
         <div class="flex min-h-[62px] items-center justify-between gap-4">
           <div class="min-w-0">
             <p v-if="meta" class="text-[10px] font-semibold uppercase tracking-[0.14em] text-charcoal-500">
