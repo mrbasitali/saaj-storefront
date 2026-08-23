@@ -214,6 +214,15 @@ function submitSearch() {
           </svg>
         </button>
 
+        <NuxtLink
+          to="/account/wishlist"
+          aria-label="Wishlist"
+          class="header-utility-button lg:hidden"
+          @click="headerWishlistBurst += 1"
+        >
+          <WishlistHeart :active="isWishlistRoute" :burst-key="headerWishlistBurst" :size="18" />
+        </NuxtLink>
+
         <button
           type="button"
           class="hidden items-center gap-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-charcoal-700 transition-colors duration-300 hover:text-charcoal-950 lg:inline-flex"
@@ -271,7 +280,7 @@ function submitSearch() {
         <NuxtLink
           to="/account/wishlist"
           aria-label="Wishlist"
-          class="header-utility-button hidden sm:flex"
+          class="header-utility-button hidden lg:flex"
           @click="headerWishlistBurst += 1"
         >
           <WishlistHeart :active="isWishlistRoute" :burst-key="headerWishlistBurst" :size="18" />
