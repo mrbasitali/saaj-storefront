@@ -50,6 +50,10 @@ const headerLogo = computed(() => {
 })
 
 const mobileMenuActive = computed(() => mobileMenuOpen.value || mobileMenuGlassOpen.value)
+// The icon follows the visible menu content, not the longer-lived preblur layer.
+// This lets the X reverse to the two bars as soon as close begins instead of
+// waiting for the Chromium-safe glass teardown to finish.
+const mobileMenuIconOpen = computed(() => mobileMenuOpen.value && !mobileMenuContentClosing.value)
 const overlayOpen = computed(() => mobileMenuActive.value || searchOpen.value)
 const selectedCategory = computed(() => {
   if (route.path.startsWith('/shop/')) {
@@ -251,12 +255,12 @@ function submitSearch() {
       <div class="flex min-w-0 items-center">
         <button
           type="button"
-          :aria-label="mobileMenuActive ? 'Close menu' : 'Open menu'"
-          :aria-expanded="mobileMenuActive"
+          :aria-label="mobileMenuIconOpen ? 'Close menu' : 'Open menu'"
+          :aria-expanded="mobileMenuIconOpen"
           class="header-utility-button lg:hidden"
-          @click="mobileMenuActive ? closeMobileMenu() : openMobileMenu()"
+          @click="mobileMenuIconOpen ? closeMobileMenu() : openMobileMenu()"
         >
-          <span class="hamburger-icon" :class="{ 'is-open': mobileMenuActive }" aria-hidden="true">
+          <span class="hamburger-icon" :class="{ 'is-open': mobileMenuIconOpen }" aria-hidden="true">
             <span />
             <span />
           </span>

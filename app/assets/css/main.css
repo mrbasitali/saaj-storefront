@@ -3957,3 +3957,65 @@ html.dark .storefront-footer {
   }
 }
 
+/* Patch 6.5.5 — Android/mobile interaction + safe-edge polish ------------ */
+/*
+ * Keep the hamburger glyph tied to the menu-content phase (handled in the
+ * header component) while giving its reverse transform the same crisp timing
+ * as the menu close. No delayed X -> bars state after the glass has left.
+ */
+.hamburger-icon > span {
+  will-change: top, transform;
+}
+
+/* Chrome/Android can retain native widget chrome on touch controls even when
+ * the authored storefront style is otherwise borderless. Remove only the UA
+ * appearance; explicit Tailwind/app borders, radii and backgrounds still win
+ * normally because we are not zeroing those properties here. */
+@media (hover: none) and (pointer: coarse) {
+  button,
+  input[type='button'],
+  input[type='submit'],
+  input[type='reset'],
+  input[type='text'],
+  input[type='email'],
+  input[type='tel'],
+  input[type='password'],
+  input[type='search'],
+  input[type='number'],
+  textarea {
+    -webkit-appearance: none;
+    appearance: none;
+    background-clip: padding-box;
+  }
+}
+
+/*
+ * Android Chrome frequently reports safe-area-inset-bottom as 0 even when
+ * gesture/navigation UI still consumes the visual bottom edge. Give touch
+ * action bars a small physical-edge floor, while continuing to honor larger
+ * iPhone/iPad safe-area values when they exist.
+ *
+ * The first declaration is the compatibility fallback for engines without
+ * max()/env() support. Modern browsers then use the real safe-area value or
+ * the minimum gesture inset, whichever is larger.
+ */
+@media (max-width: 1023px) {
+  .mobile-safe-action-bar {
+    padding-bottom: 1.4rem !important;
+    padding-bottom: calc(.75rem + max(env(safe-area-inset-bottom, 0px), .65rem)) !important;
+  }
+
+  .product-mobile-purchase {
+    padding-bottom: 1.4rem !important;
+    padding-bottom: calc(.75rem + max(env(safe-area-inset-bottom, 0px), .65rem)) !important;
+  }
+}
+
+@media (display-mode: standalone) and (max-width: 1023px) {
+  .mobile-safe-action-bar,
+  .product-mobile-purchase {
+    padding-bottom: 1.55rem !important;
+    padding-bottom: calc(.9rem + max(env(safe-area-inset-bottom, 0px), .65rem)) !important;
+  }
+}
+
