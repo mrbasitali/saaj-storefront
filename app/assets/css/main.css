@@ -3828,3 +3828,40 @@ html.dark .storefront-footer {
   }
 }
 
+
+
+/* Patch 6.5.3 — content-first mobile menu close -------------------------- */
+/*
+ * Hide all readable menu content before the real glass layer begins to
+ * leave. This avoids the final one-frame text glimpse seen on some Chromium
+ * and Android compositors. The glass then follows almost immediately, so the
+ * close still feels continuous rather than delayed.
+ */
+.mobile-menu-content {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 78ms ease-out,
+    transform 90ms ease-out;
+}
+
+.mobile-menu-content.is-closing {
+  opacity: 0;
+  transform: translateY(-3px);
+  pointer-events: none;
+}
+
+/* Once content is gone, do not hold the frosted backdrop for half a second.
+   Give it a short graceful dissolve and then unmount it. */
+.mobile-menu-preblur.storefront-real-glass-layer.is-closing {
+  opacity: 0;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-menu-content,
+  .mobile-menu-preblur.storefront-real-glass-layer {
+    transition-duration: 0.01ms !important;
+  }
+}

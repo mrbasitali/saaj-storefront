@@ -19,6 +19,7 @@ const { theme, isDark, toggleTheme } = useStorefrontTheme()
 const mobileMenuOpen = ref(false)
 const mobileMenuGlassOpen = ref(false)
 const mobileMenuClosing = ref(false)
+const mobileMenuContentClosing = ref(false)
 const mobileCategoryId = ref<number | null>(null)
 const mobileDirection = ref<'forward' | 'back'>('forward')
 const searchOpen = ref(false)
@@ -142,6 +143,7 @@ async function openMobileMenu() {
   // If the user reopens while the close animation is still running, restore
   // the existing composited glass immediately instead of remounting it.
   mobileMenuClosing.value = false
+  mobileMenuContentClosing.value = false
 
   mobileDirection.value = 'back'
   mobileCategoryId.value = null
@@ -166,30 +168,38 @@ async function openMobileMenu() {
 function closeMobileMenu() {
   if (!mobileMenuActive.value) return
 
-  mobileMenuOpen.value = false
-  mobileMenuClosing.value = true
-
   if (mobileMenuCloseTimer) {
     clearTimeout(mobileMenuCloseTimer)
     mobileMenuCloseTimer = null
   }
 
   if (!import.meta.client) {
+    mobileMenuOpen.value = false
     mobileMenuGlassOpen.value = false
     mobileMenuClosing.value = false
+    mobileMenuContentClosing.value = false
     mobileCategoryId.value = null
     return
   }
 
-  // Fade the already-composited blur out while the menu shell performs the
-  // reverse clip/slide animation. Only unmount after it is visually at zero
-  // opacity, so there is no final sharp backdrop snap.
+  // Close in two deliberate paint stages. First remove every readable menu
+  // item while the already-composited glass is still fully present. Once the
+  // content is visually gone, immediately reverse the shell and glass. This
+  // prevents a one-frame text glimpse on Chromium/Android during teardown.
+  mobileMenuContentClosing.value = true
+
   mobileMenuCloseTimer = window.setTimeout(() => {
-    mobileMenuGlassOpen.value = false
-    mobileMenuClosing.value = false
-    mobileCategoryId.value = null
-    mobileMenuCloseTimer = null
-  }, 560)
+    mobileMenuOpen.value = false
+    mobileMenuClosing.value = true
+
+    mobileMenuCloseTimer = window.setTimeout(() => {
+      mobileMenuGlassOpen.value = false
+      mobileMenuClosing.value = false
+      mobileMenuContentClosing.value = false
+      mobileCategoryId.value = null
+      mobileMenuCloseTimer = null
+    }, 230)
+  }, 85)
 }
 
 function openMobileCategory(category: Category) {
@@ -464,7 +474,10 @@ function submitSearch() {
 
   <Transition name="mobile-shell">
     <div v-if="mobileMenuOpen" class="mobile-menu-shell lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
-      <div class="relative z-[1] min-h-0 flex-1 overflow-hidden">
+      <div
+        class="mobile-menu-content relative z-[1] min-h-0 flex-1 overflow-hidden"
+        :class="{ 'is-closing': mobileMenuContentClosing }"
+      >
         <Transition :name="mobileDirection === 'forward' ? 'mobile-level-forward' : 'mobile-level-back'" mode="out-in">
           <div v-if="!mobileCategory" key="root" class="mobile-menu-level">
             <nav class="mobile-menu-scroll" aria-label="Mobile navigation">
