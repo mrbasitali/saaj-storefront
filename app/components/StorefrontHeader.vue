@@ -18,6 +18,7 @@ const { theme, isDark, toggleTheme } = useStorefrontTheme()
 
 const mobileMenuOpen = ref(false)
 const mobileMenuGlassOpen = ref(false)
+const mobileMenuClosing = ref(false)
 const mobileCategoryId = ref<number | null>(null)
 const mobileDirection = ref<'forward' | 'back'>('forward')
 const searchOpen = ref(false)
@@ -138,6 +139,10 @@ async function openMobileMenu() {
     mobileMenuCloseTimer = null
   }
 
+  // If the user reopens while the close animation is still running, restore
+  // the existing composited glass immediately instead of remounting it.
+  mobileMenuClosing.value = false
+
   mobileDirection.value = 'back'
   mobileCategoryId.value = null
 
@@ -159,7 +164,10 @@ async function openMobileMenu() {
 }
 
 function closeMobileMenu() {
+  if (!mobileMenuActive.value) return
+
   mobileMenuOpen.value = false
+  mobileMenuClosing.value = true
 
   if (mobileMenuCloseTimer) {
     clearTimeout(mobileMenuCloseTimer)
@@ -168,17 +176,20 @@ function closeMobileMenu() {
 
   if (!import.meta.client) {
     mobileMenuGlassOpen.value = false
+    mobileMenuClosing.value = false
     mobileCategoryId.value = null
     return
   }
 
-  // Keep the already-composited blur in place until the shell finishes its
-  // leave animation, then remove both the glass and the nested category state.
+  // Fade the already-composited blur out while the menu shell performs the
+  // reverse clip/slide animation. Only unmount after it is visually at zero
+  // opacity, so there is no final sharp backdrop snap.
   mobileMenuCloseTimer = window.setTimeout(() => {
     mobileMenuGlassOpen.value = false
+    mobileMenuClosing.value = false
     mobileCategoryId.value = null
     mobileMenuCloseTimer = null
-  }, 540)
+  }, 560)
 }
 
 function openMobileCategory(category: Category) {
@@ -448,6 +459,7 @@ function submitSearch() {
     v-if="mobileMenuGlassOpen"
     variant="mobile-menu"
     class="mobile-menu-preblur lg:hidden"
+    :class="{ 'is-closing': mobileMenuClosing }"
   />
 
   <Transition name="mobile-shell">

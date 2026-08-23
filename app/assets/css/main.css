@@ -3802,3 +3802,29 @@ html.dark .storefront-footer {
     display: none !important;
   }
 }
+
+/* Patch 6.5.2 — mobile menu sleek reverse close --------------------------- */
+/*
+ * Patch 6.5.1 kept the pre-composited glass mounted until the shell had
+ * finished leaving, then removed it in one frame. That prevented a compositor
+ * flash on open, but made the final close feel abrupt. Keep the real blur
+ * layer mounted, fade the complete filtered result in sync with the shell,
+ * and only unmount it once it is already visually transparent.
+ */
+.mobile-menu-preblur.storefront-real-glass-layer {
+  opacity: 1;
+  transition: opacity 160ms ease-out;
+}
+
+.mobile-menu-preblur.storefront-real-glass-layer.is-closing {
+  opacity: 0;
+  transition-duration: 520ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-menu-preblur.storefront-real-glass-layer {
+    transition-duration: 0.01ms !important;
+  }
+}
+
