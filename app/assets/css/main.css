@@ -3480,3 +3480,181 @@ html.dark .storefront-footer {
     background: rgba(22, 24, 22, .97) !important;
   }
 }
+
+/* Patch 6.4 — Chromium-safe glass compositor architecture --------------- */
+/*
+ * Chromium treats any ancestor with backdrop-filter as a Backdrop Root.
+ * StorefrontHeader contains the desktop mega menu, so putting backdrop-filter
+ * on both the header and its child can make the child's blur sample the wrong
+ * surface (and some Chromium compositors can fail to repaint the sticky glass
+ * consistently). WebKit is more forgiving, which is why Safari/iOS looked
+ * correct while Chromium desktop/Android did not.
+ *
+ * Keep the real UI elements filter-free and paint the frosted material on an
+ * isolated ::before layer. The pseudo element has no children, so it can own
+ * the backdrop-filter without turning the actual navigation/container into a
+ * Backdrop Root for nested glass surfaces.
+ */
+.storefront-header,
+.storefront-mega-menu,
+.storefront-glass-surface,
+.mobile-menu-shell,
+.mobile-safe-action-bar,
+.product-mobile-purchase {
+  --saaj-glass-bg: rgb(247 246 242 / 68%);
+  --saaj-glass-blur: 32px;
+  --saaj-glass-saturation: 165%;
+
+  /* Stable fallback for engines that do not render backdrop-filter. */
+  background: rgb(247 246 242 / 92%) !important;
+}
+
+.dark .storefront-header,
+.dark .storefront-mega-menu,
+.dark .storefront-glass-surface,
+.dark .mobile-menu-shell,
+.dark .mobile-safe-action-bar,
+.dark .product-mobile-purchase {
+  --saaj-glass-bg: rgb(15 17 15 / 70%);
+  background: rgb(15 17 15 / 93%) !important;
+}
+
+/* Menus need slightly more density than the navigation rail. */
+.storefront-mega-menu {
+  --saaj-glass-bg: rgb(247 246 242 / 72%);
+}
+
+.dark .storefront-mega-menu {
+  --saaj-glass-bg: rgb(15 17 15 / 73%);
+}
+
+.mobile-menu-shell {
+  --saaj-glass-bg: rgb(247 246 242 / 78%);
+  --saaj-glass-blur: 30px;
+}
+
+.dark .mobile-menu-shell {
+  --saaj-glass-bg: rgb(15 17 15 / 79%);
+}
+
+/* Action bars stay a touch denser for prices and primary CTA contrast. */
+.mobile-safe-action-bar,
+.product-mobile-purchase {
+  --saaj-glass-bg: rgb(247 246 242 / 82%);
+  --saaj-glass-blur: 28px;
+  --saaj-glass-saturation: 158%;
+}
+
+.dark .mobile-safe-action-bar,
+.dark .product-mobile-purchase {
+  --saaj-glass-bg: rgb(15 17 15 / 82%);
+}
+
+/* Chromium / Firefox path. */
+@supports (backdrop-filter: blur(1px)) {
+  .storefront-header,
+  .storefront-mega-menu,
+  .storefront-glass-surface,
+  .mobile-menu-shell,
+  .mobile-safe-action-bar,
+  .product-mobile-purchase {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    isolation: isolate;
+  }
+
+  .storefront-header::before,
+  .storefront-mega-menu::before,
+  .storefront-glass-surface::before,
+  .mobile-menu-shell::before,
+  .mobile-safe-action-bar::before,
+  .product-mobile-purchase::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    border-radius: inherit;
+    background: var(--saaj-glass-bg);
+    backdrop-filter: blur(var(--saaj-glass-blur)) saturate(var(--saaj-glass-saturation));
+    -webkit-backdrop-filter: blur(var(--saaj-glass-blur)) saturate(var(--saaj-glass-saturation));
+  }
+}
+
+/* Prefix-only WebKit path for older Safari/iOS releases. */
+@supports (-webkit-backdrop-filter: blur(1px)) {
+  .storefront-header,
+  .storefront-mega-menu,
+  .storefront-glass-surface,
+  .mobile-menu-shell,
+  .mobile-safe-action-bar,
+  .product-mobile-purchase {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    isolation: isolate;
+  }
+
+  .storefront-header::before,
+  .storefront-mega-menu::before,
+  .storefront-glass-surface::before,
+  .mobile-menu-shell::before,
+  .mobile-safe-action-bar::before,
+  .product-mobile-purchase::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    border-radius: inherit;
+    background: var(--saaj-glass-bg);
+    backdrop-filter: blur(var(--saaj-glass-blur)) saturate(var(--saaj-glass-saturation));
+    -webkit-backdrop-filter: blur(var(--saaj-glass-blur)) saturate(var(--saaj-glass-saturation));
+  }
+}
+
+/* Mobile GPUs are happier with a slightly smaller blur radius; visually it
+   remains strongly frosted while reducing the offscreen texture cost. */
+@media (max-width: 1023px) {
+  .storefront-header,
+  .storefront-glass-surface {
+    --saaj-glass-blur: 28px;
+    --saaj-glass-saturation: 160%;
+  }
+
+  .mobile-menu-shell {
+    --saaj-glass-blur: 28px;
+  }
+}
+
+/* Preserve the explicit reduced-transparency accessibility preference even
+   though Patch 6.4 moves the visual material onto pseudo elements. */
+@media (prefers-reduced-transparency: reduce) {
+  .storefront-header,
+  .storefront-mega-menu,
+  .storefront-glass-surface,
+  .mobile-menu-shell,
+  .mobile-safe-action-bar,
+  .product-mobile-purchase {
+    background: rgb(247 246 242 / 97%) !important;
+  }
+
+  .dark .storefront-header,
+  .dark .storefront-mega-menu,
+  .dark .storefront-glass-surface,
+  .dark .mobile-menu-shell,
+  .dark .mobile-safe-action-bar,
+  .dark .product-mobile-purchase {
+    background: rgb(15 17 15 / 97%) !important;
+  }
+
+  .storefront-header::before,
+  .storefront-mega-menu::before,
+  .storefront-glass-surface::before,
+  .mobile-menu-shell::before,
+  .mobile-safe-action-bar::before,
+  .product-mobile-purchase::before {
+    display: none !important;
+  }
+}
