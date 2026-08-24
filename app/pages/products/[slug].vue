@@ -461,18 +461,21 @@ const currentImageIndex = ref(0)
 const galleryScroller = ref<HTMLElement | null>(null)
 const galleryMotion = ref<'next' | 'previous'>('next')
 
-// Mobile gallery direction lock. The browser owns vertical pan/scroll, while
-// we only move the gallery after a gesture is clearly horizontal. This avoids
-// the image following diagonal/up-down finger movement on Chromium/Android.
+// Mobile gallery gesture arbitration. Vertical movement belongs entirely to
+// the document; only a clearly horizontal gesture advances the carousel. We
+// intentionally do NOT drag scrollLeft during pointermove. That keeps the
+// photograph perfectly locked on the Y axis and lets Chromium/iOS own normal
+// vertical page scrolling without the gallery fighting the gesture.
 type GalleryGestureAxis = 'pending' | 'horizontal' | 'vertical'
 let galleryPointerId: number | null = null
 let galleryGestureAxis: GalleryGestureAxis = 'pending'
 let galleryGestureStartX = 0
 let galleryGestureStartY = 0
-let galleryGestureStartScrollLeft = 0
+let galleryGestureStartIndex = 0
 let suppressGalleryClickUntil = 0
-const GALLERY_DIRECTION_THRESHOLD = 7
-const GALLERY_HORIZONTAL_BIAS = 1.12
+const GALLERY_DIRECTION_THRESHOLD = 8
+const GALLERY_HORIZONTAL_BIAS = 1.14
+const GALLERY_SWIPE_THRESHOLD = 34
 
 // Gallery position tracking. Mobile uses the horizontal scroller's active
 // image, while desktop editorial mode tracks whichever stacked image is
@@ -602,82 +605,70 @@ function resetGalleryGesture() {
   galleryGestureAxis = 'pending'
   galleryGestureStartX = 0
   galleryGestureStartY = 0
-  galleryGestureStartScrollLeft = 0
+  galleryGestureStartIndex = 0
 }
 
 function onGalleryPointerDown(event: PointerEvent) {
-  // Mouse keeps its normal click-to-zoom behavior. Direction locking is only
-  // needed for touch/pen input on the mobile gallery.
   if (event.pointerType === 'mouse') return
   if (galleryPointerId !== null) return
-
-  const scroller = galleryScroller.value
-  if (!scroller) return
 
   galleryPointerId = event.pointerId
   galleryGestureAxis = 'pending'
   galleryGestureStartX = event.clientX
   galleryGestureStartY = event.clientY
-  galleryGestureStartScrollLeft = scroller.scrollLeft
+  galleryGestureStartIndex = currentImageIndex.value
 }
 
 function onGalleryPointerMove(event: PointerEvent) {
-  if (galleryPointerId !== event.pointerId) return
-
-  const scroller = galleryScroller.value
-  if (!scroller) return
+  if (galleryPointerId !== event.pointerId || galleryGestureAxis !== 'pending') return
 
   const deltaX = event.clientX - galleryGestureStartX
   const deltaY = event.clientY - galleryGestureStartY
   const absX = Math.abs(deltaX)
   const absY = Math.abs(deltaY)
 
-  if (galleryGestureAxis === 'pending') {
-    if (Math.max(absX, absY) < GALLERY_DIRECTION_THRESHOLD) return
+  if (Math.max(absX, absY) < GALLERY_DIRECTION_THRESHOLD) return
 
-    // A vertical gesture is never consumed by the gallery. Because the
-    // scroller uses touch-action: pan-y, Chromium can immediately continue
-    // the normal document scroll without the photograph moving vertically.
-    if (absY >= absX) {
-      galleryGestureAxis = 'vertical'
-      return
-    }
-
-    // For a slightly diagonal gesture, wait for intent to become clear rather
-    // than stealing it too early from page scrolling.
-    if (absX < absY * GALLERY_HORIZONTAL_BIAS) return
-
-    galleryGestureAxis = 'horizontal'
-    suppressGalleryClickUntil = Date.now() + 360
-    ;(event.currentTarget as HTMLElement | null)?.setPointerCapture?.(event.pointerId)
+  if (absY >= absX) {
+    galleryGestureAxis = 'vertical'
+    return
   }
 
-  if (galleryGestureAxis !== 'horizontal') return
+  if (absX < absY * GALLERY_HORIZONTAL_BIAS) return
 
-  if (event.cancelable) event.preventDefault()
-  scroller.scrollLeft = galleryGestureStartScrollLeft - deltaX
+  galleryGestureAxis = 'horizontal'
+  suppressGalleryClickUntil = Date.now() + 420
+  ;(event.currentTarget as HTMLElement | null)?.setPointerCapture?.(event.pointerId)
 }
 
 function finishGalleryPointer(event: PointerEvent, cancelled = false) {
   if (galleryPointerId !== event.pointerId) return
 
-  const scroller = galleryScroller.value
-  const wasHorizontal = galleryGestureAxis === 'horizontal'
   const deltaX = event.clientX - galleryGestureStartX
+  const deltaY = event.clientY - galleryGestureStartY
+  const absX = Math.abs(deltaX)
+  const absY = Math.abs(deltaY)
 
-  if (wasHorizontal && scroller && !cancelled) {
-    const slideWidth = Math.max(scroller.clientWidth, 1)
-    const startIndex = Math.round(galleryGestureStartScrollLeft / slideWidth)
-    const threshold = Math.min(84, Math.max(42, slideWidth * 0.14))
-    let targetIndex = Math.round(scroller.scrollLeft / slideWidth)
+  // Fast flicks can occasionally reach pointerup with very few pointermove
+  // samples. Re-evaluate intent here so a genuine horizontal swipe still
+  // advances even if the move phase never had time to lock the axis.
+  const wasHorizontal = galleryGestureAxis === 'horizontal'
+    || (galleryGestureAxis === 'pending' && absX >= GALLERY_DIRECTION_THRESHOLD && absX > absY * GALLERY_HORIZONTAL_BIAS)
 
-    if (Math.abs(deltaX) >= threshold) {
-      targetIndex = deltaX < 0 ? startIndex + 1 : startIndex - 1
-    }
+  if (wasHorizontal) {
+    suppressGalleryClickUntil = Date.now() + 420
+  }
 
-    targetIndex = Math.min(Math.max(targetIndex, 0), galleryImages.value.length - 1)
+  if (wasHorizontal && !cancelled && absX >= GALLERY_SWIPE_THRESHOLD) {
+    const direction = deltaX < 0 ? 1 : -1
+    const targetIndex = Math.min(
+      Math.max(galleryGestureStartIndex + direction, 0),
+      galleryImages.value.length - 1,
+    )
+
+    galleryMotion.value = direction === 1 ? 'next' : 'previous'
     scrollToImage(targetIndex)
-    suppressGalleryClickUntil = Date.now() + 360
+    suppressGalleryClickUntil = Date.now() + 420
   }
 
   const target = event.currentTarget as HTMLElement | null
@@ -693,8 +684,9 @@ function onGalleryPointerUp(event: PointerEvent) {
 }
 
 function onGalleryPointerCancel(event: PointerEvent) {
-  // Pointer cancellation is expected when the browser takes over a vertical
-  // page scroll. Do not snap or alter the gallery in that case.
+  // A vertical document scroll commonly cancels the pointer. That is the
+  // desired behavior: no gallery snap, no Y-axis movement, just normal page
+  // scrolling.
   finishGalleryPointer(event, true)
 }
 
@@ -1296,7 +1288,7 @@ watch(product, () => {
       <span class="hidden h-3 w-px bg-white/20 sm:block" />
       <span class="text-[10px] text-white/65">This product is not public. Shopping actions are disabled.</span>
     </div>
-    <div class="border-b border-charcoal-950/[0.07] px-4 py-3 sm:px-7 lg:px-10 xl:px-12">
+    <div class="hidden border-b border-charcoal-950/[0.07] px-4 py-3 sm:px-7 lg:block lg:px-10 xl:px-12">
       <nav class="shop-breadcrumb" aria-label="Breadcrumb">
         <NuxtLink to="/" class="shop-breadcrumb-link">
           <svg class="h-3 w-3 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25">
@@ -1334,6 +1326,44 @@ watch(product, () => {
       class="lg:grid lg:grid-cols-[minmax(0,1.08fr)_minmax(450px,0.92fr)] xl:grid-cols-[minmax(0,1.04fr)_minmax(520px,0.96fr)]"
       :class="{ 'product-editorial-layout': stackedGalleryEnabled }"
     >
+      <div
+        class="product-mobile-visual-stage lg:hidden"
+        :class="{ 'product-editorial-mobile-stage': stackedGalleryEnabled }"
+      >
+        <div class="product-mobile-breadcrumb-shell border-b border-charcoal-950/[0.07] px-4 py-3 sm:px-7">
+        <nav class="shop-breadcrumb" aria-label="Breadcrumb">
+          <NuxtLink to="/" class="shop-breadcrumb-link">
+            <svg class="h-3 w-3 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25">
+              <path d="M2.5 7.2 8 2.8l5.5 4.4v6H9.8V9.7H6.2v3.5H2.5v-6Z" />
+            </svg>
+            <span>Home</span>
+          </NuxtLink>
+  
+          <svg class="shop-breadcrumb-separator" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.1">
+            <path d="m4.3 2.6 3.4 3.4-3.4 3.4" />
+          </svg>
+  
+          <NuxtLink to="/shop" class="shop-breadcrumb-link">Shop</NuxtLink>
+  
+          <template v-for="category in productCategoryTrail" :key="category.full_slug">
+            <svg class="shop-breadcrumb-separator" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.1">
+              <path d="m4.3 2.6 3.4 3.4-3.4 3.4" />
+            </svg>
+            <NuxtLink
+              :to="categoryPath(category.full_slug)"
+              class="shop-breadcrumb-link"
+            >
+              {{ category.name }}
+            </NuxtLink>
+          </template>
+  
+          <svg class="shop-breadcrumb-separator" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.1">
+            <path d="m4.3 2.6 3.4 3.4-3.4 3.4" />
+          </svg>
+          <span class="shop-breadcrumb-current" aria-current="page">{{ product.name }}</span>
+        </nav>
+        </div>
+
       <!-- Mobile swipe gallery. Editorial mode keeps the familiar initial
            product image size; the sticky/overlap effect begins only as the
            customer scrolls into the product information. -->
@@ -1402,6 +1432,8 @@ watch(product, () => {
             </button>
           </nav>
         </template>
+      </div>
+
       </div>
 
       <!-- Desktop editorial gallery: full-bleed stacked images + sticky purchase panel -->
