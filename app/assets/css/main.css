@@ -4019,3 +4019,31 @@ html.dark .storefront-footer {
   }
 }
 
+/* Patch 6.5.6 — single-product mobile gallery axis lock ------------------ */
+/*
+ * Chromium/Android can otherwise treat a diagonal gesture inside an
+ * overflow-x scroller as gallery motion before the document gets a chance
+ * to scroll vertically. The browser now owns vertical pan/pinch gestures;
+ * horizontal gallery movement is direction-locked in [slug].vue.
+ */
+@media (max-width: 1023px) {
+  .product-mobile-gallery {
+    overflow-y: hidden !important;
+    touch-action: pan-y pinch-zoom;
+    overscroll-behavior-x: contain;
+    overscroll-behavior-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .product-mobile-gallery > button,
+  .product-mobile-gallery > div,
+  .product-mobile-gallery img {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .product-mobile-gallery img {
+    -webkit-user-drag: none;
+  }
+}
+

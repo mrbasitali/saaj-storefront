@@ -461,6 +461,19 @@ const currentImageIndex = ref(0)
 const galleryScroller = ref<HTMLElement | null>(null)
 const galleryMotion = ref<'next' | 'previous'>('next')
 
+// Mobile gallery direction lock. The browser owns vertical pan/scroll, while
+// we only move the gallery after a gesture is clearly horizontal. This avoids
+// the image following diagonal/up-down finger movement on Chromium/Android.
+type GalleryGestureAxis = 'pending' | 'horizontal' | 'vertical'
+let galleryPointerId: number | null = null
+let galleryGestureAxis: GalleryGestureAxis = 'pending'
+let galleryGestureStartX = 0
+let galleryGestureStartY = 0
+let galleryGestureStartScrollLeft = 0
+let suppressGalleryClickUntil = 0
+const GALLERY_DIRECTION_THRESHOLD = 7
+const GALLERY_HORIZONTAL_BIAS = 1.12
+
 // Gallery position tracking. Mobile uses the horizontal scroller's active
 // image, while desktop editorial mode tracks whichever stacked image is
 // closest to the visual center of the viewport.
@@ -582,6 +595,112 @@ function onGalleryScroll() {
   })
 
   currentImageIndex.value = nearest
+}
+
+function resetGalleryGesture() {
+  galleryPointerId = null
+  galleryGestureAxis = 'pending'
+  galleryGestureStartX = 0
+  galleryGestureStartY = 0
+  galleryGestureStartScrollLeft = 0
+}
+
+function onGalleryPointerDown(event: PointerEvent) {
+  // Mouse keeps its normal click-to-zoom behavior. Direction locking is only
+  // needed for touch/pen input on the mobile gallery.
+  if (event.pointerType === 'mouse') return
+  if (galleryPointerId !== null) return
+
+  const scroller = galleryScroller.value
+  if (!scroller) return
+
+  galleryPointerId = event.pointerId
+  galleryGestureAxis = 'pending'
+  galleryGestureStartX = event.clientX
+  galleryGestureStartY = event.clientY
+  galleryGestureStartScrollLeft = scroller.scrollLeft
+}
+
+function onGalleryPointerMove(event: PointerEvent) {
+  if (galleryPointerId !== event.pointerId) return
+
+  const scroller = galleryScroller.value
+  if (!scroller) return
+
+  const deltaX = event.clientX - galleryGestureStartX
+  const deltaY = event.clientY - galleryGestureStartY
+  const absX = Math.abs(deltaX)
+  const absY = Math.abs(deltaY)
+
+  if (galleryGestureAxis === 'pending') {
+    if (Math.max(absX, absY) < GALLERY_DIRECTION_THRESHOLD) return
+
+    // A vertical gesture is never consumed by the gallery. Because the
+    // scroller uses touch-action: pan-y, Chromium can immediately continue
+    // the normal document scroll without the photograph moving vertically.
+    if (absY >= absX) {
+      galleryGestureAxis = 'vertical'
+      return
+    }
+
+    // For a slightly diagonal gesture, wait for intent to become clear rather
+    // than stealing it too early from page scrolling.
+    if (absX < absY * GALLERY_HORIZONTAL_BIAS) return
+
+    galleryGestureAxis = 'horizontal'
+    suppressGalleryClickUntil = Date.now() + 360
+    ;(event.currentTarget as HTMLElement | null)?.setPointerCapture?.(event.pointerId)
+  }
+
+  if (galleryGestureAxis !== 'horizontal') return
+
+  if (event.cancelable) event.preventDefault()
+  scroller.scrollLeft = galleryGestureStartScrollLeft - deltaX
+}
+
+function finishGalleryPointer(event: PointerEvent, cancelled = false) {
+  if (galleryPointerId !== event.pointerId) return
+
+  const scroller = galleryScroller.value
+  const wasHorizontal = galleryGestureAxis === 'horizontal'
+  const deltaX = event.clientX - galleryGestureStartX
+
+  if (wasHorizontal && scroller && !cancelled) {
+    const slideWidth = Math.max(scroller.clientWidth, 1)
+    const startIndex = Math.round(galleryGestureStartScrollLeft / slideWidth)
+    const threshold = Math.min(84, Math.max(42, slideWidth * 0.14))
+    let targetIndex = Math.round(scroller.scrollLeft / slideWidth)
+
+    if (Math.abs(deltaX) >= threshold) {
+      targetIndex = deltaX < 0 ? startIndex + 1 : startIndex - 1
+    }
+
+    targetIndex = Math.min(Math.max(targetIndex, 0), galleryImages.value.length - 1)
+    scrollToImage(targetIndex)
+    suppressGalleryClickUntil = Date.now() + 360
+  }
+
+  const target = event.currentTarget as HTMLElement | null
+  if (target?.hasPointerCapture?.(event.pointerId)) {
+    target.releasePointerCapture(event.pointerId)
+  }
+
+  resetGalleryGesture()
+}
+
+function onGalleryPointerUp(event: PointerEvent) {
+  finishGalleryPointer(event)
+}
+
+function onGalleryPointerCancel(event: PointerEvent) {
+  // Pointer cancellation is expected when the browser takes over a vertical
+  // page scroll. Do not snap or alter the gallery in that case.
+  finishGalleryPointer(event, true)
+}
+
+function onGalleryImageClick(image: ProductImage) {
+  if (Date.now() < suppressGalleryClickUntil) return
+  openZoom(image)
 }
 
 const zoomOpen = ref(false)
@@ -1226,6 +1345,10 @@ watch(product, () => {
           ref="galleryScroller"
           class="product-mobile-gallery flex snap-x snap-mandatory overflow-x-auto bg-mist-100 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           @scroll.passive="onGalleryScroll"
+          @pointerdown="onGalleryPointerDown"
+          @pointermove="onGalleryPointerMove"
+          @pointerup="onGalleryPointerUp"
+          @pointercancel="onGalleryPointerCancel"
         >
           <button
             v-for="(image, index) in galleryImages"
@@ -1233,7 +1356,7 @@ watch(product, () => {
             type="button"
             class="relative aspect-[4/5] min-w-full snap-start overflow-hidden bg-mist-100"
             :aria-label="`Open image ${index + 1}`"
-            @click="openZoom(image)"
+            @click="onGalleryImageClick(image)"
           >
             <NuxtImg
               :src="imageUrl(image, 'detail')!"
