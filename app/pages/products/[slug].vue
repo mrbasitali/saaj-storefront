@@ -461,22 +461,6 @@ const currentImageIndex = ref(0)
 const galleryScroller = ref<HTMLElement | null>(null)
 const galleryMotion = ref<'next' | 'previous'>('next')
 
-// Mobile gallery gesture arbitration. Vertical movement belongs entirely to
-// the document; only a clearly horizontal gesture advances the carousel. We
-// intentionally do NOT drag scrollLeft during pointermove. That keeps the
-// photograph perfectly locked on the Y axis and lets Chromium/iOS own normal
-// vertical page scrolling without the gallery fighting the gesture.
-type GalleryGestureAxis = 'pending' | 'horizontal' | 'vertical'
-let galleryPointerId: number | null = null
-let galleryGestureAxis: GalleryGestureAxis = 'pending'
-let galleryGestureStartX = 0
-let galleryGestureStartY = 0
-let galleryGestureStartIndex = 0
-let suppressGalleryClickUntil = 0
-const GALLERY_DIRECTION_THRESHOLD = 8
-const GALLERY_HORIZONTAL_BIAS = 1.14
-const GALLERY_SWIPE_THRESHOLD = 34
-
 // Gallery position tracking. Mobile uses the horizontal scroller's active
 // image, while desktop editorial mode tracks whichever stacked image is
 // closest to the visual center of the viewport.
@@ -598,101 +582,6 @@ function onGalleryScroll() {
   })
 
   currentImageIndex.value = nearest
-}
-
-function resetGalleryGesture() {
-  galleryPointerId = null
-  galleryGestureAxis = 'pending'
-  galleryGestureStartX = 0
-  galleryGestureStartY = 0
-  galleryGestureStartIndex = 0
-}
-
-function onGalleryPointerDown(event: PointerEvent) {
-  if (event.pointerType === 'mouse') return
-  if (galleryPointerId !== null) return
-
-  galleryPointerId = event.pointerId
-  galleryGestureAxis = 'pending'
-  galleryGestureStartX = event.clientX
-  galleryGestureStartY = event.clientY
-  galleryGestureStartIndex = currentImageIndex.value
-}
-
-function onGalleryPointerMove(event: PointerEvent) {
-  if (galleryPointerId !== event.pointerId || galleryGestureAxis !== 'pending') return
-
-  const deltaX = event.clientX - galleryGestureStartX
-  const deltaY = event.clientY - galleryGestureStartY
-  const absX = Math.abs(deltaX)
-  const absY = Math.abs(deltaY)
-
-  if (Math.max(absX, absY) < GALLERY_DIRECTION_THRESHOLD) return
-
-  if (absY >= absX) {
-    galleryGestureAxis = 'vertical'
-    return
-  }
-
-  if (absX < absY * GALLERY_HORIZONTAL_BIAS) return
-
-  galleryGestureAxis = 'horizontal'
-  suppressGalleryClickUntil = Date.now() + 420
-  ;(event.currentTarget as HTMLElement | null)?.setPointerCapture?.(event.pointerId)
-}
-
-function finishGalleryPointer(event: PointerEvent, cancelled = false) {
-  if (galleryPointerId !== event.pointerId) return
-
-  const deltaX = event.clientX - galleryGestureStartX
-  const deltaY = event.clientY - galleryGestureStartY
-  const absX = Math.abs(deltaX)
-  const absY = Math.abs(deltaY)
-
-  // Fast flicks can occasionally reach pointerup with very few pointermove
-  // samples. Re-evaluate intent here so a genuine horizontal swipe still
-  // advances even if the move phase never had time to lock the axis.
-  const wasHorizontal = galleryGestureAxis === 'horizontal'
-    || (galleryGestureAxis === 'pending' && absX >= GALLERY_DIRECTION_THRESHOLD && absX > absY * GALLERY_HORIZONTAL_BIAS)
-
-  if (wasHorizontal) {
-    suppressGalleryClickUntil = Date.now() + 420
-  }
-
-  if (wasHorizontal && !cancelled && absX >= GALLERY_SWIPE_THRESHOLD) {
-    const direction = deltaX < 0 ? 1 : -1
-    const targetIndex = Math.min(
-      Math.max(galleryGestureStartIndex + direction, 0),
-      galleryImages.value.length - 1,
-    )
-
-    galleryMotion.value = direction === 1 ? 'next' : 'previous'
-    scrollToImage(targetIndex)
-    suppressGalleryClickUntil = Date.now() + 420
-  }
-
-  const target = event.currentTarget as HTMLElement | null
-  if (target?.hasPointerCapture?.(event.pointerId)) {
-    target.releasePointerCapture(event.pointerId)
-  }
-
-  resetGalleryGesture()
-}
-
-function onGalleryPointerUp(event: PointerEvent) {
-  finishGalleryPointer(event)
-}
-
-function onGalleryPointerCancel(event: PointerEvent) {
-  // A vertical document scroll commonly cancels the pointer. That is the
-  // desired behavior: no gallery snap, no Y-axis movement, just normal page
-  // scrolling.
-  finishGalleryPointer(event, true)
-}
-
-function onGalleryImageClick(image: ProductImage) {
-  if (Date.now() < suppressGalleryClickUntil) return
-  openZoom(image)
 }
 
 const zoomOpen = ref(false)
@@ -1375,10 +1264,6 @@ watch(product, () => {
           ref="galleryScroller"
           class="product-mobile-gallery flex snap-x snap-mandatory overflow-x-auto bg-mist-100 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           @scroll.passive="onGalleryScroll"
-          @pointerdown="onGalleryPointerDown"
-          @pointermove="onGalleryPointerMove"
-          @pointerup="onGalleryPointerUp"
-          @pointercancel="onGalleryPointerCancel"
         >
           <button
             v-for="(image, index) in galleryImages"
@@ -1386,13 +1271,14 @@ watch(product, () => {
             type="button"
             class="relative aspect-[4/5] min-w-full snap-start overflow-hidden bg-mist-100"
             :aria-label="`Open image ${index + 1}`"
-            @click="onGalleryImageClick(image)"
+            @click="openZoom(image)"
           >
             <NuxtImg
               :src="imageUrl(image, 'detail')!"
               :alt="image.alt_text || product.name"
-              class="absolute inset-0 h-full w-full object-cover"
+              class="product-mobile-gallery-image pointer-events-none absolute inset-0 h-full w-full select-none object-cover"
               :loading="index === 0 ? 'eager' : 'lazy'"
+              draggable="false"
             />
           </button>
 

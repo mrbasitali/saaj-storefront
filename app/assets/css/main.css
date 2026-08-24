@@ -4019,44 +4019,19 @@ html.dark .storefront-footer {
   }
 }
 
-/* Patch 6.5.6 — single-product mobile gallery axis lock ------------------ */
+/* Patch 6.5.8 — native mobile PDP swipe + locked image canvas ----------- */
 /*
- * Chromium/Android can otherwise treat a diagonal gesture inside an
- * overflow-x scroller as gallery motion before the document gets a chance
- * to scroll vertically. The browser now owns vertical pan/pinch gestures;
- * horizontal gallery movement is direction-locked in [slug].vue.
- */
-@media (max-width: 1023px) {
-  .product-mobile-gallery {
-    overflow-y: hidden !important;
-    touch-action: pan-y pinch-zoom;
-    overscroll-behavior-x: contain;
-    overscroll-behavior-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .product-mobile-gallery > button,
-  .product-mobile-gallery > div,
-  .product-mobile-gallery img {
-    -webkit-user-select: none;
-    user-select: none;
-  }
-
-  .product-mobile-gallery img {
-    -webkit-user-drag: none;
-  }
-}
-
-
-/* Patch 6.5.7 — mobile product sticky visual stage + reliable swipe ------- */
-/*
- * Mobile editorial PDP treats breadcrumb + media as one visual stage. The
- * entire stage pins beneath the storefront header; the purchase/details
- * surface then scrolls over it as one continuous sheet. Desktop is untouched.
+ * Keep mobile PDP gesture handling browser-native. The gallery is a normal
+ * horizontal scroll-snap container, so the UA can naturally arbitrate between
+ * horizontal carousel swipes and vertical document scrolling.
  *
- * Horizontal image swipes are handled in [slug].vue after intent is clear.
- * The UA owns vertical pan/pinch, so touching the image never blocks normal
- * page scrolling and the photograph never drifts on the Y axis.
+ * Important: the photograph itself is never a gesture target. It is
+ * pointer-events:none, non-draggable and never transformed; only the slide
+ * container scrolls on the X axis. This prevents the "photo moving inside its
+ * frame" effect without blocking native swipe.
+ *
+ * The sticky breadcrumb + media stage from 6.5.7 is preserved. Desktop remains
+ * untouched.
  */
 @media (max-width: 1023px) {
   .product-mobile-visual-stage {
@@ -4080,8 +4055,6 @@ html.dark .storefront-footer {
     background: var(--color-paper-50);
   }
 
-  /* The parent stage now owns sticky positioning. Keeping the media itself
-     relative prevents two nested sticky layers from fighting vertical scroll. */
   .product-editorial-mobile-media {
     position: relative !important;
     top: auto !important;
@@ -4093,10 +4066,33 @@ html.dark .storefront-footer {
   .product-mobile-gallery {
     overflow-x: auto !important;
     overflow-y: hidden !important;
-    touch-action: pan-y pinch-zoom;
+    scroll-snap-type: x mandatory;
     overscroll-behavior-x: contain;
     overscroll-behavior-y: auto;
+    touch-action: auto;
     -webkit-overflow-scrolling: touch;
+  }
+
+  .product-mobile-gallery > button,
+  .product-mobile-gallery > div {
+    flex: 0 0 100%;
+    width: 100%;
+    min-width: 100%;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: auto;
+  }
+
+  .product-mobile-gallery-image {
+    pointer-events: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-user-drag: none;
+    transform: none !important;
+    translate: none !important;
+    touch-action: auto;
   }
 
   /* Product details intentionally pass over both photography and breadcrumb. */
