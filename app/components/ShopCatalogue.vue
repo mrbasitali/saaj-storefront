@@ -33,6 +33,14 @@ type ProductsResponse = {
   }
 }
 
+type CatalogueCacheEntry = {
+  signature: string
+  products: Product[]
+  meta: ProductsResponse['meta']
+  scrollY: number
+  savedAt: number
+}
+
 type FilterValue = {
   slug: string
   value: string
@@ -60,7 +68,8 @@ type Category = {
 
 const route = useRoute()
 const router = useRouter()
-const { $api } = useNuxtApp()
+const nuxtApp = useNuxtApp()
+const { $api } = nuxtApp
 
 const filterOpen = ref(false)
 const sortOpen = ref(false)
@@ -267,12 +276,181 @@ const loadedProducts = ref<Product[]>([])
 const loadedMeta = ref<ProductsResponse['meta'] | null>(null)
 const loadingMore = ref(false)
 const loadMoreError = ref('')
+const loadMoreSentinel = ref<HTMLElement | null>(null)
+const catalogueCache = useState<CatalogueCacheEntry | null>('shop-catalogue-browse-cache', () => null)
+
+const CATALOGUE_CACHE_KEY = 'saaj:shop-catalogue-browse:v2'
+const CATALOGUE_CACHE_TTL = 30 * 60 * 1000
+let loadMoreObserver: IntersectionObserver | null = null
+let restoredScrollY: number | null = null
+let restoreFrame: number | null = null
+let restoreTimeout: number | null = null
+
+function isCacheFresh(entry: CatalogueCacheEntry | null | undefined) {
+  return !!entry
+    && entry.signature === catalogueSignature.value
+    && Date.now() - entry.savedAt < CATALOGUE_CACHE_TTL
+    && Array.isArray(entry.products)
+    && !!entry.meta
+}
+
+function readSessionCache() {
+  if (!import.meta.client) return null
+
+  try {
+    const raw = sessionStorage.getItem(CATALOGUE_CACHE_KEY)
+    if (!raw) return null
+
+    const entry = JSON.parse(raw) as CatalogueCacheEntry
+    if (!isCacheFresh(entry)) {
+      sessionStorage.removeItem(CATALOGUE_CACHE_KEY)
+      return null
+    }
+
+    return entry
+  } catch {
+    try {
+      sessionStorage.removeItem(CATALOGUE_CACHE_KEY)
+    } catch {
+      // Storage can be unavailable in privacy-restricted contexts.
+    }
+    return null
+  }
+}
+
+function shouldRestoreBrowsePosition() {
+  if (!import.meta.client) return false
+
+  const historyState = window.history.state as { forward?: unknown } | null
+  const forwardPath = typeof historyState?.forward === 'string' ? historyState.forward : ''
+  const returningFromProduct = /^\/products\//.test(forwardPath)
+
+  const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+  const isReload = navigation?.type === 'reload'
+
+  return returningFromProduct || isReload
+}
+
+function applyCatalogueCache(entry: CatalogueCacheEntry) {
+  loadedProducts.value = entry.products
+  loadedMeta.value = entry.meta
+  loadMoreError.value = ''
+  restoredScrollY = Math.max(0, Number(entry.scrollY || 0))
+}
+
+function persistCatalogueState(scrollY = import.meta.client ? window.scrollY : 0) {
+  if (!import.meta.client || !loadedMeta.value || !loadedProducts.value.length) return
+
+  const entry: CatalogueCacheEntry = {
+    signature: catalogueSignature.value,
+    products: loadedProducts.value,
+    meta: loadedMeta.value,
+    scrollY: Math.max(0, Math.round(scrollY)),
+    savedAt: Date.now(),
+  }
+
+  catalogueCache.value = entry
+
+  try {
+    sessionStorage.setItem(CATALOGUE_CACHE_KEY, JSON.stringify(entry))
+  } catch {
+    // Browsing still works when storage is unavailable/full; in-memory state
+    // continues to cover normal product -> back navigation.
+  }
+}
+
+function restoreScrollPosition(target: number | null) {
+  if (!import.meta.client || target === null || target <= 0) return
+
+  let attempts = 0
+  const maxAttempts = 24
+
+  const restore = () => {
+    const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
+
+    if (maxScroll >= target - 2 || attempts >= maxAttempts) {
+      const restoredTop = Math.min(target, maxScroll)
+      window.scrollTo({
+        top: restoredTop,
+        left: 0,
+        behavior: 'auto',
+      })
+      restoreFrame = null
+
+      // Vue Router/browser restoration can run very close to mount. Confirm
+      // our catalogue position once more after navigation has fully settled.
+      restoreTimeout = window.setTimeout(() => {
+        if (Math.abs(window.scrollY - restoredTop) > 8) {
+          window.scrollTo({ top: restoredTop, left: 0, behavior: 'auto' })
+        }
+        restoreTimeout = null
+      }, 120)
+      return
+    }
+
+    attempts += 1
+    restoreFrame = window.requestAnimationFrame(restore)
+  }
+
+  restoreFrame = window.requestAnimationFrame(() => {
+    restoreFrame = window.requestAnimationFrame(restore)
+  })
+}
+
+function observeLoadMoreSentinel() {
+  if (!import.meta.client) return
+
+  loadMoreObserver?.disconnect()
+  loadMoreObserver = null
+
+  if (!loadMoreSentinel.value || !hasMore.value) return
+
+  loadMoreObserver = new IntersectionObserver(
+    (entries) => {
+      if (entries.some(entry => entry.isIntersecting)) void loadMore()
+    },
+    {
+      root: null,
+      // Start before the customer reaches the end so the next row is usually
+      // ready by the time it is needed.
+      rootMargin: '900px 0px',
+      threshold: 0,
+    },
+  )
+
+  loadMoreObserver.observe(loadMoreSentinel.value)
+}
 
 watch(
   data,
   (response) => {
-    loadedProducts.value = response?.data ?? []
-    loadedMeta.value = response?.meta ?? null
+    if (!response) {
+      loadedProducts.value = []
+      loadedMeta.value = null
+      return
+    }
+
+    // A cached/infinite catalogue can contain several pages. If Nuxt refreshes
+    // the first page in the background, refresh matching cards without
+    // collapsing the customer back to page one.
+    if (
+      loadedMeta.value
+      && loadedMeta.value.current_page > response.meta.current_page
+      && loadedProducts.value.length > response.data.length
+    ) {
+      const freshById = new Map(response.data.map(product => [product.id, product]))
+      loadedProducts.value = loadedProducts.value.map(product => freshById.get(product.id) ?? product)
+      loadedMeta.value = {
+        ...loadedMeta.value,
+        total: response.meta.total,
+        last_page: response.meta.last_page,
+        per_page: response.meta.per_page,
+      }
+    } else {
+      loadedProducts.value = response.data
+      loadedMeta.value = response.meta
+    }
+
     loadMoreError.value = ''
   },
   { immediate: true },
@@ -283,11 +461,22 @@ watch(catalogueSignature, () => {
   loadedMeta.value = null
   loadingMore.value = false
   loadMoreError.value = ''
+  restoredScrollY = null
 })
 
 const products = computed(() => loadedProducts.value)
 const meta = computed(() => loadedMeta.value)
 const hasMore = computed(() => !!meta.value && meta.value.current_page < meta.value.last_page)
+
+if (import.meta.client && !nuxtApp.isHydrating && shouldRestoreBrowsePosition()) {
+  const cached = isCacheFresh(catalogueCache.value) ? catalogueCache.value : readSessionCache()
+  if (cached) applyCatalogueCache(cached)
+}
+
+watch([loadMoreSentinel, hasMore], () => {
+  if (import.meta.client) nextTick(observeLoadMoreSentinel)
+})
+
 const loadedProgress = computed(() => {
   if (!meta.value?.total) return 0
   return Math.min(100, Math.round((products.value.length / meta.value.total) * 100))
@@ -413,8 +602,43 @@ watch([filterOpen, sortOpen], () => {
   document.body.style.overflow = isMobile && (filterOpen.value || sortOpen.value) ? 'hidden' : ''
 })
 
+function handlePageHide() {
+  persistCatalogueState()
+}
+
+function handleVisibilityChange() {
+  if (document.visibilityState === 'hidden') persistCatalogueState()
+}
+
+onMounted(async () => {
+  if (!import.meta.client) return
+
+  if (shouldRestoreBrowsePosition()) {
+    const cached = isCacheFresh(catalogueCache.value) ? catalogueCache.value : readSessionCache()
+    if (cached) applyCatalogueCache(cached)
+  }
+
+  await nextTick()
+  observeLoadMoreSentinel()
+  restoreScrollPosition(restoredScrollY)
+
+  window.addEventListener('pagehide', handlePageHide)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+})
+
 onBeforeUnmount(() => {
-  if (import.meta.client) document.body.style.overflow = ''
+  if (!import.meta.client) return
+
+  persistCatalogueState()
+  document.body.style.overflow = ''
+  loadMoreObserver?.disconnect()
+  loadMoreObserver = null
+
+  if (restoreFrame !== null) window.cancelAnimationFrame(restoreFrame)
+  if (restoreTimeout !== null) window.clearTimeout(restoreTimeout)
+
+  window.removeEventListener('pagehide', handlePageHide)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 
 function toggleAttributeValue(code: string, slug: string) {
@@ -498,6 +722,7 @@ async function loadMore() {
 
     loadedProducts.value = [...loadedProducts.value, ...nextProducts]
     loadedMeta.value = response.meta
+    persistCatalogueState()
   } catch {
     if (requestSignature === catalogueSignature.value) {
       loadMoreError.value = 'We could not load the next pieces. Please try again.'
@@ -823,7 +1048,7 @@ function closePanels() {
           />
 
           <ProductCardSkeleton
-            v-for="n in (loadingMore ? 4 : 0)"
+            v-for="n in (loadingMore ? 8 : 0)"
             :key="`load-more-${n}`"
           />
         </div>
@@ -846,19 +1071,30 @@ function closePanels() {
           <NuxtLink
             v-if="hasMore"
             :to="{ path: canonicalPath, query: { ...route.query, page: (meta?.current_page || 1) + 1 } }"
-            class="mt-6 inline-flex min-h-12 min-w-[180px] items-center justify-center border border-charcoal-950 px-7 text-[10px] font-semibold uppercase tracking-[0.15em] text-charcoal-950 transition hover:bg-charcoal-950 hover:text-paper-50"
-            :class="loadingMore ? 'pointer-events-none cursor-wait opacity-55' : ''"
-            @click.prevent="loadMore"
+            class="sr-only"
           >
-            <span v-if="!loadingMore">Load more</span>
-            <span v-else class="flex items-center gap-2">
-              <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
-              Loading pieces
-            </span>
+            View next product page
           </NuxtLink>
 
+          <div
+            v-if="hasMore"
+            ref="loadMoreSentinel"
+            class="h-px w-full"
+            aria-hidden="true"
+          />
+
           <p
-            v-else
+            v-if="loadingMore"
+            class="mt-5 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.13em] text-charcoal-400"
+            role="status"
+            aria-live="polite"
+          >
+            <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-current" aria-hidden="true" />
+            Loading more pieces
+          </p>
+
+          <p
+            v-else-if="!hasMore"
             class="mt-5 text-[10px] font-semibold uppercase tracking-[0.13em] text-charcoal-400"
           >
             The complete edit is here
