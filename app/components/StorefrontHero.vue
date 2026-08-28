@@ -57,6 +57,86 @@ const props = defineProps<{
   slides: HeroSlide[]
 }>()
 
+function escapeHeroHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
+function heroRichTextHtml(value?: string | null) {
+  if (!value) return ''
+
+  const raw = String(value)
+  const hasKnownMarkup = /<\/?(?:p|br|strong|b|em|i|u|span)\b/i.test(raw)
+  let html = hasKnownMarkup
+    ? raw
+    : escapeHeroHtml(raw).replace(/\r?\n/g, '<br>')
+
+  // The API already sanitizes hero rich text. Keep a small rendering-side
+  // allow-list too so legacy content can never introduce attributes/scripts.
+  html = html.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
+  html = html.replace(/<\/?([a-z0-9]+)\b[^>]*>/gi, (match, tagName: string) => {
+    const tag = tagName.toLowerCase()
+    const closing = match.startsWith('</')
+    const normalized = tag === 'b' ? 'strong' : tag === 'i' ? 'em' : tag
+
+    if (!['p', 'br', 'strong', 'em', 'u', 'span'].includes(normalized)) return ''
+    if (normalized === 'br') return closing ? '' : '<br>'
+    if (closing) return `</${normalized}>`
+
+    if (normalized === 'span') {
+      return /data-text-weight\s*=\s*["']light["']/i.test(match)
+        ? '<span data-text-weight="light">'
+        : '<span>'
+    }
+
+    return `<${normalized}>`
+  })
+
+  // TipTap stores Enter-created lines as paragraphs. Hero headings/descriptions
+  // must stay inline-safe inside h1/h2/p, so paragraph boundaries become <br>.
+  return html
+    .replace(/<\/p>\s*(?=<p>)/gi, '<br>')
+    .replace(/<\/?p>/gi, '')
+    .replace(/(?:<br>\s*)+$/gi, '')
+    .trim()
+}
+
+function decodeHeroEntity(entity: string, _named?: string, decimal?: string, hex?: string) {
+  if (decimal || hex) {
+    const codePoint = Number.parseInt(decimal || hex || '', hex ? 16 : 10)
+    if (Number.isFinite(codePoint) && codePoint >= 0 && codePoint <= 0x10ffff) {
+      try {
+        return String.fromCodePoint(codePoint)
+      } catch {
+        return entity
+      }
+    }
+  }
+
+  return ({
+    '&nbsp;': ' ',
+    '&amp;': '&',
+    '&quot;': '"',
+    '&#039;': "'",
+    '&apos;': "'",
+    '&lt;': '<',
+    '&gt;': '>',
+  } as Record<string, string>)[entity.toLowerCase()] ?? entity
+}
+
+function heroPlainText(value?: string | null) {
+  return heroRichTextHtml(value)
+    .replace(/<br\s*\/?\s*>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&(nbsp|amp|quot|apos|lt|gt);|&#(\d+);|&#x([0-9a-f]+);/gi, decodeHeroEntity)
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 const activeIndex = ref(0)
 const previousIndex = ref<number | null>(null)
 const activeMobileFrame = ref(0)
@@ -469,7 +549,7 @@ onBeforeUnmount(() => {
               <img
                 v-if="panel.image_url"
                 :src="panel.image_url"
-                :alt="index === activeIndex ? (panel.alt_text || panel.title || `SAAJ campaign image ${panelIndex + 1}`) : ''"
+                :alt="index === activeIndex ? (panel.alt_text || heroPlainText(panel.title) || `SAAJ campaign image ${panelIndex + 1}`) : ''"
                 class="hero-panel-image absolute inset-0 h-full w-full object-cover"
                 :loading="index === 0 ? 'eager' : 'lazy'"
                 :fetchpriority="index === 0 && panelIndex === 0 ? 'high' : 'auto'"
@@ -483,8 +563,8 @@ onBeforeUnmount(() => {
               >
                 <div class="hero-panel-copy-inner w-full max-w-[420px]" :class="panelInnerPositionClasses(panel)">
                   <p v-if="panel.eyebrow" class="text-[9px] font-semibold uppercase tracking-[0.22em] opacity-70 sm:text-[10px]">{{ panel.eyebrow }}</p>
-                  <h2 v-if="panel.title" class="mt-2 whitespace-pre-line font-display text-[clamp(1.8rem,2.5vw,3.3rem)] font-medium leading-[0.94] tracking-[-0.045em]">{{ panel.title }}</h2>
-                  <p v-if="panel.description" class="hero-panel-description mt-3 text-[12px] leading-5 opacity-80 sm:text-[13px] sm:leading-6">{{ panel.description }}</p>
+                  <h2 v-if="panel.title" class="hero-richtext mt-2 font-display text-[clamp(1.8rem,2.5vw,3.3rem)] font-medium leading-[0.94] tracking-[-0.045em]" v-html="heroRichTextHtml(panel.title)"></h2>
+                  <p v-if="panel.description" class="hero-panel-description hero-richtext mt-3 text-[12px] leading-5 opacity-80 sm:text-[13px] sm:leading-6" v-html="heroRichTextHtml(panel.description)"></p>
                   <NuxtLink
                     v-if="panel.cta_label && panel.cta_url"
                     :to="panel.cta_url"
@@ -512,7 +592,7 @@ onBeforeUnmount(() => {
           <img
             v-else-if="slide.desktop_media_url"
             :src="slide.desktop_media_url"
-            :alt="index === activeIndex ? (slide.alt_text || slide.title || 'SAAJ collection') : ''"
+            :alt="index === activeIndex ? (slide.alt_text || heroPlainText(slide.title) || 'SAAJ collection') : ''"
             class="h-full w-full object-cover"
             :loading="index <= 1 ? 'eager' : 'lazy'"
             :fetchpriority="index === 0 ? 'high' : 'auto'"
@@ -546,7 +626,7 @@ onBeforeUnmount(() => {
             <img
               v-if="frame.panel.image_url"
               :src="frame.panel.image_url"
-              :alt="frame.panel.alt_text || frame.panel.title || `SAAJ campaign image ${frameIndex + 1}`"
+              :alt="frame.panel.alt_text || heroPlainText(frame.panel.title) || `SAAJ campaign image ${frameIndex + 1}`"
               class="absolute inset-0 h-full w-full object-cover"
               :loading="frameIndex <= 1 ? 'eager' : 'lazy'"
               :fetchpriority="frameIndex === 0 ? 'high' : 'auto'"
@@ -560,8 +640,8 @@ onBeforeUnmount(() => {
             >
               <div class="w-full max-w-[440px]" :class="panelInnerPositionClasses(frame.panel)">
                 <p v-if="frame.panel.eyebrow" class="text-[9px] font-semibold uppercase tracking-[0.22em] opacity-72 sm:text-[10px]">{{ frame.panel.eyebrow }}</p>
-                <h2 v-if="frame.panel.title" class="mt-2 whitespace-pre-line font-display text-[clamp(2rem,9vw,3.9rem)] font-medium leading-[0.92] tracking-[-0.05em]">{{ frame.panel.title }}</h2>
-                <p v-if="frame.panel.description" class="mt-3 max-w-[34rem] text-[12px] leading-5 opacity-84 sm:text-[13px] sm:leading-6">{{ frame.panel.description }}</p>
+                <h2 v-if="frame.panel.title" class="hero-richtext mt-2 font-display text-[clamp(2rem,9vw,3.9rem)] font-medium leading-[0.92] tracking-[-0.05em]" v-html="heroRichTextHtml(frame.panel.title)"></h2>
+                <p v-if="frame.panel.description" class="hero-richtext mt-3 max-w-[34rem] text-[12px] leading-5 opacity-84 sm:text-[13px] sm:leading-6" v-html="heroRichTextHtml(frame.panel.description)"></p>
                 <NuxtLink
                   v-if="frame.panel.cta_label && frame.panel.cta_url"
                   :to="frame.panel.cta_url"
@@ -589,7 +669,7 @@ onBeforeUnmount(() => {
             <img
               v-else-if="frame.slide.mobile_media_url || frame.slide.desktop_media_url"
               :src="frame.slide.mobile_media_url || frame.slide.desktop_media_url!"
-              :alt="frame.slide.alt_text || frame.slide.title || 'SAAJ collection'"
+              :alt="frame.slide.alt_text || heroPlainText(frame.slide.title) || 'SAAJ collection'"
               class="absolute inset-0 h-full w-full object-cover"
               :loading="frameIndex <= 1 ? 'eager' : 'lazy'"
               :fetchpriority="frameIndex === 0 ? 'high' : 'auto'"
@@ -604,8 +684,8 @@ onBeforeUnmount(() => {
             >
               <div :class="[singleWidthClass(frame.slide), frame.slide.text_theme === 'dark' ? 'text-[#151714]' : 'text-white']">
                 <p v-if="frame.slide.eyebrow" class="text-[10px] font-semibold uppercase tracking-[0.24em] opacity-72">{{ frame.slide.eyebrow }}</p>
-                <h1 v-if="frame.slide.title" class="storefront-hero-title mt-3 whitespace-pre-line font-display font-medium leading-[0.9] tracking-[-0.058em]">{{ frame.slide.title }}</h1>
-                <p v-if="frame.slide.description" class="mt-4 max-w-[34rem] text-[13px] leading-6 opacity-82" :class="(frame.slide.text_position === 'center' || frame.slide.text_position === 'bottom-center') ? 'mx-auto' : ''">{{ frame.slide.description }}</p>
+                <h1 v-if="frame.slide.title" class="storefront-hero-title hero-richtext mt-3 font-display font-medium leading-[0.9] tracking-[-0.058em]" v-html="heroRichTextHtml(frame.slide.title)"></h1>
+                <p v-if="frame.slide.description" class="hero-richtext mt-4 max-w-[34rem] text-[13px] leading-6 opacity-82" :class="(frame.slide.text_position === 'center' || frame.slide.text_position === 'bottom-center') ? 'mx-auto' : ''" v-html="heroRichTextHtml(frame.slide.description)"></p>
                 <div v-if="frame.slide.primary_cta_label || frame.slide.secondary_cta_label" class="mt-6 flex flex-wrap items-center gap-2.5" :class="(frame.slide.text_position === 'center' || frame.slide.text_position === 'bottom-center') ? 'justify-center' : ''">
                   <NuxtLink v-if="frame.slide.primary_cta_label && frame.slide.primary_cta_url" :to="frame.slide.primary_cta_url" class="hero-button" :class="frame.slide.text_theme === 'dark' ? 'hero-button-dark' : 'hero-button-light'">
                     <span>{{ frame.slide.primary_cta_label }}</span>
@@ -632,8 +712,8 @@ onBeforeUnmount(() => {
           <Transition :name="reduceMotion ? undefined : 'hero-content'" mode="out-in">
             <div :key="currentSlide.id" :class="[contentWidthClass, isDarkText ? 'text-[#151714]' : 'text-white']">
               <p v-if="currentSlide.eyebrow" class="text-[10px] font-semibold uppercase tracking-[0.24em] sm:text-[11px]" :class="isDarkText ? 'text-[#555b53]' : 'text-white/72'">{{ currentSlide.eyebrow }}</p>
-              <h1 v-if="currentSlide.title" class="storefront-hero-title mt-3 whitespace-pre-line font-display font-medium leading-[0.9] tracking-[-0.058em]">{{ currentSlide.title }}</h1>
-              <p v-if="currentSlide.description" class="mt-5 max-w-[560px] text-[13px] leading-6 sm:text-[15px] sm:leading-7" :class="[isDarkText ? 'text-[#3a3f39]' : 'text-white/78', (currentSlide.text_position === 'center' || currentSlide.text_position === 'bottom-center') ? 'mx-auto' : '']">{{ currentSlide.description }}</p>
+              <h1 v-if="currentSlide.title" class="storefront-hero-title hero-richtext mt-3 font-display font-medium leading-[0.9] tracking-[-0.058em]" v-html="heroRichTextHtml(currentSlide.title)"></h1>
+              <p v-if="currentSlide.description" class="hero-richtext mt-5 max-w-[560px] text-[13px] leading-6 sm:text-[15px] sm:leading-7" :class="[isDarkText ? 'text-[#3a3f39]' : 'text-white/78', (currentSlide.text_position === 'center' || currentSlide.text_position === 'bottom-center') ? 'mx-auto' : '']" v-html="heroRichTextHtml(currentSlide.description)"></p>
 
               <div v-if="currentSlide.primary_cta_label || currentSlide.secondary_cta_label" class="mt-7 flex flex-wrap items-center gap-2.5" :class="(currentSlide.text_position === 'center' || currentSlide.text_position === 'bottom-center') ? 'justify-center' : ''">
                 <NuxtLink v-if="currentSlide.primary_cta_label && currentSlide.primary_cta_url" :to="currentSlide.primary_cta_url" class="hero-button" :class="isDarkText ? 'hero-button-dark' : 'hero-button-light'">
@@ -698,3 +778,12 @@ onBeforeUnmount(() => {
   </div>
 </template>
 
+<style scoped>
+.hero-richtext :deep(strong) {
+  font-weight: 700;
+}
+
+.hero-richtext :deep([data-text-weight="light"]) {
+  font-weight: 300;
+}
+</style>

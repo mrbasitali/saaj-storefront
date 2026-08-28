@@ -103,7 +103,7 @@ const { data: homepageResponse } = await useAsyncData('homepage-config', () =>
 
 const { data: categoriesResponse, status: categoriesStatus } = await useLazyAsyncData('home-categories', () =>
   $api<{ data: Category[] }>('/categories', {
-    query: { root: 1, menu_only: 1 },
+    query: { home_only: 1 },
   }),
 )
 
