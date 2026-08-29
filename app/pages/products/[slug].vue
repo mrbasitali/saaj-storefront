@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { resolveProductPricing } from '~/utils/productPricing'
+
 type OptimizedUrls = {
   thumb?: string | null
   card?: string | null
@@ -202,17 +204,27 @@ const productJsonLd = computed(() => {
     .map(image => imageUrl(image, 'zoom') || imageUrl(image, 'detail'))
     .filter((url): url is string => !!url)
 
-  const offers = value.active_variants.map(variant => ({
-    '@type': 'Offer',
-    url: productCanonicalUrl.value,
-    sku: variant.sku || undefined,
-    priceCurrency: 'PKR',
-    price: Number(variant.sale_price ?? variant.price).toFixed(2),
-    availability: variant.is_available === false
-      ? 'https://schema.org/OutOfStock'
-      : 'https://schema.org/InStock',
-    itemCondition: 'https://schema.org/NewCondition',
-  }))
+  const offers = value.active_variants.map(variant => {
+    const pricing = resolveProductPricing(variant.price, variant.sale_price)
+
+    return {
+      '@type': 'Offer',
+      url: productCanonicalUrl.value,
+      sku: variant.sku || undefined,
+      priceCurrency: 'PKR',
+      price: Number(pricing.currentPrice ?? variant.price).toFixed(2),
+      priceSpecification: pricing.isOnSale ? {
+        '@type': 'UnitPriceSpecification',
+        priceType: 'https://schema.org/StrikethroughPrice',
+        price: Number(pricing.originalPrice).toFixed(2),
+        priceCurrency: 'PKR',
+      } : undefined,
+      availability: variant.is_available === false
+        ? 'https://schema.org/OutOfStock'
+        : 'https://schema.org/InStock',
+      itemCondition: 'https://schema.org/NewCondition',
+    }
+  })
 
   return {
     '@context': 'https://schema.org',
@@ -884,12 +896,11 @@ onBeforeUnmount(() => {
   if (justAddedTimer) clearTimeout(justAddedTimer)
 })
 
-const displayPrice = computed(() => matchedVariant.value?.sale_price ?? matchedVariant.value?.price ?? null)
-const originalPrice = computed(() => matchedVariant.value?.price ?? null)
-const isOnSale = computed(() => {
-  const variant = matchedVariant.value
-  return !!(variant?.sale_price && Number(variant.sale_price) < Number(variant.price))
-})
+const selectedPricing = computed(() => resolveProductPricing(
+  matchedVariant.value?.price,
+  matchedVariant.value?.sale_price,
+))
+const displayPrice = computed(() => selectedPricing.value.currentPrice)
 
 function formatPrice(value: string | number | null | undefined) {
   if (value == null) return ''
@@ -1515,11 +1526,13 @@ watch(product, () => {
             </button>
           </div>
 
-          <div v-if="displayPrice !== null" class="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span class="text-[15px] font-medium text-charcoal-950">{{ formatPrice(displayPrice) }}</span>
-            <span v-if="isOnSale" class="text-[13px] text-charcoal-400 line-through">{{ formatPrice(originalPrice) }}</span>
-            <span v-if="isOnSale" class="text-[9px] font-semibold uppercase tracking-[0.14em] text-charcoal-500">Sale</span>
-          </div>
+          <ProductPrice
+            v-if="matchedVariant"
+            class="mt-5"
+            :original-price="matchedVariant.price"
+            :sale-price="matchedVariant.sale_price"
+            size="detail"
+          />
 
           <p
             v-if="product.short_description"
@@ -1789,7 +1802,14 @@ watch(product, () => {
       <div v-if="directBuyNowEnabled" class="relative z-[1] space-y-2.5">
         <div class="flex min-w-0 items-center justify-between gap-4">
           <p class="min-w-0 truncate text-[11px] font-medium text-charcoal-950">{{ product.name }}</p>
-          <p class="shrink-0 text-[11px] text-charcoal-500">{{ formatPrice(displayPrice) }}</p>
+          <ProductPrice
+            v-if="matchedVariant"
+            class="shrink-0 justify-end"
+            :original-price="matchedVariant.price"
+            :sale-price="matchedVariant.sale_price"
+            size="compact"
+            :show-savings="false"
+          />
         </div>
 
         <div class="grid grid-cols-2 gap-2">
@@ -1837,7 +1857,14 @@ watch(product, () => {
       <div v-else class="relative z-[1] flex items-center gap-3">
         <div class="min-w-0 flex-1">
           <p class="truncate text-[11px] font-medium text-charcoal-950">{{ product.name }}</p>
-          <p class="mt-0.5 text-[11px] text-charcoal-500">{{ formatPrice(displayPrice) }}</p>
+          <ProductPrice
+            v-if="matchedVariant"
+            class="mt-1"
+            :original-price="matchedVariant.price"
+            :sale-price="matchedVariant.sale_price"
+            size="compact"
+            :show-savings="false"
+          />
         </div>
         <button
           type="button"

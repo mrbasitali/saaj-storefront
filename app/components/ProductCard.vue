@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { resolveProductPricing } from '~/utils/productPricing'
+
 type ProductImage = {
   id?: number
   image_url?: string | null
@@ -58,23 +60,14 @@ const priceVariant = computed(() =>
   props.product.default_variant ?? props.product.active_variants?.[0] ?? null,
 )
 
-const displayPrice = computed(() => {
+const pricing = computed(() => {
   const variant = priceVariant.value
-  if (!variant) return null
-  return variant.sale_price ?? variant.price
+  return resolveProductPricing(variant?.price, variant?.sale_price)
 })
 
-const isOnSale = computed(() => {
-  const variant = priceVariant.value
-  return !!(variant?.sale_price && Number(variant.sale_price) < Number(variant.price))
-})
-
-const originalPrice = computed(() => priceVariant.value?.price ?? null)
+const isOnSale = computed(() => pricing.value.isOnSale)
+const discountPercentage = computed(() => pricing.value.discountPercentage)
 const isSoldOut = computed(() => props.product.is_available === false)
-
-function formatPrice(value: string | number) {
-  return `Rs ${Number(value).toLocaleString()}`
-}
 </script>
 
 <template>
@@ -121,9 +114,10 @@ function formatPrice(value: string | number) {
 
         <span
           v-else-if="isOnSale"
-          class="absolute left-3 top-3 z-[2] rounded-full bg-paper-50/92 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-charcoal-950 shadow-[0_6px_20px_rgb(0_0_0/0.04)] backdrop-blur-md"
+          aria-hidden="true"
+          class="absolute left-3 top-3 z-[2] rounded-full bg-charcoal-950/94 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-paper-50 shadow-[0_8px_24px_rgb(0_0_0/0.12)] backdrop-blur-md"
         >
-          Sale
+          Save {{ discountPercentage }}%
         </span>
 
         <div class="product-card-view absolute inset-x-0 bottom-0 z-[2] translate-y-full bg-paper-50/94 px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-charcoal-950 backdrop-blur transition duration-300 group-hover:translate-y-0 max-lg:hidden">
@@ -155,20 +149,14 @@ function formatPrice(value: string | number) {
           </svg>
         </div>
 
-        <p
-          v-if="displayPrice !== null"
-          class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] sm:text-[13px]"
-        >
-          <span :class="isOnSale ? 'font-medium text-charcoal-950' : 'text-charcoal-600'">
-            {{ formatPrice(displayPrice) }}
-          </span>
-          <span
-            v-if="isOnSale"
-            class="text-charcoal-350 line-through"
-          >
-            {{ originalPrice !== null ? formatPrice(originalPrice) : '' }}
-          </span>
-        </p>
+        <ProductPrice
+          v-if="priceVariant"
+          class="mt-1.5"
+          :original-price="priceVariant.price"
+          :sale-price="priceVariant.sale_price"
+          size="card"
+          :show-savings="false"
+        />
       </div>
     </NuxtLink>
   </article>
