@@ -12,6 +12,7 @@ type SiteSettings = {
     address: string | null
   }
   social_links: Record<string, string>
+  timezone: string
   storefront: {
     stacked_product_gallery_enabled: boolean
     editorial_gallery_padding_enabled: boolean

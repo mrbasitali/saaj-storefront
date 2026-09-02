@@ -56,18 +56,14 @@ const verificationComplete = computed(() => Boolean(
   authStore.customer?.email_verified
   && (!authStore.customer?.phone || authStore.customer?.phone_verified),
 ))
+const { formatDate: formatStorefrontDate } = useStorefrontDateTime()
 
 function money(value: string | number | null | undefined) {
   return `Rs ${Number(value || 0).toLocaleString('en-PK')}`
 }
 
 function formatDate(value: string | null) {
-  if (!value) return '—'
-  return new Intl.DateTimeFormat('en-PK', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(value))
+  return formatStorefrontDate(value, { month: 'short' })
 }
 
 function orderImage(order: Order) {

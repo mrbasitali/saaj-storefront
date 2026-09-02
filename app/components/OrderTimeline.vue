@@ -13,6 +13,8 @@ const props = withDefaults(defineProps<{
   currentStatus: 'pending',
 })
 
+const { formatDateTime: formatStorefrontDateTime } = useStorefrontDateTime()
+
 const timeline = computed<TimelineEntry[]>(() => {
   if (props.entries?.length) return props.entries
   return [{ status: props.currentStatus || 'pending', note: null, at: null }]
@@ -23,14 +25,7 @@ function label(status: string) {
 }
 
 function formatDate(value?: string | null) {
-  if (!value) return ''
-  return new Intl.DateTimeFormat('en-PK', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(value))
+  return value ? formatStorefrontDateTime(value, { month: 'short' }) : ''
 }
 </script>
 

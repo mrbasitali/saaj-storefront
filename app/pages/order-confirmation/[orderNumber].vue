@@ -55,18 +55,10 @@ function paymentLabel(method?: string) {
   return method === 'cod' ? 'Cash on Delivery' : 'Payment'
 }
 
-function formattedPlacedAt(value?: string | null) {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
+const { formatDateTime: formatStorefrontDateTime } = useStorefrontDateTime()
 
-  return new Intl.DateTimeFormat('en-PK', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(date)
+function formattedPlacedAt(value?: string | null) {
+  return value ? formatStorefrontDateTime(value, { day: 'numeric', month: 'long' }) : ''
 }
 
 async function copyOrderNumber() {

@@ -47,6 +47,7 @@ useSeoMeta({
 const route = useRoute()
 const { $api } = useNuxtApp()
 const authStore = useAuthStore()
+const { formatDateTime: formatStorefrontDateTime } = useStorefrontDateTime()
 
 const form = reactive({
   order_number: typeof route.query.order === 'string' ? route.query.order : '',
@@ -93,14 +94,7 @@ function money(value: string | number) {
 }
 
 function formatDate(value: string | null) {
-  if (!value) return '—'
-  return new Intl.DateTimeFormat('en-PK', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(value))
+  return formatStorefrontDateTime(value, { month: 'long' })
 }
 
 function imageUrl(item: OrderItem) {

@@ -59,19 +59,16 @@ const { data, pending, error, refresh } = await useAsyncData(
 )
 
 const order = computed(() => data.value?.data ?? null)
+const { formatDate: formatStorefrontDate, formatDateTime: formatStorefrontDateTime } = useStorefrontDateTime()
 
 function money(value: string | number | null | undefined) {
   return `Rs ${Number(value || 0).toLocaleString('en-PK')}`
 }
 
 function formatDate(value: string | null, withTime = false) {
-  if (!value) return '—'
-  return new Intl.DateTimeFormat('en-PK', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-    ...(withTime ? { hour: 'numeric', minute: '2-digit' } : {}),
-  }).format(new Date(value))
+  return withTime
+    ? formatStorefrontDateTime(value, { month: 'long' })
+    : formatStorefrontDate(value, { month: 'long' })
 }
 
 function imageUrl(item: OrderItem) {

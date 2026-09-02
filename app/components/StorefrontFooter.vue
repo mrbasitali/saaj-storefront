@@ -12,7 +12,7 @@ const props = defineProps<{
 const siteSettings = useSiteSettingsStore()
 const authStore = useAuthStore()
 
-const currentYear = new Date().getFullYear()
+const { currentYear } = useStorefrontDateTime()
 const footerCategories = computed(() => props.categories.slice(0, 6))
 const footerLogo = computed(() =>
   siteSettings.settings?.logos.footer_dark

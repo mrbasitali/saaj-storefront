@@ -70,13 +70,10 @@ function money(value: string | number) {
   return `Rs ${Number(value || 0).toLocaleString('en-PK')}`
 }
 
+const { formatDate: formatStorefrontDate } = useStorefrontDateTime()
+
 function formatDate(value: string | null) {
-  if (!value) return 'Date unavailable'
-  return new Intl.DateTimeFormat('en-PK', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  }).format(new Date(value))
+  return value ? formatStorefrontDate(value, { month: 'long' }) : 'Date unavailable'
 }
 
 function itemCount(order: Order) {

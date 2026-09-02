@@ -9,6 +9,7 @@ useSeoMeta({
 
 const siteSettings = useSiteSettingsStore()
 const { $api } = useNuxtApp()
+const { currentYear } = useStorefrontDateTime()
 
 type MaintenanceStatus = {
   checkedAt: number
@@ -228,7 +229,7 @@ onBeforeUnmount(() => {
       </div>
 
       <footer class="relaunch-footer">
-        <p>© {{ new Date().getFullYear() }} SAAJ</p>
+        <p>© {{ currentYear }} SAAJ</p>
 
         <p class="relaunch-thanks">Thank you for being with us.</p>
 
