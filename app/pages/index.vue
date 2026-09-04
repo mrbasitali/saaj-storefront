@@ -228,7 +228,7 @@ const editorialImage = computed(() =>
   || null,
 )
 
-const homeCanonical = 'https://www.saaj.pk/'
+const homeCanonical = 'https://saaj.pk/'
 
 useSeoMeta({
   title: 'SAAJ — Modern Clothing',

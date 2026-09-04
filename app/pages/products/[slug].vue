@@ -99,8 +99,8 @@ type RelatedResponse = {
 const route = useRoute()
 const { $api } = useNuxtApp()
 const cart = useCartStore()
+const authStore = useAuthStore()
 const siteSettings = useSiteSettingsStore()
-const customerToken = useCookie<string | null>('saaj_customer_token')
 
 const slug = computed(() => String(route.params.slug || ''))
 const previewToken = computed(() => {
@@ -143,7 +143,7 @@ if (import.meta.server && error.value) {
   })
 }
 
-const siteOrigin = 'https://www.saaj.pk'
+const siteOrigin = 'https://saaj.pk'
 
 function categoryPath(fullSlug: string | null | undefined) {
   if (!fullSlug) return '/shop'
@@ -1050,7 +1050,7 @@ const isWishlisted = ref(false)
 const wishlistBurstKey = ref(0)
 
 async function checkWishlist() {
-  if (!product.value || !customerToken.value) {
+  if (!product.value || !authStore.isLoggedIn) {
     isWishlisted.value = false
     return
   }
@@ -1063,7 +1063,7 @@ async function checkWishlist() {
   }
 }
 
-watch([product, customerToken], () => {
+watch([product, () => authStore.isLoggedIn], () => {
   void checkWishlist()
 }, { immediate: true })
 
@@ -1071,8 +1071,13 @@ async function toggleWishlist() {
   if (isPreviewMode.value) return
   if (!product.value) return
 
-  if (!customerToken.value) {
+  if (!authStore.isLoggedIn) {
     await navigateTo(`/login?redirect=${encodeURIComponent(`/products/${product.value.slug}`)}`)
+    return
+  }
+
+  if (!authStore.customer?.email_verified && !authStore.customer?.phone_verified) {
+    await navigateTo(`/verify-account?redirect=${encodeURIComponent(`/products/${product.value.slug}`)}`)
     return
   }
 

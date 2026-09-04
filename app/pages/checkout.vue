@@ -57,7 +57,6 @@ type CheckoutCreatedAccount = {
   created: boolean
   password_setup: 'now' | 'later'
   setup_email_sent: boolean
-  token: string
   customer: {
     id: number
     name: string
@@ -79,7 +78,6 @@ const { $api } = useNuxtApp()
 const authStore = useAuthStore()
 const cart = useCartStore()
 const router = useRouter()
-const customerToken = useCookie<string | null>('saaj_customer_token')
 const lastPlacedOrder = useState<PlacedOrder | null>('last-placed-order', () => null)
 
 useSeoMeta({
@@ -88,9 +86,9 @@ useSeoMeta({
   robots: 'noindex,nofollow',
 })
 
-// A token can survive a refresh while Pinia starts empty. Hydrate the
-// customer before deciding whether this is a guest checkout.
-if (customerToken.value && !authStore.isLoggedIn) {
+// This private route is client-rendered. Resolve the host-only Laravel session
+// before deciding whether this is an account or guest checkout.
+if (!authStore.hydrated) {
   await authStore.fetchMe()
 }
 
@@ -395,7 +393,6 @@ async function submit() {
 
     if (response.account?.created) {
       authStore.acceptSession({
-        token: response.account.token,
         customer: response.account.customer,
       })
     }

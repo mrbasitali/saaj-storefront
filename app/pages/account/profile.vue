@@ -145,7 +145,7 @@ async function logoutEverywhere() {
 
         <section class="py-7">
           <p class="text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-400">Signed-in devices</p>
-          <p class="mt-3 text-[11px] leading-5 text-charcoal-500">If you think someone else may have access to your account, sign out every active customer token at once.</p>
+          <p class="mt-3 text-[11px] leading-5 text-charcoal-500">If you think someone else may have access to your account, sign out every active customer session at once.</p>
           <button
             type="button"
             :disabled="loggingOutAll"

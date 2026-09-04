@@ -5,6 +5,17 @@ export default defineNuxtConfig({
 
   devtools: { enabled: true },
 
+  // Private pages deliberately render in the browser. This lets the Laravel
+  // session cookie remain host-only to backend.saaj.pk instead of widening its
+  // Domain or forwarding confidential credentials through the Nuxt server.
+  routeRules: {
+    '/account': { ssr: false },
+    '/account/**': { ssr: false },
+    '/checkout': { ssr: false },
+    '/verify-account': { ssr: false },
+    '/email-verified': { ssr: false },
+  },
+
   modules: [
     '@pinia/nuxt',
     '@nuxt/fonts',

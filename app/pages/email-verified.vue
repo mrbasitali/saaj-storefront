@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const route = useRoute()
 const authStore = useAuthStore()
-const config = useRuntimeConfig()
+const { $api } = useNuxtApp()
 
 useSeoMeta({
   title: 'Email verification | SAAJ',
@@ -61,8 +61,7 @@ const resendMessage = ref('')
 const resendError = ref('')
 
 onMounted(async () => {
-  const token = useCookie<string | null>('saaj_customer_token')
-  if (token.value) {
+  if (!authStore.hydrated) {
     await authStore.fetchMe().catch(() => undefined)
   }
 })
@@ -75,12 +74,7 @@ async function resendVerification() {
   resendError.value = ''
 
   try {
-    const token = useCookie<string | null>('saaj_customer_token')
-    await $fetch('/customer/email/resend', {
-      baseURL: config.public.apiBaseUrl,
-      method: 'POST',
-      headers: token.value ? { Authorization: `Bearer ${token.value}` } : undefined,
-    })
+    await $api('/customer/email/resend', { method: 'POST' })
     resendMessage.value = 'A fresh verification email is on its way.'
   } catch (error: any) {
     resendError.value = error?.data?.message || 'We couldn’t resend the email right now. Please try again.'

@@ -529,7 +529,7 @@ const activeFilterChips = computed(() => {
 
 const activeFilterCount = computed(() => activeFilterChips.value.length)
 
-const siteOrigin = 'https://www.saaj.pk'
+const siteOrigin = 'https://saaj.pk'
 const canonicalPath = computed(() => categoryPath(categorySlug.value))
 const hasFacetState = computed(() => (
   !!searchTerm.value

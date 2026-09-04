@@ -38,13 +38,13 @@ function switchMode(next: 'email' | 'phone') {
   phoneNotVerified.value = false
 }
 
-async function finishLogin(customer: { email_verified: boolean }) {
+async function finishLogin(customer: { email_verified: boolean, phone_verified: boolean }) {
   if (route.query.redirect) {
     await router.push(redirectTo.value)
     return
   }
 
-  await router.push(customer.email_verified ? '/account' : '/verify-account')
+  await router.push(customer.email_verified || customer.phone_verified ? '/account' : '/verify-account')
 }
 
 async function submitEmail() {

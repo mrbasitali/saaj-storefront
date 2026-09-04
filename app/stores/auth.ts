@@ -16,45 +16,64 @@ type Customer = {
 
 type AuthResponse = {
   message: string
-  token: string
   customer: Customer
 }
 
 export const useAuthStore = defineStore('auth', () => {
   const customer = ref<Customer | null>(null)
   const hydrated = ref(false)
+  let hydrationRequest: Promise<boolean> | null = null
 
   const isLoggedIn = computed(() => customer.value !== null)
 
-  function tokenCookie() {
-    return useCookie<string | null>('saaj_customer_token')
+  function clearSession() {
+    customer.value = null
+    hydrated.value = true
+  }
+
+  function sessionIsAlreadyClosed(error: any) {
+    const status = Number(error?.response?.status ?? error?.statusCode ?? error?.status ?? 0)
+    const code = error?.data?.code ?? error?.response?._data?.code
+
+    return status === 401 || (status === 403 && code === 'customer_inactive')
   }
 
   function acceptAuthResponse(response: AuthResponse) {
-    tokenCookie().value = response.token
     customer.value = response.customer
     hydrated.value = true
 
     return response.customer
   }
 
-  function acceptSession(payload: { token: string, customer: Customer }) {
+  function acceptSession(payload: { customer: Customer }) {
     return acceptAuthResponse({ message: 'Session ready.', ...payload })
   }
 
   async function fetchMe() {
+    if (hydrationRequest) return await hydrationRequest
+
     const { $api } = useNuxtApp()
 
+    hydrationRequest = (async () => {
+      try {
+        const response = await $api<{ customer: Customer }>('/customer/me')
+        customer.value = response.customer
+        hydrated.value = true
+        return true
+      } catch (error: any) {
+        if (sessionIsAlreadyClosed(error)) {
+          clearSession()
+          return false
+        }
+
+        throw error
+      }
+    })()
+
     try {
-      const response = await $api<{ customer: Customer }>('/customer/me')
-      customer.value = response.customer
-      hydrated.value = true
-      return true
-    } catch {
-      tokenCookie().value = null
-      customer.value = null
-      hydrated.value = true
-      return false
+      return await hydrationRequest
+    } finally {
+      hydrationRequest = null
     }
   }
 
@@ -129,14 +148,14 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       await $api('/customer/logout', { method: 'POST' })
-    } catch {
-      // Local state still needs to clear even if the access token was
-      // already expired or the network request failed.
+    } catch (error: any) {
+      // Only treat an already-invalid server session as a successful logout.
+      // A network/server failure stays visible so the UI never gives a false
+      // assurance that a still-live credential has been revoked.
+      if (!sessionIsAlreadyClosed(error)) throw error
     }
 
-    tokenCookie().value = null
-    customer.value = null
-    hydrated.value = true
+    clearSession()
   }
 
   async function logoutAll() {
@@ -144,11 +163,11 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       await $api('/customer/logout-all', { method: 'POST' })
-    } finally {
-      tokenCookie().value = null
-      customer.value = null
-      hydrated.value = true
+    } catch (error: any) {
+      if (!sessionIsAlreadyClosed(error)) throw error
     }
+
+    clearSession()
   }
 
   async function updateProfile(payload: Record<string, unknown>) {
@@ -178,5 +197,6 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     logoutAll,
     updateProfile,
+    clearSession,
   }
 })
