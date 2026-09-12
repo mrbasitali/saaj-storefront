@@ -173,9 +173,23 @@ function toggleDesktopMenu(category: Category) {
   openDesktopMenu(category)
 }
 
+function handleDesktopNavHover(categoryId: number | null = null) {
+  if (desktopCategoryId.value === null) return
+
+  // Keep the currently open trigger stable, but close it immediately when the
+  // pointer moves onto a different top-level destination. This avoids leaving
+  // one category's mega menu visible while another nav item is being explored.
+  if (categoryId === desktopCategoryId.value) {
+    cancelDesktopMenuClose()
+    return
+  }
+
+  closeDesktopMenu()
+}
+
 // Desktop menus remain click-to-open, but dismiss naturally when the pointer
-// leaves the navigation + mega-menu region. Escape, navigation and clicking the
-// active trigger also close them.
+// leaves the navigation + mega-menu region or moves onto another top-level nav
+// destination. Escape, navigation and clicking the active trigger also close them.
 function closeDesktopMenu() {
   cancelDesktopMenuClose()
   desktopCategoryId.value = null
@@ -428,6 +442,7 @@ function submitSearch() {
           to="/new-in"
           class="storefront-nav-item"
           :class="{ 'is-active': isNewInActive }"
+          @mouseenter="handleDesktopNavHover(null)"
         >
           New in
         </NuxtLink>
@@ -444,6 +459,7 @@ function submitSearch() {
             :class="{ 'is-active': isCategoryActive(category) }"
             :aria-expanded="desktopCategoryId === category.id"
             :aria-controls="`desktop-menu-${category.id}`"
+            @mouseenter="handleDesktopNavHover(category.id)"
             @click="toggleDesktopMenu(category)"
           >
             {{ category.name }}
@@ -464,6 +480,7 @@ function submitSearch() {
             :to="categoryPath(category.full_slug)"
             class="storefront-nav-item"
             :class="{ 'is-active': isCategoryActive(category) }"
+            @mouseenter="handleDesktopNavHover(category.id)"
           >
             {{ category.name }}
           </NuxtLink>
