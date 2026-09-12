@@ -31,6 +31,7 @@ const searchInput = ref<HTMLInputElement | null>(null)
 const desktopCategoryId = ref<number | null>(null)
 const headerWishlistBurst = ref(0)
 let mobileMenuCloseTimer: ReturnType<typeof setTimeout> | null = null
+let desktopMenuCloseTimer: ReturnType<typeof setTimeout> | null = null
 
 const menuCategories = computed(() => props.categories)
 
@@ -121,16 +122,15 @@ watch(searchOpen, async (open) => {
 
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
-  document.addEventListener('pointerdown', onDesktopOutsidePointerDown)
 })
 
 onBeforeUnmount(() => {
   if (import.meta.client) {
     document.body.style.overflow = ''
     window.removeEventListener('keydown', onKeydown)
-    document.removeEventListener('pointerdown', onDesktopOutsidePointerDown)
   }
   if (mobileMenuCloseTimer) clearTimeout(mobileMenuCloseTimer)
+  if (desktopMenuCloseTimer) clearTimeout(desktopMenuCloseTimer)
 })
 
 function onKeydown(event: KeyboardEvent) {
@@ -140,22 +140,26 @@ function onKeydown(event: KeyboardEvent) {
   else closeDesktopMenu()
 }
 
-function onDesktopOutsidePointerDown(event: PointerEvent) {
+function cancelDesktopMenuClose() {
+  if (!desktopMenuCloseTimer) return
+  clearTimeout(desktopMenuCloseTimer)
+  desktopMenuCloseTimer = null
+}
+
+function scheduleDesktopMenuClose() {
   if (desktopCategoryId.value === null) return
 
-  const target = event.target
-  if (!(target instanceof Element)) return
-
-  // Keep the active menu stable while interacting with its content or any
-  // top-level category trigger. Everything else counts as an intentional
-  // outside click and closes the desktop navigation.
-  if (target.closest('.storefront-mega-menu')) return
-  if (target.closest('[aria-controls^="desktop-menu-"]')) return
-
-  closeDesktopMenu()
+  cancelDesktopMenuClose()
+  // A short grace period prevents flicker while the pointer travels between
+  // the nav trigger and the mega menu directly beneath it.
+  desktopMenuCloseTimer = setTimeout(() => {
+    desktopMenuCloseTimer = null
+    closeDesktopMenu()
+  }, 160)
 }
 
 function openDesktopMenu(category: Category) {
+  cancelDesktopMenuClose()
   searchOpen.value = false
   desktopCategoryId.value = category.id
 }
@@ -169,10 +173,11 @@ function toggleDesktopMenu(category: Category) {
   openDesktopMenu(category)
 }
 
-// Desktop menus are deliberately click-driven. Once opened they remain open
-// while the pointer moves around; users close them by selecting a destination,
-// pressing Escape, clicking the active trigger again, or clicking the page backdrop.
+// Desktop menus remain click-to-open, but dismiss naturally when the pointer
+// leaves the navigation + mega-menu region. Escape, navigation and clicking the
+// active trigger also close them.
 function closeDesktopMenu() {
+  cancelDesktopMenuClose()
   desktopCategoryId.value = null
 }
 
@@ -414,6 +419,8 @@ function submitSearch() {
     <nav
       class="storefront-desktop-nav relative z-[1] hidden lg:flex"
       aria-label="Main navigation"
+      @mouseenter="cancelDesktopMenuClose"
+      @mouseleave="scheduleDesktopMenuClose"
     >
       <div class="storefront-desktop-nav-scroll flex h-full items-stretch justify-center gap-6 xl:gap-9">
         <NuxtLink
@@ -472,6 +479,8 @@ function submitSearch() {
       :key="`mega-${category.id}`"
       class="storefront-mega-menu storefront-mega-menu-v4 hidden lg:block"
       :class="{ 'is-open': desktopCategoryId === category.id }"
+      @mouseenter="cancelDesktopMenuClose"
+      @mouseleave="scheduleDesktopMenuClose"
     >
       <StorefrontGlassLayer variant="menu" />
 
