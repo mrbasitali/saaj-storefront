@@ -54,6 +54,12 @@ type FilterAttribute = {
   values: FilterValue[]
 }
 
+type CategoryFaq = {
+  id: number
+  question: string
+  answer: string
+}
+
 type Category = {
   id: number
   name: string
@@ -63,6 +69,8 @@ type Category = {
   image_url?: string | null
   meta_title?: string | null
   meta_description?: string | null
+  seo_content?: string | null
+  faqs?: CategoryFaq[] | null
   children?: Category[] | null
 }
 
@@ -130,6 +138,28 @@ const { data: categoryResponse, error: categoryError } = await useAsyncData(
 )
 
 const category = computed(() => categoryResponse.value?.data ?? null)
+
+const categoryFaqs = computed(() => category.value?.faqs ?? [])
+const openFaqId = ref<number | null>(null)
+
+watch(
+  categoryFaqs,
+  (items) => {
+    if (!items.length) {
+      openFaqId.value = null
+      return
+    }
+
+    if (!items.some(item => item.id === openFaqId.value)) {
+      openFaqId.value = items[0]?.id ?? null
+    }
+  },
+  { immediate: true },
+)
+
+function toggleFaq(id: number) {
+  openFaqId.value = openFaqId.value === id ? null : id
+}
 
 function breadcrumbLabelFromSlug(segment: string) {
   return decodeURIComponent(segment)
@@ -1114,6 +1144,102 @@ function closePanels() {
       </div>
     </section>
 
+    <!-- Category SEO content -->
+    <section
+      v-if="category?.seo_content"
+      class="border-t border-charcoal-950/[0.07]"
+    >
+      <div class="mx-auto max-w-[1100px] px-4 py-14 sm:px-6 sm:py-16 lg:px-10 lg:py-20 xl:px-12">
+        <div class="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-14">
+          <div>
+            <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-charcoal-400">
+              The collection
+            </p>
+            <p class="mt-3 max-w-[190px] text-[12px] leading-5 text-charcoal-400">
+              More about {{ category.name }}
+            </p>
+          </div>
+
+          <div
+            class="category-richtext product-richtext max-w-[720px] text-[13px] leading-[1.8] text-charcoal-600 sm:text-[14px]"
+            v-html="category.seo_content"
+          />
+        </div>
+      </div>
+    </section>
+
+    <!-- Category FAQs -->
+    <section
+      v-if="categoryFaqs.length"
+      class="border-t border-charcoal-950/[0.07]"
+    >
+      <div class="mx-auto max-w-[920px] px-4 py-14 sm:px-6 sm:py-16 lg:px-10 lg:py-20 xl:px-12">
+        <div class="max-w-[620px]">
+          <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-charcoal-400">
+            Need to know
+          </p>
+          <h2 class="mt-3 font-display text-[26px] font-medium leading-tight text-charcoal-950 sm:text-[32px]">
+            Frequently asked questions
+          </h2>
+        </div>
+
+        <div class="mt-8 border-t border-charcoal-950/[0.08] sm:mt-10">
+          <article
+            v-for="(faq, index) in categoryFaqs"
+            :key="faq.id"
+            class="border-b border-charcoal-950/[0.08]"
+          >
+            <button
+              type="button"
+              class="group flex w-full items-start justify-between gap-5 py-5 text-left sm:py-6"
+              :aria-expanded="openFaqId === faq.id"
+              :aria-controls="`category-faq-${faq.id}`"
+              @click="toggleFaq(faq.id)"
+            >
+              <span class="flex min-w-0 gap-4 sm:gap-5">
+                <span class="pt-0.5 text-[10px] font-medium tabular-nums text-charcoal-300">
+                  {{ String(index + 1).padStart(2, '0') }}
+                </span>
+                <span class="text-[13px] font-medium leading-6 text-charcoal-950 sm:text-[15px]">
+                  {{ faq.question }}
+                </span>
+              </span>
+
+              <span
+                class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-charcoal-950/[0.1] transition-colors duration-300 group-hover:border-charcoal-950/[0.22]"
+                aria-hidden="true"
+              >
+                <svg
+                  class="category-faq-toggle-icon h-3.5 w-3.5 transition-transform duration-300 ease-out"
+                  :class="openFaqId === faq.id ? 'rotate-45' : ''"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.2"
+                >
+                  <path d="M8 3v10M3 8h10" />
+                </svg>
+              </span>
+            </button>
+
+            <div
+              :id="`category-faq-${faq.id}`"
+              class="category-faq-answer-grid"
+              :class="{ 'is-open': openFaqId === faq.id }"
+              :aria-hidden="openFaqId !== faq.id"
+            >
+              <div class="min-h-0 overflow-hidden">
+                <div
+                  class="product-richtext category-faq-richtext max-w-[700px] pb-6 pl-[2.1rem] pr-11 text-[12px] leading-[1.8] text-charcoal-500 sm:pb-7 sm:pl-[2.6rem] sm:pr-14 sm:text-[13px]"
+                  v-html="faq.answer"
+                />
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
     <!-- Mobile filter layer -->
     <Teleport to="body">
       <Transition name="shop-mobile-panel">
@@ -1238,3 +1364,47 @@ function closePanels() {
     />
   </main>
 </template>
+
+<style scoped>
+.category-faq-answer-grid {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 220ms ease;
+}
+
+.category-faq-answer-grid.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.category-richtext :deep(h2) {
+  font-family: var(--font-display, inherit);
+  font-size: clamp(1.35rem, 2vw, 1.7rem);
+  line-height: 1.25;
+  font-weight: 500;
+  color: var(--color-charcoal-950, #171717);
+}
+
+.category-richtext :deep(h3) {
+  font-size: 1rem;
+  line-height: 1.5;
+  font-weight: 600;
+  color: var(--color-charcoal-950, #171717);
+}
+
+.category-richtext :deep(blockquote) {
+  border-left: 1px solid rgb(23 23 23 / 0.18);
+  padding-left: 1rem;
+  color: rgb(23 23 23 / 0.62);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .category-faq-answer-grid,
+  .category-faq-toggle-icon {
+    transition-duration: 0.01ms !important;
+  }
+}
+</style>

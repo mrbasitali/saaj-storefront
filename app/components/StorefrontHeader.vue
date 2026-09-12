@@ -20,7 +20,7 @@ const mobileMenuOpen = ref(false)
 const mobileMenuGlassOpen = ref(false)
 const mobileMenuClosing = ref(false)
 const mobileMenuContentClosing = ref(false)
-const mobileCategoryId = ref<number | null>(null)
+const mobileCategoryStack = ref<number[]>([])
 const mobileDirection = ref<'forward' | 'back'>('forward')
 const searchOpen = ref(false)
 const searchQuery = ref('')
@@ -30,9 +30,35 @@ const headerWishlistBurst = ref(0)
 let desktopCloseTimer: ReturnType<typeof setTimeout> | null = null
 let mobileMenuCloseTimer: ReturnType<typeof setTimeout> | null = null
 
-const visibleCategories = computed(() => props.categories.slice(0, 6))
+const menuCategories = computed(() => props.categories)
+
+function findCategoryById(items: Category[], id: number): Category | null {
+  for (const item of items) {
+    if (item.id === id) return item
+
+    if (item.children?.length) {
+      const match = findCategoryById(item.children, id)
+      if (match) return match
+    }
+  }
+
+  return null
+}
+
+function flattenDescendants(items: Category[] | null | undefined, depth = 0): Array<{ category: Category; depth: number }> {
+  if (!items?.length) return []
+
+  return items.flatMap(category => [
+    { category, depth },
+    ...flattenDescendants(category.children, depth + 1),
+  ])
+}
+
 const desktopCategory = computed(() => props.categories.find(category => category.id === desktopCategoryId.value) ?? null)
-const mobileCategory = computed(() => props.categories.find(category => category.id === mobileCategoryId.value) ?? null)
+const mobileCategory = computed(() => {
+  const activeId = mobileCategoryStack.value[mobileCategoryStack.value.length - 1]
+  return activeId ? findCategoryById(props.categories, activeId) : null
+})
 
 function categoryPath(slug: string | null | undefined) {
   if (!slug) return '/shop'
@@ -123,6 +149,30 @@ function openDesktopMenu(category: Category) {
   desktopCategoryId.value = category.id
 }
 
+function toggleDesktopMenu(category: Category) {
+  if (desktopCategoryId.value === category.id) {
+    closeDesktopMenu()
+    return
+  }
+
+  openDesktopMenu(category)
+}
+
+// Desktop menus are intentionally click-to-open. Hover only manages the
+// close timer so moving back onto the active trigger keeps it open, while
+// moving to another top-level item closes the current menu without opening
+// a different one.
+function handleDesktopNavHover(category: Category) {
+  if (desktopCategoryId.value === null) return
+
+  if (desktopCategoryId.value === category.id) {
+    clearDesktopCloseTimer()
+    return
+  }
+
+  scheduleDesktopClose()
+}
+
 function scheduleDesktopClose() {
   clearDesktopCloseTimer()
   desktopCloseTimer = setTimeout(() => {
@@ -150,7 +200,7 @@ async function openMobileMenu() {
   mobileMenuContentClosing.value = false
 
   mobileDirection.value = 'back'
-  mobileCategoryId.value = null
+  mobileCategoryStack.value = []
 
   // Prime the real fixed backdrop layer before revealing menu content.
   // Chromium can otherwise paint the first menu frame before its backdrop
@@ -182,7 +232,7 @@ function closeMobileMenu() {
     mobileMenuGlassOpen.value = false
     mobileMenuClosing.value = false
     mobileMenuContentClosing.value = false
-    mobileCategoryId.value = null
+    mobileCategoryStack.value = []
     return
   }
 
@@ -202,7 +252,7 @@ function closeMobileMenu() {
       mobileMenuGlassOpen.value = false
       mobileMenuClosing.value = false
       mobileMenuContentClosing.value = false
-      mobileCategoryId.value = null
+      mobileCategoryStack.value = []
       mobileMenuCloseTimer = null
     }, 440)
   }, 145)
@@ -210,12 +260,12 @@ function closeMobileMenu() {
 
 function openMobileCategory(category: Category) {
   mobileDirection.value = 'forward'
-  mobileCategoryId.value = category.id
+  mobileCategoryStack.value = [...mobileCategoryStack.value, category.id]
 }
 
 function goMobileBack() {
   mobileDirection.value = 'back'
-  mobileCategoryId.value = null
+  mobileCategoryStack.value = mobileCategoryStack.value.slice(0, -1)
 }
 
 function openSearch() {
@@ -375,30 +425,34 @@ function submitSearch() {
       aria-label="Main navigation"
       @mouseleave="scheduleDesktopClose"
     >
-      <div class="flex h-full items-stretch justify-center gap-8 xl:gap-11">
+      <div class="storefront-desktop-nav-scroll flex h-full items-stretch justify-center gap-6 xl:gap-9">
         <NuxtLink
           to="/shop"
           class="storefront-nav-item"
           :class="{ 'is-active': isNewInActive }"
           @mouseenter="closeDesktopMenu"
+          @focus="closeDesktopMenu"
         >
           New in
         </NuxtLink>
 
         <div
-          v-for="category in visibleCategories"
+          v-for="category in menuCategories"
           :key="category.id"
           class="flex items-stretch"
-          @mouseenter="category.children?.length ? openDesktopMenu(category) : closeDesktopMenu()"
+          @mouseenter="handleDesktopNavHover(category)"
         >
-          <NuxtLink
-            :to="categoryPath(category.full_slug)"
+          <button
+            v-if="category.children?.length"
+            type="button"
             class="storefront-nav-item inline-flex items-center gap-1.5"
             :class="{ 'is-active': isCategoryActive(category) }"
+            :aria-expanded="desktopCategoryId === category.id"
+            :aria-controls="`desktop-menu-${category.id}`"
+            @click="toggleDesktopMenu(category)"
           >
             {{ category.name }}
             <svg
-              v-if="category.children?.length"
               viewBox="0 0 16 16"
               fill="none"
               stroke="currentColor"
@@ -408,53 +462,87 @@ function submitSearch() {
             >
               <path d="m4.2 6 3.8 4 3.8-4" />
             </svg>
+          </button>
+
+          <NuxtLink
+            v-else
+            :to="categoryPath(category.full_slug)"
+            class="storefront-nav-item"
+            :class="{ 'is-active': isCategoryActive(category) }"
+            @focus="closeDesktopMenu"
+          >
+            {{ category.name }}
           </NuxtLink>
         </div>
       </div>
     </nav>
 
-    <Transition name="mega-menu">
-      <div
-        v-if="desktopCategory"
-        class="storefront-mega-menu hidden lg:block"
-        @mouseenter="clearDesktopCloseTimer"
-        @mouseleave="scheduleDesktopClose"
-      >
-        <StorefrontGlassLayer variant="menu" />
-        <div class="relative z-[1] mx-auto grid max-w-[1500px] grid-cols-[0.72fr_1.28fr] gap-16 px-10 py-10 xl:px-14 xl:py-12">
-          <div class="pr-8">
-            <p class="section-kicker">Explore</p>
-            <h2 class="mt-3 font-display text-[44px] font-medium leading-[0.95] tracking-[-0.045em] text-charcoal-950 xl:text-[52px]">
-              {{ desktopCategory.name }}
-            </h2>
-            <NuxtLink :to="categoryPath(desktopCategory.full_slug)" class="mega-shop-all mt-7 inline-flex items-center gap-3">
-              Shop all {{ desktopCategory.name }}
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="h-4 w-4">
-                <path d="M5 12h14M14 7l5 5-5 5" />
-              </svg>
-            </NuxtLink>
+    <!-- Keep every menu-visible category link in the SSR HTML for discoverability.
+         The selected mega menu is only a visual state; links are not mounted on hover. -->
+    <div
+      v-for="category in menuCategories.filter(item => item.children?.length)"
+      :id="`desktop-menu-${category.id}`"
+      :key="`mega-${category.id}`"
+      class="storefront-mega-menu hidden lg:block"
+      :class="{ 'is-open': desktopCategoryId === category.id }"
+      @mouseenter="clearDesktopCloseTimer"
+      @mouseleave="scheduleDesktopClose"
+    >
+      <StorefrontGlassLayer variant="menu" />
+      <div class="storefront-mega-menu-inner relative z-[1] mx-auto grid max-w-[1580px] grid-cols-[minmax(240px,0.55fr)_minmax(0,1.45fr)] gap-12 px-10 py-9 xl:gap-16 xl:px-14 xl:py-11">
+        <div class="pr-4">
+          <p class="section-kicker">Explore</p>
+          <h2 class="mt-3 font-display text-[44px] font-medium leading-[0.95] tracking-[-0.045em] text-charcoal-950 xl:text-[52px]">
+            {{ category.name }}
+          </h2>
+          <NuxtLink :to="categoryPath(category.full_slug)" class="mega-shop-all mt-7 inline-flex items-center gap-3">
+            Shop all {{ category.name }}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="h-4 w-4">
+              <path d="M5 12h14M14 7l5 5-5 5" />
+            </svg>
+          </NuxtLink>
+        </div>
+
+        <div class="min-w-0">
+          <div class="flex items-end justify-between gap-6">
+            <p class="section-kicker">Categories</p>
+            <p class="hidden text-[9px] font-semibold uppercase tracking-[0.13em] text-charcoal-400 xl:block">
+              Browse every level
+            </p>
           </div>
 
-          <div>
-            <p class="section-kicker">Categories</p>
-            <div class="mt-4 grid grid-cols-2 gap-x-10 gap-y-1 xl:grid-cols-3">
-              <NuxtLink
-                v-for="(child, index) in desktopCategory.children"
-                :key="child.id"
-                :to="categoryPath(child.full_slug)"
-                class="mega-child-link menu-stagger group"
-                :style="{ '--menu-delay': `${90 + index * 38}ms` }"
-              >
+          <div class="mega-category-grid mt-4">
+            <div
+              v-for="(child, groupIndex) in category.children"
+              :key="child.id"
+              class="mega-category-group"
+              :style="{ '--menu-index': groupIndex }"
+            >
+              <NuxtLink :to="categoryPath(child.full_slug)" class="mega-group-title group">
                 <span>{{ child.name }}</span>
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.25" class="h-4 w-4 opacity-0 transition-all duration-300 group-hover:translate-x-1 group-hover:opacity-100">
                   <path d="M4 10h12M12 6l4 4-4 4" />
                 </svg>
               </NuxtLink>
+
+              <div v-if="child.children?.length" class="mt-2.5 space-y-0.5">
+                <NuxtLink
+                  v-for="item in flattenDescendants(child.children)"
+                  :key="item.category.id"
+                  :to="categoryPath(item.category.full_slug)"
+                  class="mega-descendant-link"
+                  :class="{ 'is-nested': item.depth > 0 }"
+                  :style="{ '--menu-depth': Math.min(item.depth, 4) }"
+                >
+                  <span class="mega-descendant-marker" aria-hidden="true" />
+                  <span>{{ item.category.name }}</span>
+                </NuxtLink>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </Transition>
+    </div>
   </header>
 
   <Transition name="menu-backdrop">
@@ -551,20 +639,34 @@ function submitSearch() {
                 class="mobile-menu-main-link mobile-stagger"
                 style="--menu-delay: 135ms"
               >
-                <span>Shop all</span>
+                <span>Shop all {{ mobileCategory.name }}</span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" class="h-5 w-5 opacity-45">
                   <path d="M5 12h14M14 7l5 5-5 5" />
                 </svg>
               </NuxtLink>
-              <NuxtLink
-                v-for="(child, index) in mobileCategory.children"
-                :key="child.id"
-                :to="categoryPath(child.full_slug)"
-                class="mobile-menu-main-link mobile-stagger"
-                :style="{ '--menu-delay': `${180 + index * 45}ms` }"
-              >
-                <span>{{ child.name }}</span>
-              </NuxtLink>
+              <template v-for="(child, index) in mobileCategory.children" :key="child.id">
+                <button
+                  v-if="child.children?.length"
+                  type="button"
+                  class="mobile-menu-main-link mobile-stagger w-full text-left"
+                  :style="{ '--menu-delay': `${180 + index * 45}ms` }"
+                  @click="openMobileCategory(child)"
+                >
+                  <span>{{ child.name }}</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" class="h-5 w-5 opacity-45">
+                    <path d="m9 5 7 7-7 7" />
+                  </svg>
+                </button>
+
+                <NuxtLink
+                  v-else
+                  :to="categoryPath(child.full_slug)"
+                  class="mobile-menu-main-link mobile-stagger"
+                  :style="{ '--menu-delay': `${180 + index * 45}ms` }"
+                >
+                  <span>{{ child.name }}</span>
+                </NuxtLink>
+              </template>
             </nav>
           </div>
         </Transition>
@@ -623,7 +725,7 @@ function submitSearch() {
           <div class="grid grid-cols-2 gap-x-7 gap-y-1 sm:grid-cols-3">
             <NuxtLink to="/shop" class="search-browse-link search-stagger" style="--menu-delay: 205ms">New in</NuxtLink>
             <NuxtLink
-              v-for="(category, index) in visibleCategories"
+              v-for="(category, index) in menuCategories"
               :key="category.id"
               :to="categoryPath(category.full_slug)"
               class="search-browse-link search-stagger"
