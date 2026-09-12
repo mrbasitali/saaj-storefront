@@ -230,12 +230,12 @@ function decrease(variantId: number) {
                   </div>
 
                   <div class="text-right">
-                    <p class="text-[13px] font-medium tabular-nums text-charcoal-950 sm:text-[14px]">
+                    <p class="storefront-price-numerals text-[16px] font-medium text-charcoal-950 sm:text-[17px]">
                       {{ formatPrice(item.price * item.quantity) }}
                     </p>
                     <p
                       v-if="item.quantity > 1"
-                      class="mt-1 text-[10px] tabular-nums text-charcoal-400"
+                      class="storefront-price-numerals mt-1 text-[12px] text-charcoal-400"
                     >
                       {{ formatPrice(item.price) }} each
                     </p>
@@ -280,7 +280,7 @@ function decrease(variantId: number) {
             <div class="space-y-3.5 py-6 text-[13px]">
               <div class="flex items-center justify-between gap-6">
                 <span class="text-charcoal-500">Subtotal</span>
-                <span class="font-medium tabular-nums text-charcoal-950">{{ formatPrice(cart.subtotal) }}</span>
+                <span class="storefront-price-numerals font-medium text-charcoal-950">{{ formatPrice(cart.subtotal) }}</span>
               </div>
               <div class="flex items-start justify-between gap-6">
                 <span class="text-charcoal-500">Shipping</span>
@@ -294,7 +294,7 @@ function decrease(variantId: number) {
                   <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-charcoal-400">Subtotal</p>
                   <p class="mt-1 text-[11px] leading-5 text-charcoal-400">Excluding delivery</p>
                 </div>
-                <p class="font-display text-[27px] font-medium leading-none tabular-nums tracking-[-0.025em]">
+                <p class="storefront-price-numerals font-display text-[31px] font-medium leading-none tracking-[-0.035em]">
                   {{ formatPrice(cart.subtotal) }}
                 </p>
               </div>
@@ -341,7 +341,7 @@ function decrease(variantId: number) {
         <div class="relative z-[1] mx-auto flex max-w-xl items-center gap-4">
           <div class="min-w-0 flex-1">
             <p class="text-[9px] font-semibold uppercase tracking-[0.13em] text-charcoal-400">Subtotal</p>
-            <p class="mt-0.5 truncate text-[15px] font-medium tabular-nums text-charcoal-950">{{ formatPrice(cart.subtotal) }}</p>
+            <p class="storefront-price-numerals mt-0.5 truncate text-[18px] font-medium text-charcoal-950">{{ formatPrice(cart.subtotal) }}</p>
           </div>
           <NuxtLink
             to="/checkout"

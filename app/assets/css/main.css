@@ -99,6 +99,8 @@ html.dark .bg-white {
   body {
     @apply bg-paper-50 text-charcoal-950 font-sans antialiased;
     overflow-x: hidden;
+    font-variant-numeric: lining-nums proportional-nums;
+    font-feature-settings: "lnum" 1, "onum" 0;
   }
 
   button,
@@ -107,6 +109,18 @@ html.dark .bg-white {
   textarea,
   select {
     -webkit-tap-highlight-color: transparent;
+    font-variant-numeric: lining-nums proportional-nums;
+    font-feature-settings: "lnum" 1, "onum" 0;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: lining-nums tabular-nums;
+    font-feature-settings: "lnum" 1, "tnum" 1, "onum" 0;
+  }
+
+  .font-display {
+    font-variant-numeric: lining-nums proportional-nums;
+    font-feature-settings: "lnum" 1, "onum" 0;
   }
 
   ::selection {
@@ -190,7 +204,7 @@ html.dark .bg-white {
 
 @layer components {
   .header-utility-button {
-    @apply flex h-10 w-10 shrink-0 items-center justify-center text-charcoal-800 transition duration-150 hover:bg-black/[0.035] hover:text-charcoal-950;
+    @apply flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center text-charcoal-800 transition duration-150 hover:bg-black/[0.035] hover:text-charcoal-950;
   }
 
   .storefront-nav-item {
@@ -480,21 +494,62 @@ html.dark .bg-white {
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.34);
 }
 
-.mega-shop-all {
-  border-bottom: 1px solid color-mix(in srgb, var(--color-charcoal-950) 42%, transparent);
-  padding-bottom: 0.35rem;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-  color: var(--color-charcoal-700);
-  transition: border-color 260ms ease, color 260ms ease, gap 260ms ease;
+.mega-menu-heading-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+  padding-bottom: 1.35rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-charcoal-950) 9%, transparent);
 }
 
-.mega-shop-all:hover {
-  gap: 1rem;
-  border-color: var(--color-charcoal-950);
+.mega-shop-all-card {
+  display: inline-flex;
+  min-width: 230px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--color-charcoal-950) 11%, transparent);
+  padding: .8rem .85rem .8rem 1rem;
   color: var(--color-charcoal-950);
+  transition: background-color 220ms ease, border-color 220ms ease, transform 260ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.mega-shop-all-card:hover {
+  border-color: color-mix(in srgb, var(--color-charcoal-950) 22%, transparent);
+  background: color-mix(in srgb, var(--color-charcoal-950) 3.5%, transparent);
+  transform: translateY(-1px);
+}
+
+.mega-shop-all-copy {
+  display: grid;
+  gap: .18rem;
+}
+
+.mega-shop-all-eyebrow {
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--color-charcoal-400);
+}
+
+.mega-shop-all-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+}
+
+.mega-shop-all-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--color-charcoal-950);
+  color: var(--color-paper-50);
 }
 
 .mega-category-grid {
@@ -2983,6 +3038,23 @@ html.dark .storefront-footer {
   opacity: 1;
 }
 
+.product-card-copy {
+  position: relative;
+  overflow: visible;
+}
+
+.product-card-copy p {
+  text-wrap: pretty;
+}
+
+.shop-collection-side-media {
+  isolation: isolate;
+}
+
+.shop-collection-side-media img {
+  transform: scale(1.001);
+}
+
 /* Compact category masthead: banner is integrated into the header, never
    displayed as a second oversized block underneath it. */
 .shop-collection-banner {
@@ -4280,5 +4352,1071 @@ html.dark .storefront-footer {
   .product-editorial-purchase {
     position: relative;
     z-index: 5;
+  }
+}
+
+/* Patch 7.1 — catalogue masthead visibility, menu polish + price numerals --- */
+/* Keep catalogue identity copy on an explicit painted layer. This avoids the
+   category copy ever inheriting transparency/compositor state from adjacent
+   banner or glass surfaces. */
+.shop-collection-header {
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
+  background: var(--color-paper-50) !important;
+  color: var(--color-charcoal-950) !important;
+}
+
+.shop-collection-layout {
+  position: relative;
+  z-index: 1;
+}
+
+.shop-collection-copy {
+  position: relative;
+  z-index: 3;
+  min-width: 0;
+  background: var(--color-paper-50) !important;
+  color: var(--color-charcoal-950) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.shop-collection-copy > *,
+.shop-collection-copy nav,
+.shop-collection-copy h1,
+.shop-collection-copy p,
+.shop-collection-copy a,
+.shop-collection-copy .shop-description {
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.shop-collection-side-media {
+  z-index: 1;
+}
+
+/* Monetary figures use the same primary display family as the product title.
+   Force lining figures so Cormorant keeps prices clear instead of using old-style
+   numerals with mixed heights. */
+.storefront-price-numerals {
+  font-family: var(--font-display) !important;
+  font-variant-numeric: lining-nums proportional-nums !important;
+  font-feature-settings: "lnum" 1, "pnum" 1, "onum" 0 !important;
+  font-synthesis: none;
+}
+
+/* Desktop mega menu v2: intentionally solid and calm, closer to large fashion
+   houses than a dashboard-style card menu. Mobile navigation remains unchanged. */
+.storefront-mega-menu-v2 {
+  background: var(--color-paper-50) !important;
+  border-top: 1px solid color-mix(in srgb, var(--color-charcoal-950) 7%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-charcoal-950) 10%, transparent);
+  box-shadow: 0 24px 64px rgb(14 17 14 / 0.09);
+  isolation: isolate !important;
+}
+
+.dark .storefront-mega-menu-v2 {
+  background: var(--color-paper-50) !important;
+  box-shadow: 0 26px 70px rgb(0 0 0 / 0.34);
+}
+
+.storefront-mega-menu-v2::before {
+  content: none !important;
+  display: none !important;
+}
+
+.storefront-mega-menu-v2 .storefront-mega-menu-inner {
+  max-height: min(64vh, 620px);
+  overflow-y: auto;
+}
+
+.mega-menu-v2-topbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+  padding-bottom: 1.05rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-charcoal-950) 9%, transparent);
+}
+
+.mega-menu-v2-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: var(--color-charcoal-950);
+}
+
+.mega-menu-v2-note {
+  margin-top: 0.35rem;
+  font-size: 10px;
+  line-height: 1.45;
+  color: var(--color-charcoal-400);
+}
+
+.mega-menu-v2-shop-all {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 0.65rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-charcoal-950) 48%, transparent);
+  padding: 0 0.1rem 0.25rem;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-charcoal-950);
+  transition: border-color 200ms ease, gap 280ms cubic-bezier(.22, 1, .36, 1), color 200ms ease;
+}
+
+.mega-menu-v2-shop-all:hover {
+  gap: 0.9rem;
+  border-color: var(--color-charcoal-950);
+}
+
+.mega-menu-v2-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(185px, 245px));
+  align-items: start;
+  gap: 1.4rem 3rem;
+  padding-top: 1.45rem;
+}
+
+.mega-menu-v2-group {
+  min-width: 0;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 240ms ease, transform 340ms cubic-bezier(.22, 1, .36, 1);
+  transition-delay: calc(var(--menu-index, 0) * 32ms);
+}
+
+.storefront-mega-menu.is-open .mega-menu-v2-group {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.mega-menu-v2-group-title {
+  display: inline-flex;
+  min-height: 30px;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 500;
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+  color: var(--color-charcoal-950);
+  transition: transform 260ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.mega-menu-v2-group-title:hover {
+  transform: translateX(2px);
+}
+
+.mega-menu-v2-links {
+  display: grid;
+  gap: 0.08rem;
+  margin-top: 0.65rem;
+}
+
+.mega-menu-v2-link {
+  display: flex;
+  min-height: 27px;
+  align-items: center;
+  gap: 0.48rem;
+  padding-left: calc(var(--menu-depth, 0) * 0.72rem);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--color-charcoal-600);
+  transition: color 180ms ease, transform 220ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.mega-menu-v2-link:hover {
+  color: var(--color-charcoal-950);
+  transform: translateX(2px);
+}
+
+.mega-menu-v2-link-line {
+  width: 5px;
+  height: 1px;
+  flex: 0 0 auto;
+  background: currentColor;
+  opacity: 0.32;
+}
+
+.mega-menu-v2-link.is-nested .mega-menu-v2-link-line {
+  width: 8px;
+  opacity: 0.18;
+}
+
+@media (max-width: 1100px) {
+  .mega-menu-v2-grid {
+    column-gap: 2rem;
+  }
+}
+
+/* Defensive text paint for the collection masthead. The masthead is content,
+   never decorative media, so no route/theme state is allowed to hide it. */
+.shop-collection-copy,
+.shop-collection-copy * {
+  -webkit-text-fill-color: currentColor;
+}
+
+.shop-collection-copy h1 {
+  color: var(--color-charcoal-950) !important;
+  opacity: 1 !important;
+}
+
+
+/* Patch 7.2 — definitive catalogue stacking + editorial desktop navigation */
+/* Live DevTools confirmed the catalogue content becomes visible as soon as the
+   masthead participates in a positive stacking context. Keep this explicit so
+   adjacent composited image/glass layers can never paint over the copy. */
+.shop-collection-header {
+  z-index: 1 !important;
+}
+
+.shop-collection-layout,
+.shop-collection-copy {
+  position: relative;
+  z-index: 2;
+}
+
+/* Desktop menu v3: click-open editorial glass. The actual blur is painted by
+   StorefrontGlassLayer so Chromium and Safari use the same compositor path. */
+.storefront-mega-menu-v3 {
+  --saaj-glass-bg: rgb(247 246 242 / 70%);
+  border-top: 1px solid color-mix(in srgb, var(--color-charcoal-950) 7%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-charcoal-950) 9%, transparent);
+  background: transparent !important;
+  box-shadow: 0 32px 86px rgb(12 14 12 / 0.11);
+  isolation: isolate !important;
+}
+
+.dark .storefront-mega-menu-v3 {
+  --saaj-glass-bg: rgb(15 17 15 / 72%);
+  background: transparent !important;
+  box-shadow: 0 34px 90px rgb(0 0 0 / 0.34);
+}
+
+.storefront-mega-menu-v3 > .storefront-real-glass-layer {
+  z-index: 0;
+  background: var(--saaj-glass-bg) !important;
+}
+
+.mega-menu-v3-inner {
+  max-height: min(70vh, 700px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.mega-menu-v3-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 3rem;
+  padding-bottom: 1.7rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-charcoal-950) 10%, transparent);
+}
+
+.mega-menu-v3-kicker {
+  margin-bottom: .35rem;
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--color-charcoal-400);
+}
+
+.mega-menu-v3-title {
+  font-family: var(--font-display);
+  font-size: clamp(44px, 4vw, 64px);
+  font-weight: 500;
+  line-height: .9;
+  letter-spacing: -.045em;
+  color: var(--color-charcoal-950);
+}
+
+.mega-menu-v3-shop-all {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  gap: .7rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-charcoal-950) 48%, transparent);
+  padding: 0 .1rem .3rem;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--color-charcoal-950);
+  transition: gap 280ms cubic-bezier(.22, 1, .36, 1), border-color 180ms ease;
+}
+
+.mega-menu-v3-shop-all:hover {
+  gap: 1rem;
+  border-color: var(--color-charcoal-950);
+}
+
+.mega-menu-v3-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  align-items: start;
+  gap: 2rem 4rem;
+  padding-top: 1.8rem;
+}
+
+.mega-menu-v3-group {
+  min-width: 0;
+  opacity: 0;
+  transform: translateY(-5px);
+  transition: opacity 260ms ease, transform 380ms cubic-bezier(.22, 1, .36, 1);
+  transition-delay: calc(var(--menu-index, 0) * 36ms);
+}
+
+.storefront-mega-menu.is-open .mega-menu-v3-group {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.mega-menu-v3-group-title {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: .6rem;
+  font-family: var(--font-display);
+  font-size: clamp(27px, 2vw, 34px);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -.035em;
+  color: var(--color-charcoal-950);
+  transition: transform 260ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.mega-menu-v3-group-title:hover {
+  transform: translateX(3px);
+}
+
+.mega-menu-v3-links {
+  display: grid;
+  gap: .1rem;
+  margin-top: 1rem;
+}
+
+.mega-menu-v3-link {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  gap: .62rem;
+  padding-left: calc(var(--menu-depth, 0) * 1.05rem);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 520;
+  line-height: 1.4;
+  letter-spacing: .005em;
+  color: var(--color-charcoal-600);
+  transition: color 180ms ease, transform 240ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.mega-menu-v3-link:first-child {
+  color: var(--color-charcoal-700);
+  font-weight: 620;
+}
+
+.mega-menu-v3-link.is-nested {
+  color: var(--color-charcoal-500);
+}
+
+.mega-menu-v3-link:hover {
+  color: var(--color-charcoal-950);
+  transform: translateX(3px);
+}
+
+.mega-menu-v3-branch {
+  width: 8px;
+  height: 1px;
+  flex: 0 0 auto;
+  background: currentColor;
+  opacity: .28;
+}
+
+.mega-menu-v3-link.is-nested .mega-menu-v3-branch {
+  width: 12px;
+  opacity: .18;
+}
+
+/* The page becomes atmosphere while the menu is open. It closes only on an
+   intentional click, never merely because the pointer leaves the dropdown. */
+.storefront-menu-backdrop {
+  cursor: default;
+  background: rgb(18 20 18 / .08);
+  backdrop-filter: blur(14px) saturate(118%);
+  -webkit-backdrop-filter: blur(14px) saturate(118%);
+}
+
+.dark .storefront-menu-backdrop {
+  background: rgb(0 0 0 / .16);
+}
+
+@media (max-width: 1180px) {
+  .mega-menu-v3-content {
+    gap-inline: 2.5rem;
+  }
+
+  .mega-menu-v3-title {
+    font-size: 48px;
+  }
+}
+
+.mega-menu-v3-link:not(.is-nested) {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--color-charcoal-700);
+}
+
+
+/* Desktop menu v4: editorial two-zone directory.
+   The root category owns the left rail; every crawlable shopping destination,
+   including Shop all, lives together in the category directory on the right. */
+.storefront-mega-menu-v4 {
+  --saaj-glass-bg: rgb(247 246 242 / 68%);
+  border-top: 1px solid color-mix(in srgb, var(--color-charcoal-950) 7%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-charcoal-950) 9%, transparent);
+  background: transparent !important;
+  box-shadow: 0 30px 88px rgb(12 14 12 / .12);
+  isolation: isolate !important;
+}
+
+.dark .storefront-mega-menu-v4 {
+  --saaj-glass-bg: rgb(15 17 15 / 72%);
+  background: transparent !important;
+  box-shadow: 0 34px 92px rgb(0 0 0 / .34);
+}
+
+.storefront-mega-menu-v4 > .storefront-real-glass-layer {
+  z-index: 0;
+  background: var(--saaj-glass-bg) !important;
+}
+
+.mega-menu-v4-inner {
+  max-height: min(72vh, 720px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.mega-menu-v4-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, .78fr) minmax(0, 2.22fr);
+  gap: clamp(3rem, 5.5vw, 7rem);
+  align-items: stretch;
+}
+
+.mega-menu-v4-identity {
+  display: flex;
+  min-height: 320px;
+  flex-direction: column;
+  justify-content: center;
+  border-right: 1px solid color-mix(in srgb, var(--color-charcoal-950) 9%, transparent);
+  padding-right: clamp(2.4rem, 4vw, 4.8rem);
+}
+
+.mega-menu-v4-kicker {
+  margin: 0 0 .75rem;
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--color-charcoal-400);
+}
+
+.mega-menu-v4-title {
+  max-width: 8ch;
+  font-family: var(--font-display);
+  font-size: clamp(58px, 5.1vw, 82px);
+  font-weight: 500;
+  line-height: .86;
+  letter-spacing: -.052em;
+  color: var(--color-charcoal-950);
+}
+
+.mega-menu-v4-note {
+  max-width: 29ch;
+  margin-top: 1.35rem;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 450;
+  line-height: 1.65;
+  color: var(--color-charcoal-500);
+}
+
+.mega-menu-v4-directory {
+  min-width: 0;
+}
+
+.mega-menu-v4-directory-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, .8fr);
+  gap: 2rem;
+  align-items: end;
+  padding-bottom: 1.35rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-charcoal-950) 10%, transparent);
+}
+
+.mega-menu-v4-directory-title {
+  font-family: var(--font-display);
+  font-size: clamp(30px, 2.35vw, 40px);
+  font-weight: 500;
+  line-height: .95;
+  letter-spacing: -.035em;
+  color: var(--color-charcoal-950);
+}
+
+.mega-menu-v4-shop-all {
+  display: flex;
+  min-height: 66px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  border-left: 1px solid color-mix(in srgb, var(--color-charcoal-950) 11%, transparent);
+  padding-left: 1.6rem;
+  color: var(--color-charcoal-950);
+  transition: border-color 180ms ease, transform 280ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.mega-menu-v4-shop-all:hover {
+  border-left-color: color-mix(in srgb, var(--color-charcoal-950) 45%, transparent);
+  transform: translateX(3px);
+}
+
+.mega-menu-v4-shop-all-copy {
+  display: grid;
+  gap: .25rem;
+}
+
+.mega-menu-v4-shop-all-eyebrow {
+  font-family: var(--font-display);
+  font-size: clamp(23px, 1.65vw, 29px);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -.025em;
+}
+
+.mega-menu-v4-shop-all-label {
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--color-charcoal-450);
+}
+
+.mega-menu-v4-shop-all-arrow {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--color-charcoal-950) 14%, transparent);
+  border-radius: 999px;
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+.mega-menu-v4-shop-all:hover .mega-menu-v4-shop-all-arrow {
+  border-color: color-mix(in srgb, var(--color-charcoal-950) 34%, transparent);
+  background: color-mix(in srgb, var(--color-charcoal-950) 5%, transparent);
+}
+
+.mega-menu-v4-groups {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2.4rem clamp(2.2rem, 4vw, 4.7rem);
+  padding-top: 1.7rem;
+}
+
+.mega-menu-v4-group {
+  min-width: 0;
+  opacity: 0;
+  transform: translateY(-5px);
+  transition: opacity 260ms ease, transform 380ms cubic-bezier(.22, 1, .36, 1);
+  transition-delay: calc(var(--menu-index, 0) * 34ms);
+}
+
+.storefront-mega-menu.is-open .mega-menu-v4-group {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.mega-menu-v4-group-title {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: .7rem;
+  font-family: var(--font-display);
+  font-size: clamp(27px, 2vw, 34px);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -.035em;
+  color: var(--color-charcoal-950);
+}
+
+.mega-menu-v4-group-arrow {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  opacity: .22;
+  transition: opacity 180ms ease, transform 280ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.mega-menu-v4-group-title:hover .mega-menu-v4-group-arrow {
+  opacity: .75;
+  transform: translateX(4px);
+}
+
+.mega-menu-v4-links {
+  position: relative;
+  display: grid;
+  gap: .05rem;
+  margin-top: 1rem;
+  padding-left: 1.3rem;
+}
+
+/* One continuous timeline rail keeps the hierarchy visually connected from
+   the first nested category through the final destination. Individual links
+   receive a node on the same rail; deeper levels are expressed with spacing
+   rather than fragmented borders or dash prefixes. */
+.mega-menu-v4-links::before {
+  content: '';
+  position: absolute;
+  left: .24rem;
+  top: .72rem;
+  bottom: .72rem;
+  width: 1px;
+  background: color-mix(in srgb, var(--color-charcoal-950) 14%, transparent);
+}
+
+.mega-menu-v4-link {
+  position: relative;
+  display: block;
+  min-height: 32px;
+  padding: .44rem 0 .44rem calc(var(--menu-depth, 0) * .8rem);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 560;
+  line-height: 1.35;
+  letter-spacing: .002em;
+  color: var(--color-charcoal-650);
+  transition: color 170ms ease, transform 240ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.mega-menu-v4-link::before {
+  content: '';
+  position: absolute;
+  left: -1.23rem;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border: 1px solid color-mix(in srgb, var(--color-charcoal-950) 28%, transparent);
+  border-radius: 999px;
+  background: var(--color-paper-50);
+  transform: translateY(-50%);
+  transition: border-color 170ms ease, background-color 170ms ease, transform 220ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.mega-menu-v4-link:hover {
+  color: var(--color-charcoal-950);
+  transform: translateX(3px);
+}
+
+.mega-menu-v4-link:hover::before {
+  border-color: var(--color-charcoal-950);
+  background: var(--color-charcoal-950);
+  transform: translateY(-50%) scale(1.08);
+}
+
+.mega-menu-v4-link.is-deeper {
+  color: var(--color-charcoal-475);
+  font-size: 11.75px;
+  font-weight: 500;
+}
+
+.dark .mega-menu-v4-identity,
+.dark .mega-menu-v4-directory-head {
+  border-color: rgb(255 255 255 / .10);
+}
+
+.dark .mega-menu-v4-shop-all {
+  border-left-color: rgb(255 255 255 / .12);
+}
+
+.dark .mega-menu-v4-shop-all-arrow {
+  border-color: rgb(255 255 255 / .14);
+}
+
+.dark .mega-menu-v4-links::before {
+  background: rgb(255 255 255 / .16);
+}
+
+.dark .mega-menu-v4-link::before {
+  border-color: rgb(255 255 255 / .30);
+  background: var(--color-paper-50);
+}
+
+.dark .mega-menu-v4-link:hover::before {
+  border-color: var(--color-charcoal-950);
+  background: var(--color-charcoal-950);
+}
+
+@media (max-width: 1320px) {
+  .mega-menu-v4-layout {
+    grid-template-columns: minmax(230px, .72fr) minmax(0, 2.28fr);
+    gap: 3.5rem;
+  }
+
+  .mega-menu-v4-groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mega-menu-v4-title {
+    font-size: 60px;
+  }
+}
+
+@media (max-width: 1120px) {
+  .mega-menu-v4-directory-head {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .mega-menu-v4-shop-all {
+    border-left: 0;
+    border-top: 1px solid color-mix(in srgb, var(--color-charcoal-950) 10%, transparent);
+    padding: 1rem 0 0;
+  }
+}
+
+/* Desktop mega menu final hierarchy polish ---------------------------------
+   Keep the editorial parent category prominent, but make child relationships
+   obvious through grouped blocks rather than timeline rails/dots. */
+.mega-menu-v4-shop-all,
+.mega-menu-v4-shop-all:hover {
+  transform: none;
+  border-left-width: 1px;
+  border-left-style: solid;
+  border-left-color: color-mix(in srgb, var(--color-charcoal-950) 11%, transparent);
+}
+
+.mega-menu-v4-shop-all {
+  transition: color 180ms ease;
+}
+
+.mega-menu-v4-shop-all:hover .mega-menu-v4-shop-all-eyebrow {
+  color: var(--color-charcoal-700);
+}
+
+.mega-menu-v4-shop-all-arrow {
+  transition: background-color 180ms ease, border-color 180ms ease, transform 260ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.mega-menu-v4-shop-all:hover .mega-menu-v4-shop-all-arrow {
+  transform: translateX(3px);
+}
+
+.mega-menu-v4-group-title {
+  font-size: clamp(29px, 2.1vw, 36px);
+}
+
+.mega-menu-v4-child-list {
+  display: grid;
+  gap: .42rem;
+  margin-top: 1.05rem;
+}
+
+.mega-menu-v4-child-block {
+  min-width: 0;
+  padding: .66rem .75rem .72rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-charcoal-950) 2.4%, transparent);
+  transition: background-color 180ms ease;
+}
+
+.mega-menu-v4-child-block:hover {
+  background: color-mix(in srgb, var(--color-charcoal-950) 4.2%, transparent);
+}
+
+.mega-menu-v4-child-link {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: .55rem;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: .005em;
+  color: var(--color-charcoal-800);
+  transition: color 170ms ease;
+}
+
+.mega-menu-v4-child-link:hover {
+  color: var(--color-charcoal-950);
+}
+
+.mega-menu-v4-child-arrow {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  opacity: .34;
+  transition: opacity 180ms ease, transform 250ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.mega-menu-v4-child-link:hover .mega-menu-v4-child-arrow {
+  opacity: .78;
+  transform: translateX(3px);
+}
+
+.mega-menu-v4-nested-list {
+  display: grid;
+  gap: .08rem;
+  margin-top: .58rem;
+  padding: .58rem .68rem .56rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-paper-50) 62%, transparent);
+}
+
+.mega-menu-v4-nested-link {
+  display: block;
+  min-height: 30px;
+  padding: .36rem .4rem .36rem calc(.4rem + var(--menu-depth, 0) * .9rem);
+  border-radius: 6px;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 540;
+  line-height: 1.35;
+  letter-spacing: .002em;
+  color: var(--color-charcoal-600);
+  transition: color 170ms ease, background-color 170ms ease, padding-left 230ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.mega-menu-v4-nested-link:hover {
+  color: var(--color-charcoal-950);
+  background: color-mix(in srgb, var(--color-charcoal-950) 3.6%, transparent);
+  padding-left: calc(.58rem + var(--menu-depth, 0) * .9rem);
+}
+
+.mega-menu-v4-nested-link.is-deeper {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-charcoal-500);
+}
+
+.dark .mega-menu-v4-shop-all,
+.dark .mega-menu-v4-shop-all:hover {
+  border-left-color: rgb(255 255 255 / .12);
+}
+
+.dark .mega-menu-v4-child-block {
+  background: rgb(255 255 255 / .035);
+}
+
+.dark .mega-menu-v4-child-block:hover {
+  background: rgb(255 255 255 / .055);
+}
+
+.dark .mega-menu-v4-nested-list {
+  background: rgb(255 255 255 / .025);
+}
+
+.dark .mega-menu-v4-nested-link:hover {
+  background: rgb(255 255 255 / .045);
+}
+
+@media (max-width: 1120px) {
+  .mega-menu-v4-shop-all,
+  .mega-menu-v4-shop-all:hover {
+    border-left: 0;
+    border-top: 1px solid color-mix(in srgb, var(--color-charcoal-950) 10%, transparent);
+  }
+}
+
+/* Desktop mega menu — final two-column category hierarchy ------------------
+   Keep the main collection heading editorial. Immediate children are large,
+   scannable two-column destinations; descendants sit directly below the
+   parent in smaller type. No cards/background fills/timeline decoration. */
+.mega-menu-v4-child-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem clamp(2.4rem, 4vw, 4.8rem);
+  margin-top: 1.15rem;
+  align-items: start;
+}
+
+.mega-menu-v4-child-block,
+.mega-menu-v4-child-block:hover,
+.dark .mega-menu-v4-child-block,
+.dark .mega-menu-v4-child-block:hover {
+  min-width: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.mega-menu-v4-child-link {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: .65rem;
+  font-family: var(--font-sans);
+  font-size: clamp(16.5px, 1.05vw, 18px);
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -.008em;
+  color: var(--color-charcoal-850);
+  transition: color 170ms ease;
+}
+
+.mega-menu-v4-child-link:hover {
+  color: var(--color-charcoal-950);
+}
+
+.mega-menu-v4-child-arrow {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  opacity: .28;
+  transition: opacity 180ms ease, transform 250ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.mega-menu-v4-child-link:hover .mega-menu-v4-child-arrow {
+  opacity: .72;
+  transform: translateX(3px);
+}
+
+.mega-menu-v4-nested-list,
+.dark .mega-menu-v4-nested-list {
+  display: grid;
+  gap: .16rem;
+  margin-top: .62rem;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.mega-menu-v4-nested-link {
+  display: block;
+  min-height: 28px;
+  padding: .28rem 0 .28rem calc(var(--menu-depth, 0) * .8rem);
+  border-radius: 0;
+  font-family: var(--font-sans);
+  font-size: 14.5px;
+  font-weight: 520;
+  line-height: 1.4;
+  letter-spacing: 0;
+  color: var(--color-charcoal-500);
+  transition: color 170ms ease, transform 220ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.mega-menu-v4-nested-link:hover,
+.dark .mega-menu-v4-nested-link:hover {
+  color: var(--color-charcoal-950);
+  background: transparent;
+  padding-left: calc(var(--menu-depth, 0) * .8rem);
+  transform: translateX(3px);
+}
+
+.mega-menu-v4-nested-link.is-deeper {
+  font-size: 13.5px;
+  font-weight: 480;
+  color: var(--color-charcoal-450);
+}
+
+@media (max-width: 1280px) {
+  .mega-menu-v4-child-list {
+    gap: 1.35rem 2.2rem;
+  }
+}
+
+@media (max-width: 1120px) {
+  .mega-menu-v4-child-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* Desktop mega menu — final subcategory balance ----------------------------
+   Keep the newer left/right editorial layout, but restore the simpler,
+   highly scannable nested-link treatment from the earlier menu iteration. */
+.mega-menu-v4-title {
+  font-size: clamp(46px, 4.15vw, 64px);
+  line-height: .9;
+  letter-spacing: -.047em;
+}
+
+.mega-menu-v4-subcategory-list {
+  display: grid;
+  gap: .1rem;
+  margin-top: .9rem;
+}
+
+.mega-menu-v4-subcategory-link {
+  display: flex;
+  min-height: 31px;
+  align-items: center;
+  gap: .58rem;
+  padding-left: calc(var(--menu-depth, 0) * 1rem);
+  font-family: var(--font-sans);
+  font-size: 14.5px;
+  font-weight: 540;
+  line-height: 1.35;
+  letter-spacing: .002em;
+  color: var(--color-charcoal-600);
+  transition: color 180ms ease, transform 220ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.mega-menu-v4-subcategory-link:hover {
+  color: var(--color-charcoal-950);
+  transform: translateX(2px);
+}
+
+.mega-menu-v4-subcategory-marker {
+  width: 6px;
+  height: 1px;
+  flex: 0 0 auto;
+  background: currentColor;
+  opacity: .3;
+}
+
+.mega-menu-v4-subcategory-link.is-nested {
+  min-height: 29px;
+  font-size: 13.5px;
+  font-weight: 490;
+  color: var(--color-charcoal-475);
+}
+
+.mega-menu-v4-subcategory-link.is-nested .mega-menu-v4-subcategory-marker {
+  width: 9px;
+  opacity: .18;
+}
+
+.dark .mega-menu-v4-subcategory-link {
+  color: var(--color-charcoal-600);
+}
+
+.dark .mega-menu-v4-subcategory-link:hover {
+  color: var(--color-charcoal-950);
+}
+
+@media (max-width: 1320px) {
+  .mega-menu-v4-title {
+    font-size: 52px;
   }
 }

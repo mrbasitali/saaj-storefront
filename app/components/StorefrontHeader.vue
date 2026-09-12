@@ -6,9 +6,12 @@ type Category = {
   children?: Category[] | null
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   categories: Category[]
-}>()
+  showNewIn?: boolean
+}>(), {
+  showNewIn: false,
+})
 
 const authStore = useAuthStore()
 const cart = useCartStore()
@@ -27,7 +30,6 @@ const searchQuery = ref('')
 const searchInput = ref<HTMLInputElement | null>(null)
 const desktopCategoryId = ref<number | null>(null)
 const headerWishlistBurst = ref(0)
-let desktopCloseTimer: ReturnType<typeof setTimeout> | null = null
 let mobileMenuCloseTimer: ReturnType<typeof setTimeout> | null = null
 
 const menuCategories = computed(() => props.categories)
@@ -91,7 +93,7 @@ const selectedCategory = computed(() => {
   }
   return typeof route.query.category === 'string' ? route.query.category : ''
 })
-const isNewInActive = computed(() => route.path === '/shop' && !selectedCategory.value && !route.query.search)
+const isNewInActive = computed(() => route.path === '/new-in')
 const isWishlistRoute = computed(() => route.path.startsWith('/account/wishlist'))
 
 function isCategoryActive(category: Category) {
@@ -119,14 +121,15 @@ watch(searchOpen, async (open) => {
 
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
+  document.addEventListener('pointerdown', onDesktopOutsidePointerDown)
 })
 
 onBeforeUnmount(() => {
   if (import.meta.client) {
     document.body.style.overflow = ''
     window.removeEventListener('keydown', onKeydown)
+    document.removeEventListener('pointerdown', onDesktopOutsidePointerDown)
   }
-  clearDesktopCloseTimer()
   if (mobileMenuCloseTimer) clearTimeout(mobileMenuCloseTimer)
 })
 
@@ -137,14 +140,22 @@ function onKeydown(event: KeyboardEvent) {
   else closeDesktopMenu()
 }
 
-function clearDesktopCloseTimer() {
-  if (!desktopCloseTimer) return
-  clearTimeout(desktopCloseTimer)
-  desktopCloseTimer = null
+function onDesktopOutsidePointerDown(event: PointerEvent) {
+  if (desktopCategoryId.value === null) return
+
+  const target = event.target
+  if (!(target instanceof Element)) return
+
+  // Keep the active menu stable while interacting with its content or any
+  // top-level category trigger. Everything else counts as an intentional
+  // outside click and closes the desktop navigation.
+  if (target.closest('.storefront-mega-menu')) return
+  if (target.closest('[aria-controls^="desktop-menu-"]')) return
+
+  closeDesktopMenu()
 }
 
 function openDesktopMenu(category: Category) {
-  clearDesktopCloseTimer()
   searchOpen.value = false
   desktopCategoryId.value = category.id
 }
@@ -158,30 +169,10 @@ function toggleDesktopMenu(category: Category) {
   openDesktopMenu(category)
 }
 
-// Desktop menus are intentionally click-to-open. Hover only manages the
-// close timer so moving back onto the active trigger keeps it open, while
-// moving to another top-level item closes the current menu without opening
-// a different one.
-function handleDesktopNavHover(category: Category) {
-  if (desktopCategoryId.value === null) return
-
-  if (desktopCategoryId.value === category.id) {
-    clearDesktopCloseTimer()
-    return
-  }
-
-  scheduleDesktopClose()
-}
-
-function scheduleDesktopClose() {
-  clearDesktopCloseTimer()
-  desktopCloseTimer = setTimeout(() => {
-    desktopCategoryId.value = null
-  }, 150)
-}
-
+// Desktop menus are deliberately click-driven. Once opened they remain open
+// while the pointer moves around; users close them by selecting a destination,
+// pressing Escape, clicking the active trigger again, or clicking the page backdrop.
 function closeDesktopMenu() {
-  clearDesktopCloseTimer()
   desktopCategoryId.value = null
 }
 
@@ -298,7 +289,7 @@ function submitSearch() {
 </script>
 
 <template>
-  <header class="storefront-header sticky top-0 z-50">
+  <header class="storefront-header sticky top-0 z-[70] shrink-0">
     <StorefrontGlassLayer variant="nav" />
 
     <div class="storefront-header-main relative z-[1]">
@@ -377,7 +368,7 @@ function submitSearch() {
         <button
           type="button"
           :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
-          class="header-utility-button flex"
+          class="header-utility-button flex cursor-pointer"
           @click="toggleTheme"
         >
           <Transition name="theme-icon" mode="out-in">
@@ -423,15 +414,13 @@ function submitSearch() {
     <nav
       class="storefront-desktop-nav relative z-[1] hidden lg:flex"
       aria-label="Main navigation"
-      @mouseleave="scheduleDesktopClose"
     >
       <div class="storefront-desktop-nav-scroll flex h-full items-stretch justify-center gap-6 xl:gap-9">
         <NuxtLink
-          to="/shop"
+          v-if="showNewIn"
+          to="/new-in"
           class="storefront-nav-item"
           :class="{ 'is-active': isNewInActive }"
-          @mouseenter="closeDesktopMenu"
-          @focus="closeDesktopMenu"
         >
           New in
         </NuxtLink>
@@ -440,12 +429,11 @@ function submitSearch() {
           v-for="category in menuCategories"
           :key="category.id"
           class="flex items-stretch"
-          @mouseenter="handleDesktopNavHover(category)"
         >
           <button
             v-if="category.children?.length"
             type="button"
-            class="storefront-nav-item inline-flex items-center gap-1.5"
+            class="storefront-nav-item inline-flex cursor-pointer items-center gap-1.5"
             :class="{ 'is-active': isCategoryActive(category) }"
             :aria-expanded="desktopCategoryId === category.id"
             :aria-controls="`desktop-menu-${category.id}`"
@@ -469,7 +457,6 @@ function submitSearch() {
             :to="categoryPath(category.full_slug)"
             class="storefront-nav-item"
             :class="{ 'is-active': isCategoryActive(category) }"
-            @focus="closeDesktopMenu"
           >
             {{ category.name }}
           </NuxtLink>
@@ -483,63 +470,69 @@ function submitSearch() {
       v-for="category in menuCategories.filter(item => item.children?.length)"
       :id="`desktop-menu-${category.id}`"
       :key="`mega-${category.id}`"
-      class="storefront-mega-menu hidden lg:block"
+      class="storefront-mega-menu storefront-mega-menu-v4 hidden lg:block"
       :class="{ 'is-open': desktopCategoryId === category.id }"
-      @mouseenter="clearDesktopCloseTimer"
-      @mouseleave="scheduleDesktopClose"
     >
       <StorefrontGlassLayer variant="menu" />
-      <div class="storefront-mega-menu-inner relative z-[1] mx-auto grid max-w-[1580px] grid-cols-[minmax(240px,0.55fr)_minmax(0,1.45fr)] gap-12 px-10 py-9 xl:gap-16 xl:px-14 xl:py-11">
-        <div class="pr-4">
-          <p class="section-kicker">Explore</p>
-          <h2 class="mt-3 font-display text-[44px] font-medium leading-[0.95] tracking-[-0.045em] text-charcoal-950 xl:text-[52px]">
-            {{ category.name }}
-          </h2>
-          <NuxtLink :to="categoryPath(category.full_slug)" class="mega-shop-all mt-7 inline-flex items-center gap-3">
-            Shop all {{ category.name }}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="h-4 w-4">
-              <path d="M5 12h14M14 7l5 5-5 5" />
-            </svg>
-          </NuxtLink>
-        </div>
 
-        <div class="min-w-0">
-          <div class="flex items-end justify-between gap-6">
-            <p class="section-kicker">Categories</p>
-            <p class="hidden text-[9px] font-semibold uppercase tracking-[0.13em] text-charcoal-400 xl:block">
-              Browse every level
-            </p>
-          </div>
+      <div class="storefront-mega-menu-inner mega-menu-v4-inner relative z-[1] mx-auto max-w-[1680px] px-10 py-10 xl:px-16 xl:py-12">
+        <div class="mega-menu-v4-layout">
+          <aside class="mega-menu-v4-identity" aria-hidden="true">
+            <p class="mega-menu-v4-kicker">Explore</p>
+            <h2 class="mega-menu-v4-title">{{ category.name }}</h2>
+            <p class="mega-menu-v4-note">Discover the complete {{ category.name.toLowerCase() }} edit, organised by collection.</p>
+          </aside>
 
-          <div class="mega-category-grid mt-4">
-            <div
-              v-for="(child, groupIndex) in category.children"
-              :key="child.id"
-              class="mega-category-group"
-              :style="{ '--menu-index': groupIndex }"
-            >
-              <NuxtLink :to="categoryPath(child.full_slug)" class="mega-group-title group">
-                <span>{{ child.name }}</span>
-                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.25" class="h-4 w-4 opacity-0 transition-all duration-300 group-hover:translate-x-1 group-hover:opacity-100">
-                  <path d="M4 10h12M12 6l4 4-4 4" />
-                </svg>
-              </NuxtLink>
-
-              <div v-if="child.children?.length" class="mt-2.5 space-y-0.5">
-                <NuxtLink
-                  v-for="item in flattenDescendants(child.children)"
-                  :key="item.category.id"
-                  :to="categoryPath(item.category.full_slug)"
-                  class="mega-descendant-link"
-                  :class="{ 'is-nested': item.depth > 0 }"
-                  :style="{ '--menu-depth': Math.min(item.depth, 4) }"
-                >
-                  <span class="mega-descendant-marker" aria-hidden="true" />
-                  <span>{{ item.category.name }}</span>
-                </NuxtLink>
+          <section class="mega-menu-v4-directory" :aria-label="`${category.name} categories`">
+            <div class="mega-menu-v4-directory-head">
+              <div>
+                <p class="mega-menu-v4-kicker">Shop</p>
+                <h3 class="mega-menu-v4-directory-title">Categories</h3>
               </div>
+
+              <NuxtLink :to="categoryPath(category.full_slug)" class="mega-menu-v4-shop-all group">
+                <span class="mega-menu-v4-shop-all-copy">
+                  <span class="mega-menu-v4-shop-all-eyebrow">Shop all</span>
+                  <span class="mega-menu-v4-shop-all-label">View the complete {{ category.name }} collection</span>
+                </span>
+                <span class="mega-menu-v4-shop-all-arrow" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.25" class="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1">
+                    <path d="M3.5 10h12.5M12 6l4 4-4 4" />
+                  </svg>
+                </span>
+              </NuxtLink>
             </div>
-          </div>
+
+            <div class="mega-menu-v4-groups">
+              <section
+                v-for="(child, groupIndex) in category.children"
+                :key="child.id"
+                class="mega-menu-v4-group"
+                :style="{ '--menu-index': groupIndex }"
+              >
+                <NuxtLink :to="categoryPath(child.full_slug)" class="mega-menu-v4-group-title group">
+                  <span>{{ child.name }}</span>
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.15" class="mega-menu-v4-group-arrow">
+                    <path d="M4 10h12M12 6l4 4-4 4" />
+                  </svg>
+                </NuxtLink>
+
+                <div v-if="child.children?.length" class="mega-menu-v4-subcategory-list">
+                  <NuxtLink
+                    v-for="item in flattenDescendants(child.children)"
+                    :key="item.category.id"
+                    :to="categoryPath(item.category.full_slug)"
+                    class="mega-menu-v4-subcategory-link"
+                    :class="{ 'is-nested': item.depth > 0 }"
+                    :style="{ '--menu-depth': Math.min(item.depth, 4) }"
+                  >
+                    <span class="mega-menu-v4-subcategory-marker" aria-hidden="true" />
+                    <span>{{ item.category.name }}</span>
+                  </NuxtLink>
+                </div>
+              </section>
+            </div>
+          </section>
         </div>
       </div>
     </div>
@@ -551,7 +544,6 @@ function submitSearch() {
       type="button"
       aria-label="Close menu"
       class="storefront-menu-backdrop fixed inset-0 z-40 hidden lg:block"
-      @mouseenter="scheduleDesktopClose"
       @click="closeDesktopMenu"
     />
   </Transition>
@@ -577,7 +569,7 @@ function submitSearch() {
             <nav class="mobile-menu-scroll" aria-label="Mobile navigation">
               <p class="mobile-menu-eyebrow mobile-stagger" style="--menu-delay: 70ms">Shop</p>
 
-              <NuxtLink to="/shop" class="mobile-menu-main-link mobile-stagger" style="--menu-delay: 115ms">
+              <NuxtLink v-if="showNewIn" to="/new-in" class="mobile-menu-main-link mobile-stagger" style="--menu-delay: 115ms">
                 <span>New in</span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" class="h-5 w-5 opacity-45">
                   <path d="M5 12h14M14 7l5 5-5 5" />
@@ -723,7 +715,7 @@ function submitSearch() {
         <div class="mt-12 grid gap-10 border-t border-charcoal-950/10 pt-8 sm:grid-cols-[0.6fr_1.4fr] lg:mt-16 lg:pt-10">
           <p class="section-kicker search-stagger" style="--menu-delay: 160ms">Browse</p>
           <div class="grid grid-cols-2 gap-x-7 gap-y-1 sm:grid-cols-3">
-            <NuxtLink to="/shop" class="search-browse-link search-stagger" style="--menu-delay: 205ms">New in</NuxtLink>
+            <NuxtLink v-if="showNewIn" to="/new-in" class="search-browse-link search-stagger" style="--menu-delay: 205ms">New in</NuxtLink>
             <NuxtLink
               v-for="(category, index) in menuCategories"
               :key="category.id"

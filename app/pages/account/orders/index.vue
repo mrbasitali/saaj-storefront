@@ -143,7 +143,7 @@ function imageUrl(item?: OrderItem) {
         </div>
 
         <div class="flex items-center justify-between gap-6 sm:flex-col sm:items-end sm:justify-center">
-          <p class="font-display text-[25px] tracking-[-0.03em] text-charcoal-950">{{ money(order.grand_total) }}</p>
+          <p class="storefront-price-numerals font-display text-[27px] tracking-[-0.03em] text-charcoal-950">{{ money(order.grand_total) }}</p>
           <span class="text-[9px] font-semibold uppercase tracking-[0.13em] text-charcoal-400 transition group-hover:text-charcoal-950">View order →</span>
         </div>
       </NuxtLink>

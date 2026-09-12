@@ -151,9 +151,22 @@ function categoryPath(fullSlug: string | null | undefined) {
   return segments.length ? `/shop/${segments.join('/')}` : '/shop'
 }
 
+function categoryDepth(category: Category) {
+  const explicitDepth = Number(category.depth)
+  if (Number.isFinite(explicitDepth)) return explicitDepth
+
+  return Math.max(0, String(category.full_slug || '').split('/').filter(Boolean).length - 1)
+}
+
 const primaryCategory = computed(() => {
   const categories = product.value?.categories ?? []
-  return [...categories].sort((a, b) => (b.depth ?? 0) - (a.depth ?? 0))[0] ?? null
+
+  return [...categories].sort((a, b) => {
+    const depthDifference = categoryDepth(b) - categoryDepth(a)
+    if (depthDifference !== 0) return depthDifference
+
+    return String(b.full_slug || '').length - String(a.full_slug || '').length
+  })[0] ?? null
 })
 
 function breadcrumbLabelFromSlug(segment: string) {
@@ -1506,16 +1519,16 @@ watch(product, () => {
         >
           <div class="flex items-start justify-between gap-5">
             <div class="min-w-0">
-              <p
-                v-if="product.brand?.name"
-                class="text-[9px] font-semibold uppercase tracking-[0.17em] text-charcoal-400"
-              >
-                {{ product.brand.name }}
-              </p>
-
-              <h1 class="mt-2 font-display text-[38px] font-medium leading-[0.94] tracking-[-0.035em] text-charcoal-950 sm:text-[44px] lg:text-[40px] xl:text-[46px]">
+              <h1 class="break-words font-display text-[38px] font-medium leading-[0.94] tracking-[-0.035em] text-charcoal-950 sm:text-[44px] lg:text-[40px] xl:text-[46px]">
                 {{ product.name }}
               </h1>
+
+              <p
+                v-if="primaryCategory"
+                class="mt-2 text-[10px] font-medium leading-5 tracking-[0.025em] text-charcoal-400 sm:text-[11px]"
+              >
+                {{ primaryCategory.name }}
+              </p>
             </div>
 
             <button

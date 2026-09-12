@@ -5,9 +5,12 @@ type Category = {
   full_slug: string
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   categories: Category[]
-}>()
+  showNewIn?: boolean
+}>(), {
+  showNewIn: false,
+})
 
 const siteSettings = useSiteSettingsStore()
 const authStore = useAuthStore()
@@ -90,8 +93,8 @@ function categoryPath(slug: string | null | undefined) {
         <div>
           <p class="footer-heading">Shop</p>
           <ul class="mt-5 space-y-3.5">
-            <li>
-              <NuxtLink to="/shop" class="footer-link">New in</NuxtLink>
+            <li v-if="showNewIn">
+              <NuxtLink to="/new-in" class="footer-link">New in</NuxtLink>
             </li>
             <li
               v-for="category in footerCategories"

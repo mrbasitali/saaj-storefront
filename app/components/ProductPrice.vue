@@ -16,15 +16,15 @@ const props = withDefaults(defineProps<{
 const pricing = computed(() => resolveProductPricing(props.originalPrice, props.salePrice))
 
 const currentPriceClass = computed(() => ({
-  card: 'text-[12px] font-semibold sm:text-[13px]',
-  detail: 'font-display text-[30px] font-semibold leading-none tracking-[-0.03em] sm:text-[34px]',
-  compact: 'text-[11px] font-semibold',
+  card: 'font-display text-[18px] font-medium leading-none tracking-[-0.025em] sm:text-[20px]',
+  detail: 'font-display text-[38px] font-medium leading-none tracking-[-0.035em] sm:text-[44px]',
+  compact: 'font-display text-[15px] font-medium leading-none tracking-[-0.02em]',
 }[props.size]))
 
 const originalPriceClass = computed(() => ({
-  card: 'text-[11px] sm:text-[12px]',
-  detail: 'text-[13px] sm:text-[14px]',
-  compact: 'text-[10px]',
+  card: 'font-display text-[14px] sm:text-[15px]',
+  detail: 'font-display text-[17px] sm:text-[18px]',
+  compact: 'font-display text-[13px]',
 }[props.size]))
 
 const accessibleLabel = computed(() => {
@@ -48,7 +48,7 @@ const accessibleLabel = computed(() => {
 
     <span
       aria-hidden="true"
-      class="tabular-nums text-charcoal-950"
+      class="storefront-price-numerals tabular-nums text-charcoal-950"
       :class="currentPriceClass"
     >
       {{ formatStorefrontPrice(pricing.currentPrice) }}
@@ -57,7 +57,7 @@ const accessibleLabel = computed(() => {
     <s
       v-if="pricing.isOnSale"
       aria-hidden="true"
-      class="tabular-nums text-charcoal-400 decoration-charcoal-400/75 decoration-1"
+      class="storefront-price-numerals tabular-nums text-charcoal-400 decoration-charcoal-400/75 decoration-1"
       :class="originalPriceClass"
     >
       {{ formatStorefrontPrice(pricing.originalPrice) }}

@@ -496,7 +496,7 @@ onMounted(async () => {
         >
           <div>
             <p class="text-[9px] font-semibold uppercase tracking-[0.15em] text-charcoal-400">Order summary · {{ itemLabel }}</p>
-            <p class="mt-1 text-[14px] font-medium tabular-nums">{{ formatPrice(grandTotal) }}</p>
+            <p class="storefront-price-numerals mt-1 text-[17px] font-medium">{{ formatPrice(grandTotal) }}</p>
           </div>
           <svg
             viewBox="0 0 24 24"
@@ -523,12 +523,12 @@ onMounted(async () => {
                   <p class="truncate text-[12px] font-medium">{{ item.productName }}</p>
                   <p v-if="item.optionSummary" class="mt-1 truncate text-[10px] text-charcoal-400">{{ item.optionSummary }}</p>
                 </div>
-                <p class="pt-0.5 text-[11px] font-medium tabular-nums">{{ formatPrice(item.price * item.quantity) }}</p>
+                <p class="storefront-price-numerals pt-0.5 text-[14px] font-medium">{{ formatPrice(item.price * item.quantity) }}</p>
               </li>
             </ul>
 
             <div class="mt-5 space-y-2 border-t border-charcoal-950/10 pt-4 text-[11px]">
-              <div class="flex justify-between gap-5"><span class="text-charcoal-500">Subtotal</span><span class="tabular-nums">{{ formatPrice(cart.subtotal) }}</span></div>
+              <div class="flex justify-between gap-5"><span class="text-charcoal-500">Subtotal</span><span class="storefront-price-numerals">{{ formatPrice(cart.subtotal) }}</span></div>
               <div class="flex justify-between gap-5"><span class="text-charcoal-500">Delivery</span><span :class="shippingError ? 'text-red-600' : ''">{{ shippingLabel() }}</span></div>
             </div>
           </div>
@@ -868,12 +868,12 @@ onMounted(async () => {
                   <NuxtLink :to="`/products/${item.productSlug}`" class="block truncate text-[11px] font-medium transition hover:opacity-60">{{ item.productName }}</NuxtLink>
                   <p v-if="item.optionSummary" class="mt-1 truncate text-[9px] text-charcoal-400">{{ item.optionSummary }}</p>
                 </div>
-                <p class="pt-0.5 text-[10px] font-medium tabular-nums">{{ formatPrice(item.price * item.quantity) }}</p>
+                <p class="storefront-price-numerals pt-0.5 text-[13px] font-medium">{{ formatPrice(item.price * item.quantity) }}</p>
               </li>
             </ul>
 
             <div class="space-y-3 border-t border-charcoal-950/10 py-5 text-[11px]">
-              <div class="flex items-center justify-between gap-6"><span class="text-charcoal-500">Subtotal</span><span class="font-medium tabular-nums">{{ formatPrice(cart.subtotal) }}</span></div>
+              <div class="flex items-center justify-between gap-6"><span class="text-charcoal-500">Subtotal</span><span class="storefront-price-numerals font-medium">{{ formatPrice(cart.subtotal) }}</span></div>
               <div class="flex items-center justify-between gap-6"><span class="text-charcoal-500">Delivery</span><span class="text-right" :class="shippingError ? 'text-red-600' : 'text-charcoal-500'">{{ shippingLabel() }}</span></div>
             </div>
 
@@ -883,7 +883,7 @@ onMounted(async () => {
                   <p class="text-[9px] font-semibold uppercase tracking-[0.14em] text-charcoal-400">Total</p>
                   <p class="mt-1 text-[10px] leading-5 text-charcoal-400">Cash on delivery</p>
                 </div>
-                <p class="font-display text-[28px] font-medium leading-none tabular-nums tracking-[-0.025em]">{{ formatPrice(grandTotal) }}</p>
+                <p class="storefront-price-numerals font-display text-[32px] font-medium leading-none tracking-[-0.035em]">{{ formatPrice(grandTotal) }}</p>
               </div>
 
               <button
@@ -923,7 +923,7 @@ onMounted(async () => {
           <div class="min-w-0 flex-1">
             <p class="text-[8px] font-semibold uppercase tracking-[0.14em] text-charcoal-400">{{ !canPlaceOrder && placeOrderHint ? 'Next step' : 'Total' }}</p>
             <p v-if="!canPlaceOrder && placeOrderHint" class="mt-0.5 truncate text-[10px] text-charcoal-500">{{ placeOrderHint }}</p>
-            <p v-else class="mt-0.5 truncate text-[14px] font-medium tabular-nums">{{ formatPrice(grandTotal) }}</p>
+            <p v-else class="storefront-price-numerals mt-0.5 truncate text-[17px] font-medium">{{ formatPrice(grandTotal) }}</p>
           </div>
           <button
             form="checkout-form"

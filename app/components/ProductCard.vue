@@ -14,6 +14,8 @@ type Product = {
   name: string
   slug: string
   brand?: { name: string } | null
+  primary_category_id?: number | null
+  categories?: Array<{ id: number; name: string; full_slug?: string | null; depth?: number | null }> | null
   is_available?: boolean
   primary_image?: ProductImage | null
   images?: ProductImage[] | null
@@ -68,6 +70,29 @@ const pricing = computed(() => {
 const isOnSale = computed(() => pricing.value.isOnSale)
 const discountPercentage = computed(() => pricing.value.discountPercentage)
 const isSoldOut = computed(() => props.product.is_available === false)
+
+function categoryDepth(category: { full_slug?: string | null; depth?: number | null }) {
+  const explicitDepth = Number(category.depth)
+  if (Number.isFinite(explicitDepth)) return explicitDepth
+
+  return Math.max(0, String(category.full_slug || '').split('/').filter(Boolean).length - 1)
+}
+
+// Product cards should communicate the most specific collection the piece
+// belongs to. A product can still keep a broader "primary" category for SKU
+// or admin workflows, but the storefront label should never fall back to a
+// parent such as Women when Bright / B1 is available.
+const productCategory = computed(() => {
+  const categories = props.product.categories ?? []
+  if (!categories.length) return null
+
+  return [...categories].sort((a, b) => {
+    const depthDifference = categoryDepth(b) - categoryDepth(a)
+    if (depthDifference !== 0) return depthDifference
+
+    return String(b.full_slug || '').length - String(a.full_slug || '').length
+  })[0] ?? null
+})
 </script>
 
 <template>
@@ -125,16 +150,9 @@ const isSoldOut = computed(() => props.product.is_available === false)
         </div>
       </div>
 
-      <div class="pt-3.5 sm:pt-4">
-        <p
-          v-if="product.brand?.name"
-          class="mb-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-charcoal-400"
-        >
-          {{ product.brand.name }}
-        </p>
-
+      <div class="product-card-copy pt-3.5 sm:pt-4">
         <div class="flex items-start justify-between gap-3">
-          <p class="min-w-0 truncate text-[13px] font-medium leading-5 text-charcoal-950 sm:text-[14px]">
+          <p class="min-w-0 break-words text-[13px] font-medium leading-[1.5] tracking-[-0.012em] text-charcoal-950 sm:text-[14px]">
             {{ product.name }}
           </p>
 
@@ -149,9 +167,16 @@ const isSoldOut = computed(() => props.product.is_available === false)
           </svg>
         </div>
 
+        <p
+          v-if="productCategory"
+          class="mt-1 text-[10px] font-medium leading-4 tracking-[0.015em] text-charcoal-400 sm:text-[11px]"
+        >
+          {{ productCategory.name }}
+        </p>
+
         <ProductPrice
           v-if="priceVariant"
-          class="mt-1.5"
+          class="mt-2"
           :original-price="priceVariant.price"
           :sale-price="priceVariant.sale_price"
           size="card"

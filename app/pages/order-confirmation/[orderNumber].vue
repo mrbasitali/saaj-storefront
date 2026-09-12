@@ -225,19 +225,19 @@ onBeforeUnmount(() => {
                   <p class="font-medium"><span class="mr-1.5 text-charcoal-400">{{ item.quantity }}×</span>{{ item.product_name || 'SAAJ piece' }}</p>
                   <p v-if="item.variant_options" class="mt-1 text-[9px] leading-4 text-charcoal-400">{{ item.variant_options }}</p>
                 </div>
-                <p class="shrink-0 font-medium tabular-nums">{{ formatPrice(item.line_total) }}</p>
+                <p class="storefront-price-numerals shrink-0 font-medium">{{ formatPrice(item.line_total) }}</p>
               </li>
             </ul>
 
             <div class="space-y-3 border-t border-charcoal-950/10 py-5 text-[10px]">
-              <div class="flex justify-between gap-6"><span class="text-charcoal-500">Subtotal</span><span>{{ formatPrice(order.subtotal) }}</span></div>
-              <div class="flex justify-between gap-6"><span class="text-charcoal-500">Delivery</span><span>{{ Number(order.shipping_cost) === 0 ? 'Complimentary' : formatPrice(order.shipping_cost) }}</span></div>
+              <div class="flex justify-between gap-6"><span class="text-charcoal-500">Subtotal</span><span class="storefront-price-numerals">{{ formatPrice(order.subtotal) }}</span></div>
+              <div class="flex justify-between gap-6"><span class="text-charcoal-500">Delivery</span><span :class="Number(order.shipping_cost) === 0 ? '' : 'storefront-price-numerals'">{{ Number(order.shipping_cost) === 0 ? 'Complimentary' : formatPrice(order.shipping_cost) }}</span></div>
               <div class="flex justify-between gap-6"><span class="text-charcoal-500">Payment</span><span>{{ paymentLabel(order.payment_method) }}</span></div>
             </div>
 
             <div class="flex items-end justify-between gap-6 border-t border-charcoal-950/10 py-5">
               <span class="text-[9px] font-semibold uppercase tracking-[0.14em] text-charcoal-400">Total</span>
-              <span class="font-display text-[29px] font-medium leading-none tabular-nums tracking-[-0.025em]">{{ formatPrice(order.grand_total) }}</span>
+              <span class="storefront-price-numerals font-display text-[34px] font-medium leading-none tracking-[-0.035em]">{{ formatPrice(order.grand_total) }}</span>
             </div>
 
             <div class="border-t border-charcoal-950/10 pt-5">

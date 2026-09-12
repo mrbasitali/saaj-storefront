@@ -143,10 +143,10 @@ function paymentLabel(value: string) {
                   <p v-else class="text-[12px] font-medium text-charcoal-950">{{ item.product_name }}</p>
                   <p v-if="item.variant_options" class="mt-1 text-[10px] text-charcoal-400">{{ item.variant_options }}</p>
                   <p v-if="item.sku" class="mt-2 text-[8px] uppercase tracking-[0.1em] text-charcoal-300">SKU {{ item.sku }}</p>
-                  <p class="mt-2 text-[10px] text-charcoal-500">Qty {{ item.quantity }} · {{ money(item.unit_price) }} each</p>
+                  <p class="mt-2 text-[10px] text-charcoal-500">Qty {{ item.quantity }} · <span class="storefront-price-numerals">{{ money(item.unit_price) }}</span> each</p>
                 </div>
 
-                <p class="self-center text-[11px] text-charcoal-950">{{ money(item.line_total) }}</p>
+                <p class="storefront-price-numerals self-center text-[14px] text-charcoal-950">{{ money(item.line_total) }}</p>
               </div>
             </div>
           </section>
@@ -166,14 +166,14 @@ function paymentLabel(value: string) {
           <section class="border-b border-charcoal-950/10 pb-7">
             <p class="text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-400">Order summary</p>
             <div class="mt-5 space-y-3 text-[11px]">
-              <div class="flex items-center justify-between gap-5"><span class="text-charcoal-500">Subtotal</span><span class="text-charcoal-950">{{ money(order.subtotal) }}</span></div>
-              <div v-if="Number(order.discount_total)" class="flex items-center justify-between gap-5"><span class="text-charcoal-500">Discount</span><span class="text-charcoal-950">−{{ money(order.discount_total) }}</span></div>
-              <div v-if="Number(order.tax_total)" class="flex items-center justify-between gap-5"><span class="text-charcoal-500">Tax</span><span class="text-charcoal-950">{{ money(order.tax_total) }}</span></div>
-              <div class="flex items-center justify-between gap-5"><span class="text-charcoal-500">Delivery</span><span class="text-charcoal-950">{{ Number(order.shipping_cost) ? money(order.shipping_cost) : 'Complimentary' }}</span></div>
+              <div class="flex items-center justify-between gap-5"><span class="text-charcoal-500">Subtotal</span><span class="storefront-price-numerals text-charcoal-950">{{ money(order.subtotal) }}</span></div>
+              <div v-if="Number(order.discount_total)" class="flex items-center justify-between gap-5"><span class="text-charcoal-500">Discount</span><span class="storefront-price-numerals text-charcoal-950">−{{ money(order.discount_total) }}</span></div>
+              <div v-if="Number(order.tax_total)" class="flex items-center justify-between gap-5"><span class="text-charcoal-500">Tax</span><span class="storefront-price-numerals text-charcoal-950">{{ money(order.tax_total) }}</span></div>
+              <div class="flex items-center justify-between gap-5"><span class="text-charcoal-500">Delivery</span><span class="text-charcoal-950" :class="Number(order.shipping_cost) ? 'storefront-price-numerals' : ''">{{ Number(order.shipping_cost) ? money(order.shipping_cost) : 'Complimentary' }}</span></div>
             </div>
             <div class="mt-5 flex items-end justify-between border-t border-charcoal-950/10 pt-5">
               <div><p class="text-[9px] font-semibold uppercase tracking-[0.14em] text-charcoal-400">Total</p><p class="mt-1 text-[9px] text-charcoal-400">{{ paymentLabel(order.payment_method) }}</p></div>
-              <p class="font-display text-[34px] leading-none tracking-[-0.035em] text-charcoal-950">{{ money(order.grand_total) }}</p>
+              <p class="storefront-price-numerals font-display text-[36px] leading-none tracking-[-0.035em] text-charcoal-950">{{ money(order.grand_total) }}</p>
             </div>
           </section>
 

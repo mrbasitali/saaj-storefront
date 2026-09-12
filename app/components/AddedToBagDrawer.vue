@@ -166,7 +166,7 @@ onBeforeUnmount(() => {
               <p v-if="optionSummary" class="mt-1.5 text-[11px] leading-5 text-charcoal-450">{{ optionSummary }}</p>
               <div class="mt-3 flex items-center justify-between gap-4 text-[11px]">
                 <span class="text-charcoal-450">Qty {{ quantity }}</span>
-                <span class="font-medium text-charcoal-950">{{ price }}</span>
+                <span class="storefront-price-numerals font-medium text-charcoal-950">{{ price }}</span>
               </div>
             </div>
           </div>

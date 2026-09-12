@@ -179,15 +179,15 @@ function imageUrl(item: OrderItem) {
                   <p v-if="item.variant_options" class="mt-1 truncate text-[9px] text-charcoal-400">{{ item.variant_options }}</p>
                   <p class="mt-1 text-[9px] text-charcoal-500">Qty {{ item.quantity }}</p>
                 </div>
-                <p class="self-center text-[10px] text-charcoal-950">{{ money(item.line_total) }}</p>
+                <p class="storefront-price-numerals self-center text-[13px] text-charcoal-950">{{ money(item.line_total) }}</p>
               </div>
             </div>
 
             <div class="border-t border-charcoal-950/10 pt-5">
-              <div class="flex items-center justify-between text-[10px]"><span class="text-charcoal-500">Delivery</span><span class="text-charcoal-950">{{ Number(order.shipping_cost) ? money(order.shipping_cost) : 'Complimentary' }}</span></div>
+              <div class="flex items-center justify-between text-[10px]"><span class="text-charcoal-500">Delivery</span><span class="text-charcoal-950" :class="Number(order.shipping_cost) ? 'storefront-price-numerals' : ''">{{ Number(order.shipping_cost) ? money(order.shipping_cost) : 'Complimentary' }}</span></div>
               <div class="mt-5 flex items-end justify-between border-t border-charcoal-950/10 pt-5">
                 <p class="text-[9px] font-semibold uppercase tracking-[0.14em] text-charcoal-400">Total</p>
-                <p class="font-display text-[31px] leading-none tracking-[-0.035em] text-charcoal-950">{{ money(order.grand_total) }}</p>
+                <p class="storefront-price-numerals font-display text-[34px] leading-none tracking-[-0.035em] text-charcoal-950">{{ money(order.grand_total) }}</p>
               </div>
             </div>
 

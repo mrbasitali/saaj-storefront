@@ -161,7 +161,7 @@ function orderImage(order: Order) {
             </div>
             <div class="flex flex-col items-end justify-center gap-2 text-right">
               <OrderStatusBadge :status="order.fulfillment_status" />
-              <p class="text-[11px] text-charcoal-950">{{ money(order.grand_total) }}</p>
+              <p class="storefront-price-numerals text-[14px] text-charcoal-950">{{ money(order.grand_total) }}</p>
             </div>
           </NuxtLink>
         </div>

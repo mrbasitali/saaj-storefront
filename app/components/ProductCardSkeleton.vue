@@ -6,12 +6,12 @@
     </div>
 
     <div class="pt-3.5 sm:pt-4">
-      <StorefrontSkeleton class="h-2 w-[22%]" />
-      <div class="mt-2 flex items-center justify-between gap-3">
-        <StorefrontSkeleton class="h-3.5 w-[68%]" />
+      <div class="flex items-center justify-between gap-3">
+        <StorefrontSkeleton class="h-3.5 w-[72%]" />
         <StorefrontSkeleton class="hidden h-3.5 w-3.5 shrink-0 lg:block" />
       </div>
-      <StorefrontSkeleton class="mt-2.5 h-3 w-[32%]" />
+      <StorefrontSkeleton class="mt-2 h-2.5 w-[28%]" />
+      <StorefrontSkeleton class="mt-3 h-4 w-[34%]" />
     </div>
   </article>
 </template>
