@@ -18,6 +18,15 @@ type SiteSettings = {
     editorial_gallery_padding_enabled: boolean
     direct_buy_now_enabled: boolean
   }
+  seo: {
+    default_meta_title: string | null
+    default_meta_description: string | null
+    default_og_image_url: string | null
+    google_site_verification: string | null
+    // head_snippet / footer_snippet are intentionally not exposed here —
+    // they're injected server-side straight into the HTML response by
+    // server/plugins/seo-custom-code.ts, never rendered from Vue state.
+  }
 }
 
 export const useSiteSettingsStore = defineStore('site-settings', () => {
