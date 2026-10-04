@@ -13,6 +13,7 @@ type Product = {
   id: number
   name: string
   slug: string
+  badges?: string[] | null
   brand?: { name: string } | null
   primary_category_id?: number | null
   categories?: Array<{ id: number; name: string; full_slug?: string | null; depth?: number | null }> | null
@@ -144,6 +145,13 @@ const productCategory = computed(() => {
         >
           Save {{ discountPercentage }}%
         </span>
+
+        <ProductBadgeStack
+          v-if="product.badges?.length"
+          :badges="product.badges"
+          size="card"
+          class="absolute right-3 top-3 z-[3] hidden opacity-0 transition-opacity duration-300 lg:flex lg:group-hover:opacity-100 lg:group-focus-within:opacity-100"
+        />
 
         <div class="product-card-view absolute inset-x-0 bottom-0 z-[2] translate-y-full bg-paper-50/94 px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-charcoal-950 backdrop-blur transition duration-300 group-hover:translate-y-0 max-lg:hidden">
           View piece

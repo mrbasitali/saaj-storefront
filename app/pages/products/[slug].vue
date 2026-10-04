@@ -60,6 +60,7 @@ type ProductDetail = {
   id: number
   name: string
   slug: string
+  badges?: string[] | null
   short_description: string | null
   description: string | null
   care_instructions: string | null
@@ -1317,6 +1318,13 @@ watch(product, () => {
           />
         </div>
 
+        <ProductBadgeStack
+          v-if="product.badges?.length"
+          :badges="product.badges"
+          size="detail"
+          class="absolute left-3 top-3 z-20 sm:left-4 sm:top-4"
+        />
+
         <!-- Keep product photography completely clean on mobile. The full-width
              position rail sits immediately below the image, followed by the
              small interactive markers in their own quiet row. -->
@@ -1353,6 +1361,18 @@ watch(product, () => {
 
       <!-- Desktop editorial gallery: full-bleed stacked images + sticky purchase panel -->
       <div v-if="stackedGalleryEnabled" class="product-editorial-stack relative hidden bg-mist-100 lg:block">
+        <div
+          v-if="product.badges?.length"
+          class="pointer-events-none absolute inset-0 z-[26] pt-3 xl:pt-4"
+          aria-hidden="true"
+        >
+          <ProductBadgeStack
+            :badges="product.badges"
+            size="detail"
+            class="sticky top-[142px] ml-5 w-fit xl:ml-6"
+          />
+        </div>
+
         <div
           v-if="galleryImages.length > 1"
           class="product-editorial-stack-indicator-layer"
@@ -1413,6 +1433,13 @@ watch(product, () => {
       <!-- Classic desktop gallery: current Saaj gallery, preserved when editorial mode is off -->
       <div v-else class="relative hidden overflow-hidden bg-mist-100 lg:block">
         <div class="product-desktop-gallery relative h-[min(70vh,700px)] min-h-[520px] overflow-hidden bg-mist-100 xl:h-[min(72vh,720px)] xl:min-h-[560px]">
+          <ProductBadgeStack
+            v-if="product.badges?.length"
+            :badges="product.badges"
+            size="detail"
+            class="absolute left-5 top-5 z-30 xl:left-6 xl:top-6"
+          />
+
           <div
             v-if="galleryImages.length > 1"
             class="absolute left-5 top-1/2 z-20 flex max-h-[calc(100%-88px)] -translate-y-1/2 flex-col gap-2 overflow-y-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden xl:left-6"
