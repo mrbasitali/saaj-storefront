@@ -149,8 +149,11 @@ const productCategory = computed(() => {
         <ProductBadgeStack
           v-if="product.badges?.length"
           :badges="product.badges"
+          :class="isSoldOut || isOnSale
+            ? 'mt-8 !max-w-[calc(100%-1rem)] sm:mt-0 sm:!max-w-[45%]'
+            : '!max-w-[calc(100%-1rem)]'"
           size="card"
-          class="absolute right-3 top-3 z-[3] hidden opacity-0 transition-opacity duration-300 lg:flex lg:group-hover:opacity-100 lg:group-focus-within:opacity-100"
+          class="absolute right-2 top-2 z-[3] sm:right-3 sm:top-3"
         />
 
         <div class="product-card-view absolute inset-x-0 bottom-0 z-[2] translate-y-full bg-paper-50/94 px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-charcoal-950 backdrop-blur transition duration-300 group-hover:translate-y-0 max-lg:hidden">

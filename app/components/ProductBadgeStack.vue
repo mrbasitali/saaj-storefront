@@ -7,6 +7,12 @@ const props = withDefaults(defineProps<{
   size: 'card',
 })
 
+const siteSettings = useSiteSettingsStore()
+const visibility = computed(() => props.size === 'card'
+  ? (siteSettings.settings?.storefront?.product_card_badge_visibility ?? 'always')
+  : 'always',
+)
+
 const visibleBadges = computed(() => (props.badges ?? [])
   .map(badge => String(badge || '').trim())
   .filter(Boolean)
@@ -16,8 +22,9 @@ const visibleBadges = computed(() => (props.badges ?? [])
 
 <template>
   <div
-    v-if="visibleBadges.length"
+    v-if="visibleBadges.length && visibility !== 'hidden'"
     class="pointer-events-none flex max-w-[72%] flex-col items-start gap-1.5"
+    :class="visibility === 'hover' ? '[@media(hover:hover)]:invisible [@media(hover:hover)]:group-hover:visible [@media(hover:hover)]:group-focus-within:visible' : undefined"
     aria-label="Product labels"
   >
     <span

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { isCompletePhoneNumber } from '~/utils/isCompletePhoneNumber'
+
 const authStore = useAuthStore()
 const router = useRouter()
 const route = useRoute()
@@ -26,6 +28,8 @@ const passwordChecks = computed(() => ({
   number: /\d/.test(form.password),
   match: !!form.password_confirmation && form.password === form.password_confirmation,
 }))
+
+const passwordComplete = computed(() => passwordChecks.value.length && passwordChecks.value.letter && passwordChecks.value.number)
 
 const redirectTo = computed(() => {
   const value = typeof route.query.redirect === 'string' ? route.query.redirect : ''
@@ -57,79 +61,121 @@ async function submit() {
 </script>
 
 <template>
-  <StorefrontAuthFrame
-    eyebrow="Join SAAJ"
-    title="Create your account."
-    description="Keep your orders, addresses and saved pieces together. Verification remains visible and under your control after signup."
-    aside-title="A more considered checkout, every time."
-    aside-copy="Create one SAAJ account for your orders, delivery addresses, wishlist and optional phone-code sign in."
+  <StorefrontCredentialsFrame
+    title="Create an account"
+    description="Enter your details to get started."
   >
-    <form class="space-y-5" @submit.prevent="submit">
+    <form class="credentials-form" @submit.prevent="submit">
       <div>
-        <label class="mb-2 block text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-500">Full name</label>
-        <input v-model.trim="form.name" type="text" autocomplete="name" required class="w-full border border-charcoal-950/15 bg-transparent px-4 py-3.5 text-[16px] text-charcoal-950 outline-none transition focus:border-charcoal-950">
-      </div>
-
-      <div class="grid gap-5 sm:grid-cols-2">
-        <div>
-          <label class="mb-2 block text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-500">Email</label>
-          <input v-model.trim="form.email" type="email" autocomplete="email" required class="w-full border border-charcoal-950/15 bg-transparent px-4 py-3.5 text-[16px] text-charcoal-950 outline-none transition focus:border-charcoal-950">
-        </div>
-        <div>
-          <label class="mb-2 block text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-500">Mobile <span class="font-normal normal-case tracking-normal text-charcoal-400">optional</span></label>
-          <input v-model.trim="form.phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="03XXXXXXXXX" class="w-full border border-charcoal-950/15 bg-transparent px-4 py-3.5 text-[16px] text-charcoal-950 outline-none transition focus:border-charcoal-950">
+        <label for="sign-up-name" class="credentials-label">Full name</label>
+        <div class="credentials-field">
+          <input id="sign-up-name" v-model.trim="form.name" type="text" autocomplete="name" placeholder=" " required :data-complete="form.name.length <= 150" class="credentials-input">
         </div>
       </div>
 
       <div>
-        <label class="mb-2 block text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-500">Password</label>
-        <div class="relative">
-          <input v-model="form.password" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" required class="w-full border border-charcoal-950/15 bg-transparent px-4 py-3.5 pr-16 text-[16px] text-charcoal-950 outline-none transition focus:border-charcoal-950">
-          <button type="button" class="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] font-semibold uppercase tracking-[0.12em] text-charcoal-500" @click="showPassword = !showPassword">
+        <label for="sign-up-email" class="credentials-label">Email address</label>
+        <div class="credentials-field">
+          <input id="sign-up-email" v-model.trim="form.email" type="email" autocomplete="email" placeholder=" " :data-complete="form.email.length <= 190" autocapitalize="none" required class="credentials-input">
+        </div>
+      </div>
+
+      <div>
+        <label for="sign-up-phone" class="credentials-label">
+          Mobile number <span class="credentials-help font-normal">(optional)</span>
+        </label>
+        <div class="credentials-field">
+          <input id="sign-up-phone" v-model.trim="form.phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="03XXXXXXXXX" :data-complete="isCompletePhoneNumber(form.phone)" class="credentials-input">
+        </div>
+      </div>
+
+      <div>
+        <label for="sign-up-password" class="credentials-label">Password</label>
+        <div class="credentials-field">
+          <input
+            id="sign-up-password"
+            v-model="form.password"
+            :type="showPassword ? 'text' : 'password'"
+            autocomplete="new-password"
+            placeholder=" "
+            :data-complete="passwordComplete"
+            aria-describedby="sign-up-password-rules"
+            required
+            class="credentials-input credentials-password"
+          >
+          <button
+            type="button"
+            class="credentials-toggle"
+            aria-controls="sign-up-password sign-up-confirm"
+            :aria-label="showPassword ? 'Hide passwords' : 'Show passwords'"
+            @click="showPassword = !showPassword"
+          >
             {{ showPassword ? 'Hide' : 'Show' }}
           </button>
         </div>
-        <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-[10px]">
-          <span :class="passwordChecks.length ? 'text-[#657d6c]' : 'text-charcoal-400'">{{ passwordChecks.length ? '✓' : '○' }} 8+ characters</span>
-          <span :class="passwordChecks.letter ? 'text-[#657d6c]' : 'text-charcoal-400'">{{ passwordChecks.letter ? '✓' : '○' }} Letter</span>
-          <span :class="passwordChecks.number ? 'text-[#657d6c]' : 'text-charcoal-400'">{{ passwordChecks.number ? '✓' : '○' }} Number</span>
-        </div>
+        <ul id="sign-up-password-rules" class="credentials-help mt-2 flex flex-wrap gap-x-4 gap-y-1" aria-label="Password requirements">
+          <li :class="{ 'credentials-success': passwordChecks.length }">
+            <span aria-hidden="true">{{ passwordChecks.length ? '✓' : '○' }}</span>
+            8+ characters<span class="sr-only">{{ passwordChecks.length ? ', met' : ', required' }}</span>
+          </li>
+          <li :class="{ 'credentials-success': passwordChecks.letter }">
+            <span aria-hidden="true">{{ passwordChecks.letter ? '✓' : '○' }}</span>
+            A letter<span class="sr-only">{{ passwordChecks.letter ? ', met' : ', required' }}</span>
+          </li>
+          <li :class="{ 'credentials-success': passwordChecks.number }">
+            <span aria-hidden="true">{{ passwordChecks.number ? '✓' : '○' }}</span>
+            A number<span class="sr-only">{{ passwordChecks.number ? ', met' : ', required' }}</span>
+          </li>
+        </ul>
       </div>
 
       <div>
-        <label class="mb-2 block text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-500">Confirm password</label>
-        <input v-model="form.password_confirmation" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" required class="w-full border border-charcoal-950/15 bg-transparent px-4 py-3.5 text-[16px] text-charcoal-950 outline-none transition focus:border-charcoal-950">
-        <p v-if="form.password_confirmation" class="mt-2 text-[10px]" :class="passwordChecks.match ? 'text-[#657d6c]' : 'text-[#9a4f4f]'">
-          {{ passwordChecks.match ? '✓ Passwords match' : 'Passwords do not match yet' }}
+        <label for="sign-up-confirm" class="credentials-label">Confirm password</label>
+        <div class="credentials-field">
+          <input
+            id="sign-up-confirm"
+            v-model="form.password_confirmation"
+            :type="showPassword ? 'text' : 'password'"
+            autocomplete="new-password"
+            placeholder=" "
+            :data-complete="passwordComplete && passwordChecks.match"
+            aria-describedby="sign-up-password-match"
+            :aria-invalid="!!form.password_confirmation && !passwordChecks.match"
+            required
+            class="credentials-input"
+          >
+        </div>
+        <p id="sign-up-password-match" class="credentials-help" role="status">
+          <span v-if="form.password_confirmation" class="mt-2 block" :class="passwordChecks.match ? 'credentials-success' : 'credentials-error'">
+            {{ passwordChecks.match ? 'Passwords match' : 'Passwords don’t match' }}
+          </span>
         </p>
       </div>
 
-      <div v-if="accountExists" class="border border-[#bd6f6f]/40 bg-[#bd6f6f]/[0.07] p-4">
-        <p class="text-[12px] font-medium text-[#8f4949]">You may already have a SAAJ account.</p>
-        <p class="mt-1 text-[11px] leading-5 text-[#9a5b5b]">{{ error }}</p>
-        <div class="mt-4 flex flex-wrap gap-5 text-[10px] font-semibold uppercase tracking-[0.12em]">
-          <NuxtLink :to="`/login?email=${encodeURIComponent(form.email)}${route.query.redirect ? `&redirect=${encodeURIComponent(String(route.query.redirect))}` : ''}`" class="text-[#8f4949] underline underline-offset-4">Sign in</NuxtLink>
-          <NuxtLink :to="`/forgot-password?email=${encodeURIComponent(form.email)}`" class="text-[#8f4949] underline underline-offset-4">Reset password</NuxtLink>
+      <div v-if="accountExists" class="credentials-message credentials-message-error">
+        <p class="font-semibold" role="alert">You may already have a SAAJ account.</p>
+        <p class="mt-1">{{ error }}</p>
+        <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+          <NuxtLink :to="`/login?email=${encodeURIComponent(form.email)}${route.query.redirect ? `&redirect=${encodeURIComponent(String(route.query.redirect))}` : ''}`" class="credentials-link">Sign in</NuxtLink>
+          <NuxtLink :to="`/forgot-password?email=${encodeURIComponent(form.email)}`" class="credentials-link">Reset password</NuxtLink>
         </div>
       </div>
-      <div v-else-if="error" class="border border-[#bd6f6f]/35 bg-[#bd6f6f]/[0.07] px-4 py-3 text-[12px] leading-5 text-[#9a4f4f]">
-        {{ error }}
-      </div>
+      <p v-else-if="error" class="credentials-message credentials-message-error" role="alert">{{ error }}</p>
 
-      <p class="text-[11px] leading-5 text-charcoal-400">
-        We send an email verification link after signup. If you add a mobile number, you can verify it separately to enable phone-code sign in; an SMS is sent only when you explicitly request one.
-      </p>
-
-      <button type="submit" :disabled="submitting || !passwordChecks.match" class="flex w-full items-center justify-center gap-3 bg-charcoal-950 px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-paper-50 transition hover:opacity-90 disabled:opacity-45">
-        <span v-if="submitting" class="h-3.5 w-3.5 animate-spin rounded-full border border-paper-50/30 border-t-paper-50" />
+      <button type="submit" :disabled="submitting || !passwordChecks.match" class="credentials-submit">
         {{ submitting ? 'Creating account…' : 'Create account' }}
-        <span v-if="!submitting">→</span>
       </button>
+      <p class="credentials-help">We’ll send you a link to verify your email after signup.</p>
     </form>
 
-    <div class="mt-8 flex items-center justify-between gap-4 border-t border-charcoal-950/10 pt-6 text-[12px] text-charcoal-500">
+    <div class="credentials-footer">
       <span>Already have an account?</span>
-      <NuxtLink :to="`/login${route.query.redirect ? `?redirect=${encodeURIComponent(String(route.query.redirect))}` : ''}`" class="font-medium text-charcoal-950 underline underline-offset-4">Sign in</NuxtLink>
+      <NuxtLink
+        :to="`/login${route.query.redirect ? `?redirect=${encodeURIComponent(String(route.query.redirect))}` : ''}`"
+        class="credentials-link"
+      >
+        Sign in
+      </NuxtLink>
     </div>
-  </StorefrontAuthFrame>
+  </StorefrontCredentialsFrame>
 </template>

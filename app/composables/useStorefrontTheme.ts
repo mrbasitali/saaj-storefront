@@ -16,7 +16,7 @@ export function useStorefrontTheme() {
     root.style.colorScheme = value
 
     const themeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-    themeMeta?.setAttribute('content', value === 'dark' ? '#0f110f' : '#f7f6f2')
+    themeMeta?.setAttribute('content', value === 'dark' ? '#0f110f' : '#ffffff')
   }
 
   function applyTheme(value: StorefrontTheme, persist = true) {

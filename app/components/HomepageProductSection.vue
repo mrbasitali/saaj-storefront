@@ -29,7 +29,6 @@ type HomepageProduct = {
 
 type ProductSection = {
   id: number
-  slot: 1 | 2
   eyebrow?: string | null
   title: string
   description?: string | null
@@ -48,29 +47,29 @@ const isDark = computed(() => props.section.tone === 'dark')
 const sectionClass = computed(() => ({
   'bg-paper-50': props.section.tone === 'light',
   'bg-[#edf0eb]': props.section.tone === 'soft',
-  'bg-charcoal-950 text-paper-50': isDark.value,
+  'bg-[#20231f] text-[#f7f6f2]': isDark.value,
 }))
 </script>
 
 <template>
   <section
     v-if="section.products.length"
-    class="home-product-story border-y border-charcoal-950/[0.07]"
+    class="home-product-story"
     :class="sectionClass"
   >
-    <div class="mx-auto max-w-[1600px] px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-24">
-      <div class="grid gap-6 border-b pb-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end" :class="isDark ? 'border-white/12' : 'border-charcoal-950/[0.08]'">
+    <div class="mx-auto max-w-[1600px] px-5 py-10 sm:px-8 sm:py-14 lg:px-10 lg:py-16">
+      <div
+        class="flex flex-wrap items-end justify-between gap-x-8 gap-y-2 border-b pb-4 sm:pb-5"
+        :class="isDark ? 'border-white/20' : 'border-charcoal-950/15'"
+      >
         <div class="max-w-3xl">
-          <div class="flex items-center gap-3">
-            <span class="h-px w-8" :class="isDark ? 'bg-white/40' : 'bg-charcoal-950/35'" />
-            <p class="text-[9px] font-semibold uppercase tracking-[0.2em]" :class="isDark ? 'text-white/55' : 'text-charcoal-500'">
-              {{ section.eyebrow || `SAAJ edit ${String(section.slot).padStart(2, '0')}` }}
-            </p>
-          </div>
-          <h2 class="mt-4 font-display text-[clamp(2.45rem,4vw,4.75rem)] font-medium leading-[0.92] tracking-[-0.055em]" :class="isDark ? 'text-paper-50' : 'text-charcoal-950'">
+          <p v-if="section.eyebrow" class="mb-2 text-[11px] font-medium tracking-wide" :class="isDark ? 'text-white/70' : 'text-charcoal-600'">
+            {{ section.eyebrow }}
+          </p>
+          <h2 class="font-display text-[clamp(2.15rem,3.65vw,3.75rem)] font-medium leading-none tracking-[-0.035em]">
             {{ section.title }}
           </h2>
-          <p v-if="section.description" class="mt-4 max-w-xl text-[13px] leading-6 sm:text-sm sm:leading-7" :class="isDark ? 'text-white/58' : 'text-charcoal-500'">
+          <p v-if="section.description" class="mt-2 max-w-xl text-sm leading-6" :class="isDark ? 'text-white/58' : 'text-charcoal-500'">
             {{ section.description }}
           </p>
         </div>
@@ -78,19 +77,17 @@ const sectionClass = computed(() => ({
         <NuxtLink
           v-if="section.cta_label && section.cta_url"
           :to="section.cta_url"
-          class="group hidden items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.16em] sm:inline-flex"
-          :class="isDark ? 'text-white/72 hover:text-white' : 'text-charcoal-700 hover:text-charcoal-950'"
+          class="group home-inline-action min-h-11 shrink-0"
+          :class="isDark ? 'home-product-action-dark focus-visible:outline-white' : ''"
         >
           <span>{{ section.cta_label }}</span>
-          <span class="flex h-9 w-9 items-center justify-center rounded-full border transition group-hover:translate-x-0.5" :class="isDark ? 'border-white/20' : 'border-charcoal-950/15'">
-            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.25" class="h-4 w-4"><path d="M3.5 9h11M10.5 5l4 4-4 4" /></svg>
-          </span>
+          <svg aria-hidden="true" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.25" class="size-4 motion-safe:transition-transform motion-safe:group-hover:translate-x-0.5"><path d="M3.5 9h11M10.5 5l4 4-4 4" /></svg>
         </NuxtLink>
       </div>
 
       <div
         v-if="section.layout === 'grid'"
-        class="mt-7 grid grid-cols-2 gap-x-3 gap-y-10 sm:mt-9 sm:gap-x-5 lg:grid-cols-4 lg:gap-x-6 lg:gap-y-14"
+        class="mt-5 grid grid-cols-2 gap-x-3 gap-y-10 sm:mt-6 sm:gap-x-5 lg:grid-cols-4 lg:gap-x-6 lg:gap-y-14"
       >
         <div v-for="product in section.products" :key="product.id" :class="isDark ? 'rounded-[2px] bg-paper-50 p-2 pb-4 sm:p-3 sm:pb-5' : ''">
           <ProductCard :product="product" />
@@ -99,36 +96,30 @@ const sectionClass = computed(() => ({
 
       <div
         v-else
-        class="home-product-rail mt-7 grid grid-flow-col auto-cols-[72%] gap-3 overflow-x-auto overscroll-x-contain pb-3 [scrollbar-width:none] sm:mt-9 sm:auto-cols-[43%] sm:gap-4 lg:auto-cols-[24%] lg:gap-5 [&::-webkit-scrollbar]:hidden"
+        class="home-product-rail mt-5 grid grid-flow-col auto-cols-[46%] gap-3 overflow-x-auto overscroll-x-contain pb-3 [scrollbar-width:none] sm:mt-6 sm:auto-cols-[31%] sm:gap-4 lg:auto-cols-[23%] lg:gap-5 [&::-webkit-scrollbar]:hidden"
       >
         <div
-          v-for="(product, index) in section.products"
+          v-for="product in section.products"
           :key="product.id"
           class="min-w-0 snap-start"
           :class="isDark ? 'rounded-[2px] bg-paper-50 p-2 pb-4 sm:p-3 sm:pb-5' : ''"
         >
-          <div class="mb-2 flex items-center justify-between text-[9px] font-semibold uppercase tracking-[0.16em]" :class="isDark ? 'text-charcoal-400' : 'text-charcoal-400'">
-            <span>{{ String(index + 1).padStart(2, '0') }}</span>
-            <span>SAAJ selection</span>
-          </div>
           <ProductCard :product="product" />
         </div>
       </div>
-
-      <NuxtLink
-        v-if="section.cta_label && section.cta_url"
-        :to="section.cta_url"
-        class="mt-8 inline-flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.16em] sm:hidden"
-        :class="isDark ? 'text-white/75' : 'text-charcoal-800'"
-      >
-        <span>{{ section.cta_label }}</span>
-        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.25" class="h-4 w-4"><path d="M3.5 9h11M10.5 5l4 4-4 4" /></svg>
-      </NuxtLink>
     </div>
   </section>
 </template>
 
 <style scoped>
+.home-product-action-dark {
+  color: rgb(255 255 255 / 0.82);
+}
+
+.home-product-action-dark:hover {
+  color: white;
+}
+
 .home-product-rail {
   scroll-snap-type: x proximity;
 }

@@ -12,6 +12,7 @@ export default defineNuxtConfig({
     '/account': { ssr: false },
     '/account/**': { ssr: false },
     '/checkout': { ssr: false },
+    '/replace-order': { ssr: false, headers: { 'cache-control': 'private, no-store', 'referrer-policy': 'no-referrer', 'x-robots-tag': 'noindex, nofollow' } },
     '/verify-account': { ssr: false },
     '/email-verified': { ssr: false },
   },
@@ -23,7 +24,7 @@ export default defineNuxtConfig({
     '@vite-pwa/nuxt',
   ],
 
-  css: ['~/assets/css/main.css'],
+  css: ['~/assets/css/main.css', '~/assets/css/storefront-fields.css'],
 
   vite: {
     plugins: [tailwindcss()],
@@ -32,7 +33,7 @@ export default defineNuxtConfig({
   fonts: {
     families: [
       { name: 'Cormorant Garamond', provider: 'google', weights: [400, 500, 600, 700], styles: ['normal', 'italic'] },
-      { name: 'Manrope', provider: 'google', weights: [400, 500, 600, 700] },
+      { name: 'Cabin', provider: 'google', weights: [400, 500, 600, 700], styles: ['normal', 'italic'] },
     ],
   },
 
@@ -45,8 +46,8 @@ export default defineNuxtConfig({
       name: 'SAAJ',
       short_name: 'SAAJ',
       description: 'Adornment, considered.',
-      theme_color: '#151714',
-      background_color: '#F7F6F2',
+      theme_color: '#ffffff',
+      background_color: '#ffffff',
       display: 'standalone',
       start_url: '/',
       icons: [
@@ -59,7 +60,7 @@ export default defineNuxtConfig({
       // Never cache API calls in the service worker — prices, stock,
       // and order status all need to stay live, not served stale from
       // an offline cache.
-      navigateFallbackDenylist: [/^\/api\//],
+      navigateFallbackDenylist: [/^\/api\//, /^\/replace-order\/?$/],
     },
     devOptions: {
       enabled: process.env.NODE_ENV !== 'production',
@@ -85,7 +86,7 @@ export default defineNuxtConfig({
       ],
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
-        { name: 'theme-color', content: '#151714' },
+        { name: 'theme-color', content: '#ffffff' },
       ],
     },
   },

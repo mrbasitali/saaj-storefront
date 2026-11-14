@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { isCompletePhoneNumber } from '~/utils/isCompletePhoneNumber'
+
 const route = useRoute()
 const router = useRouter()
 const { $api } = useNuxtApp()
@@ -19,9 +21,10 @@ const otpSent = ref(false)
 const submitting = ref(false)
 const error = ref('')
 const notice = ref('')
-const { remaining, formattedRemaining, canResend, start: startCooldown } = useOtpCooldown(30)
+const { formattedRemaining, canResend, start: startCooldown } = useOtpCooldown(30)
 
-const passwordsMatch = computed(() => password.value.length >= 8 && password.value === passwordConfirmation.value)
+const validPassword = computed(() => password.value.length >= 8 && /[A-Za-z]/.test(password.value) && /\d/.test(password.value))
+const passwordsMatch = computed(() => validPassword.value && password.value === passwordConfirmation.value)
 
 function switchMode(next: 'email' | 'phone') {
   mode.value = next
@@ -52,6 +55,8 @@ function applyServerOtpCooldown(err: any) {
 }
 
 async function requestPhoneCode() {
+  if (submitting.value || !canResend.value || !phone.value.trim()) return
+
   submitting.value = true
   error.value = ''
   notice.value = ''
@@ -74,6 +79,8 @@ async function requestPhoneCode() {
 }
 
 async function resetWithPhone() {
+  if (submitting.value || code.value.length < 4 || !passwordsMatch.value) return
+
   submitting.value = true
   error.value = ''
 
@@ -98,86 +105,82 @@ async function resetWithPhone() {
 </script>
 
 <template>
-  <StorefrontAuthFrame
-    eyebrow="Account recovery"
-    title="Reset your password."
-    description="Use your email reset link, or a one-time code if your mobile number has already been verified."
-    aside-title="Access, recovered carefully."
-    aside-copy="Choose the recovery path connected to your account. We keep both email and phone recovery deliberately private."
+  <StorefrontCredentialsFrame
+    title="Reset your password"
+    description="Get a reset link by email or use a code sent to your verified mobile number."
   >
-    <div class="grid grid-cols-2 border-b border-charcoal-950/10">
-      <button type="button" class="relative pb-3 text-[10px] font-semibold uppercase tracking-[0.15em]" :class="mode === 'email' ? 'text-charcoal-950' : 'text-charcoal-400'" @click="switchMode('email')">
-        Email link
-        <span v-if="mode === 'email'" class="absolute inset-x-0 -bottom-px h-px bg-charcoal-950" />
-      </button>
-      <button type="button" class="relative pb-3 text-[10px] font-semibold uppercase tracking-[0.15em]" :class="mode === 'phone' ? 'text-charcoal-950' : 'text-charcoal-400'" @click="switchMode('phone')">
-        Phone code
-        <span v-if="mode === 'phone'" class="absolute inset-x-0 -bottom-px h-px bg-charcoal-950" />
-      </button>
+    <div class="credentials-methods" :data-mode="mode" role="group" aria-label="Password reset method">
+      <button type="button" class="credentials-method" :aria-pressed="mode === 'email'" @click="switchMode('email')">Email link</button>
+      <button type="button" class="credentials-method" :aria-pressed="mode === 'phone'" @click="switchMode('phone')">Phone code</button>
+      <span class="credentials-method-indicator" aria-hidden="true" />
     </div>
 
-    <template v-if="mode === 'email'">
-      <div v-if="emailSubmitted" class="mt-7 border border-[#657d6c]/30 bg-[#657d6c]/[0.08] p-5">
-        <p class="text-[12px] font-medium text-[#52685a]">Check your email.</p>
-        <p class="mt-2 text-[11px] leading-5 text-charcoal-500">
-          If an account exists for <span class="text-charcoal-950">{{ email }}</span>, a password reset link is on its way.
-        </p>
+    <Transition name="credentials-switch" mode="out-in">
+      <div v-if="mode === 'email' && emailSubmitted" class="credentials-message" role="status">
+        <p class="credentials-success font-semibold">Check your email</p>
+        <p class="mt-1 break-words">If an account exists for {{ email }}, a password reset link is on its way.</p>
       </div>
-      <form v-else class="mt-7 space-y-5" @submit.prevent="submitEmail">
+      <form v-else-if="mode === 'email'" key="email" class="credentials-form" @submit.prevent="submitEmail">
         <div>
-          <label class="mb-2 block text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-500">Email</label>
-          <input v-model.trim="email" type="email" autocomplete="email" required class="w-full border border-charcoal-950/15 bg-transparent px-4 py-3.5 text-[16px] text-charcoal-950 outline-none transition focus:border-charcoal-950">
+          <label for="recovery-email" class="credentials-label">Email address</label>
+          <div class="credentials-field">
+            <input id="recovery-email" v-model.trim="email" class="credentials-input" type="email" autocomplete="email" autocapitalize="none" placeholder=" " required>
+          </div>
         </div>
-        <div v-if="error" class="border border-[#bd6f6f]/35 bg-[#bd6f6f]/[0.07] px-4 py-3 text-[12px] leading-5 text-[#9a4f4f]">{{ error }}</div>
-        <button type="submit" :disabled="submitting" class="flex w-full items-center justify-center gap-3 bg-charcoal-950 px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-paper-50 disabled:opacity-45">
-          <span v-if="submitting" class="h-3.5 w-3.5 animate-spin rounded-full border border-paper-50/30 border-t-paper-50" />
+        <p v-if="error" class="credentials-message credentials-message-error" role="alert">{{ error }}</p>
+        <button type="submit" :disabled="submitting" class="credentials-submit">
           {{ submitting ? 'Sending…' : 'Send reset link' }}
         </button>
       </form>
-    </template>
 
-    <div v-else class="mt-7 space-y-5">
-      <div>
-        <label class="mb-2 block text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-500">Verified mobile number</label>
-        <input v-model.trim="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="03XXXXXXXXX" :disabled="otpSent" class="w-full border border-charcoal-950/15 bg-transparent px-4 py-3.5 text-[16px] text-charcoal-950 outline-none transition focus:border-charcoal-950 disabled:opacity-65">
-      </div>
-
-      <template v-if="otpSent">
+      <form v-else key="phone" class="credentials-form" @submit.prevent="otpSent ? resetWithPhone() : requestPhoneCode()">
         <div>
-          <div class="mb-3 flex items-center justify-between gap-4">
-            <p class="text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-500">Code</p>
-            <button type="button" :disabled="!canResend || submitting" class="text-[10px] uppercase tracking-[0.12em] text-charcoal-500 underline underline-offset-4 disabled:no-underline disabled:opacity-45" @click="requestPhoneCode">
-              {{ canResend ? 'Resend code' : `Resend in ${formattedRemaining}` }}
-            </button>
+          <label for="recovery-phone" class="credentials-label">Verified mobile number</label>
+          <div class="credentials-field">
+            <input id="recovery-phone" v-model.trim="phone" class="credentials-input" type="tel" inputmode="tel" autocomplete="tel" placeholder="03XXXXXXXXX" :data-complete="isCompletePhoneNumber(phone)" :disabled="otpSent" required>
           </div>
-          <AuthOtpCodeInput v-model="code" :disabled="submitting" />
         </div>
 
-        <div>
-          <label class="mb-2 block text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-500">New password</label>
-          <input v-model="password" type="password" autocomplete="new-password" class="w-full border border-charcoal-950/15 bg-transparent px-4 py-3.5 text-[16px] text-charcoal-950 outline-none transition focus:border-charcoal-950">
-        </div>
-        <div>
-          <label class="mb-2 block text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-500">Confirm password</label>
-          <input v-model="passwordConfirmation" type="password" autocomplete="new-password" class="w-full border border-charcoal-950/15 bg-transparent px-4 py-3.5 text-[16px] text-charcoal-950 outline-none transition focus:border-charcoal-950">
-        </div>
-      </template>
+        <template v-if="otpSent">
+          <div>
+            <div class="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-4">
+              <p class="credentials-label">Verification code</p>
+              <button type="button" class="credentials-link mb-1.5" :disabled="!canResend || submitting" @click="requestPhoneCode">
+                {{ canResend ? 'Resend code' : `Resend in ${formattedRemaining}` }}
+              </button>
+            </div>
+            <AuthOtpCodeInput v-model="code" :disabled="submitting" :data-complete="code.length === 6" class="credentials-otp" />
+          </div>
 
-      <div v-if="notice" class="border border-[#657d6c]/30 bg-[#657d6c]/[0.08] px-4 py-3 text-[12px] leading-5 text-[#52685a]">{{ notice }}</div>
-      <div v-if="error" class="border border-[#bd6f6f]/35 bg-[#bd6f6f]/[0.07] px-4 py-3 text-[12px] leading-5 text-[#9a4f4f]">{{ error }}</div>
+          <div>
+            <label for="recovery-password" class="credentials-label">New password</label>
+            <div class="credentials-field">
+              <input id="recovery-password" v-model="password" class="credentials-input" type="password" autocomplete="new-password" placeholder=" " :data-complete="validPassword" aria-describedby="recovery-password-help" required>
+            </div>
+            <p id="recovery-password-help" class="credentials-help mt-2">Use at least 8 characters, including a letter and a number.</p>
+          </div>
+          <div>
+            <label for="recovery-confirm" class="credentials-label">Confirm password</label>
+            <div class="credentials-field">
+              <input id="recovery-confirm" v-model="passwordConfirmation" class="credentials-input" type="password" autocomplete="new-password" placeholder=" " :data-complete="passwordsMatch" required>
+            </div>
+          </div>
+        </template>
 
-      <button v-if="!otpSent" type="button" :disabled="submitting || !phone.trim() || !canResend" class="flex w-full items-center justify-center gap-3 bg-charcoal-950 px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-paper-50 disabled:opacity-45" @click="requestPhoneCode">
-        <span v-if="submitting" class="h-3.5 w-3.5 animate-spin rounded-full border border-paper-50/30 border-t-paper-50" />
-        {{ submitting ? 'Sending code…' : canResend ? 'Send code' : `Try again in ${formattedRemaining}` }}
-      </button>
-      <button v-else type="button" :disabled="submitting || code.length < 4 || !passwordsMatch" class="flex w-full items-center justify-center gap-3 bg-charcoal-950 px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-paper-50 disabled:opacity-45" @click="resetWithPhone">
-        <span v-if="submitting" class="h-3.5 w-3.5 animate-spin rounded-full border border-paper-50/30 border-t-paper-50" />
-        {{ submitting ? 'Updating…' : 'Set new password' }}
-      </button>
+        <p v-if="notice" class="credentials-message credentials-success" role="status">{{ notice }}</p>
+        <p v-if="error" class="credentials-message credentials-message-error" role="alert">{{ error }}</p>
 
-      <p class="text-[11px] leading-5 text-charcoal-400">For privacy, we show the same code-request message whether or not the number belongs to an account.</p>
+        <button v-if="!otpSent" type="submit" :disabled="submitting || !phone.trim() || !canResend" class="credentials-submit">
+          {{ submitting ? 'Sending code…' : canResend ? 'Send code' : `Try again in ${formattedRemaining}` }}
+        </button>
+        <button v-else type="submit" :disabled="submitting || code.length < 4 || !passwordsMatch" class="credentials-submit">
+          {{ submitting ? 'Updating…' : 'Set new password' }}
+        </button>
+      </form>
+    </Transition>
+
+    <div class="credentials-footer">
+      <NuxtLink to="/login" class="credentials-link">Back to sign in</NuxtLink>
     </div>
-
-    <NuxtLink to="/login" class="mt-8 inline-block text-[10px] font-semibold uppercase tracking-[0.13em] text-charcoal-950 underline underline-offset-4">← Back to sign in</NuxtLink>
-  </StorefrontAuthFrame>
+  </StorefrontCredentialsFrame>
 </template>

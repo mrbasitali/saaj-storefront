@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isCompletePhoneNumber } from '~/utils/isCompletePhoneNumber'
 import type { AddressFieldsValue } from '~/components/AddressFields.vue'
 
 type SavedAddress = {
@@ -229,7 +230,56 @@ watch(
   { immediate: true },
 )
 
-const grandTotal = computed(() => cart.subtotal + (shippingEstimate.value?.shipping_cost ?? 0))
+type CouponQuote = { code: string; subtotal: number; discount: number }
+const couponInput = ref('')
+const couponQuote = ref<CouponQuote>()
+const couponPending = ref(false)
+const couponError = ref('')
+const couponNeedsReview = ref(false)
+const cartSignature = computed(() => JSON.stringify(cart.toCheckoutItems()))
+const subtotal = computed(() => couponQuote.value?.subtotal ?? cart.subtotal)
+const grandTotal = computed(() => subtotal.value - (couponQuote.value?.discount ?? 0) + (shippingEstimate.value?.shipping_cost ?? 0))
+const couponField = ref<HTMLElement>()
+
+function removeCoupon() {
+  couponQuote.value = undefined
+  couponInput.value = ''
+  couponError.value = ''
+  couponNeedsReview.value = false
+}
+
+watch([cartSignature, () => authStore.isLoggedIn], () => {
+  if (!couponQuote.value) return
+  couponQuote.value = undefined
+  couponNeedsReview.value = true
+  couponError.value = 'Your bag or account changed. Apply your code again or remove it.'
+})
+
+async function applyCoupon() {
+  const code = couponInput.value.trim()
+  if (!code || couponPending.value || submitting.value || couponQuote.value) return
+  const signature = cartSignature.value
+  const loggedIn = authStore.isLoggedIn
+  couponPending.value = true
+  couponError.value = ''
+  try {
+    const { data } = await $api<{ data: CouponQuote }>('/customer/checkout/coupon', {
+      method: 'POST',
+      body: { code, items: cart.toCheckoutItems() },
+    })
+    if (cartSignature.value !== signature || authStore.isLoggedIn !== loggedIn) {
+      couponError.value = 'Your bag or account changed. Apply your code again.'
+      return
+    }
+    couponInput.value = data.code
+    couponQuote.value = data
+    couponNeedsReview.value = false
+  } catch (e) {
+    couponError.value = extractApiErrorMessage(e, 'Could not apply this code.')
+  } finally {
+    couponPending.value = false
+  }
+}
 const submitting = ref(false)
 const submitSucceeded = ref(false)
 const submitError = ref('')
@@ -284,11 +334,15 @@ const canPlaceOrder = computed(() => (
   && deliverySelectionComplete.value
   && !!shippingEstimate.value
   && !shippingPending.value
+  && !couponPending.value
+  && !couponNeedsReview.value
   && !submitting.value
 ))
 
 const placeOrderHint = computed(() => {
   if (submitting.value) return 'Placing your order…'
+  if (couponPending.value) return 'Checking your discount code…'
+  if (couponNeedsReview.value) return 'Apply your discount code again or remove it.'
   if (!guestContactComplete.value) return 'Add your name, phone number and email for order confirmation.'
   if (!accountSetupComplete.value) return 'Finish your account password or choose to set it later.'
   if (!deliverySelectionComplete.value) return 'Complete your delivery address.'
@@ -325,7 +379,7 @@ function selectedAddressSummary(address: SavedAddress) {
 }
 
 async function submit() {
-  if (submitting.value) return
+  if (submitting.value || couponPending.value || couponNeedsReview.value) return
 
   submitError.value = ''
   accountConflict.value = false
@@ -342,6 +396,7 @@ async function submit() {
 
   const payload: Record<string, unknown> = {
     items: cart.toCheckoutItems(),
+    ...(couponQuote.value ? { coupon_code: couponQuote.value.code, coupon_discount: couponQuote.value.discount } : {}),
     payment_method: paymentMethod,
     notes: notes.value || undefined,
   }
@@ -424,7 +479,13 @@ async function submit() {
   } catch (error: any) {
     const data = apiErrorData(error)
 
-    if (data?.code === 'customer_account_exists' || data?.account_exists === true) {
+    if (data?.errors?.coupon_code) {
+      couponQuote.value = undefined
+      couponNeedsReview.value = true
+      couponError.value = extractApiErrorMessage(error, 'Apply your discount code again.')
+      await nextTick()
+      couponField.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    } else if (data?.code === 'customer_account_exists' || data?.account_exists === true) {
       accountConflict.value = true
       submitError.value = ''
       await nextTick()
@@ -450,7 +511,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main class="min-h-[76vh] bg-paper-50 pb-36 text-charcoal-950 lg:pb-24">
+  <main class="storefront-field-theme min-h-[76vh] bg-paper-50 pb-36 text-charcoal-950 lg:pb-24">
     <div class="mx-auto max-w-[1500px] px-5 pt-8 sm:px-8 sm:pt-10 lg:px-10 lg:pt-12">
       <nav
         aria-label="Checkout progress"
@@ -528,7 +589,8 @@ onMounted(async () => {
             </ul>
 
             <div class="mt-5 space-y-2 border-t border-charcoal-950/10 pt-4 text-[11px]">
-              <div class="flex justify-between gap-5"><span class="text-charcoal-500">Subtotal</span><span class="storefront-price-numerals">{{ formatPrice(cart.subtotal) }}</span></div>
+              <div class="flex justify-between gap-5"><span class="text-charcoal-500">Subtotal</span><span class="storefront-price-numerals">{{ formatPrice(subtotal) }}</span></div>
+              <div v-if="couponQuote" class="flex justify-between gap-5"><span class="text-charcoal-500">Discount · {{ couponQuote.code }}</span><span class="storefront-price-numerals">−{{ formatPrice(couponQuote.discount) }}</span></div>
               <div class="flex justify-between gap-5"><span class="text-charcoal-500">Delivery</span><span :class="shippingError ? 'text-red-600' : ''">{{ shippingLabel() }}</span></div>
             </div>
           </div>
@@ -569,16 +631,22 @@ onMounted(async () => {
 
             <div class="mt-5 grid gap-4 sm:grid-cols-2">
               <label class="checkout-field sm:col-span-1">
-                <span>Full name</span>
-                <input v-model="guest.name" type="text" autocomplete="name" required placeholder="Your name">
+                <span class="credentials-label">Full name</span>
+                <span class="credentials-field block">
+                  <input v-model="guest.name" class="credentials-input" :data-complete="!!guest.name.trim()" type="text" autocomplete="name" required placeholder="Your name">
+                </span>
               </label>
               <label class="checkout-field sm:col-span-1">
-                <span>Phone</span>
-                <input v-model="guest.phone" type="tel" autocomplete="tel" inputmode="tel" required placeholder="03XXXXXXXXX">
+                <span class="credentials-label">Phone</span>
+                <span class="credentials-field block">
+                  <input v-model="guest.phone" class="credentials-input" :data-complete="isCompletePhoneNumber(guest.phone)" type="tel" autocomplete="tel" inputmode="tel" required placeholder="03XXXXXXXXX">
+                </span>
               </label>
               <label class="checkout-field sm:col-span-2">
-                <span>Email <em>for confirmation</em></span>
-                <input v-model="guest.email" type="email" autocomplete="email" required placeholder="you@example.com">
+                <span class="credentials-label">Email <em>for confirmation</em></span>
+                <span class="credentials-field block">
+                  <input v-model="guest.email" class="credentials-input" type="email" autocomplete="email" required placeholder="you@example.com">
+                </span>
               </label>
             </div>
 
@@ -619,16 +687,18 @@ onMounted(async () => {
 
                   <Transition name="checkout-reveal">
                     <div v-if="accountPasswordMode === 'now'" class="mt-4 grid gap-4 sm:grid-cols-2">
-                      <label class="checkout-field">
-                        <span>Password</span>
-                        <div class="relative">
-                          <input v-model="accountPassword.password" :type="showAccountPassword ? 'text' : 'password'" autocomplete="new-password" required>
-                          <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-semibold uppercase tracking-[0.1em] text-charcoal-400" @click="showAccountPassword = !showAccountPassword">{{ showAccountPassword ? 'Hide' : 'Show' }}</button>
+                      <div class="checkout-field">
+                        <label for="checkout-password" class="credentials-label">Password</label>
+                        <div class="credentials-field">
+                          <input id="checkout-password" v-model="accountPassword.password" class="credentials-input credentials-password" :data-complete="accountPasswordChecks.length && accountPasswordChecks.letter && accountPasswordChecks.number" :type="showAccountPassword ? 'text' : 'password'" autocomplete="new-password" placeholder=" " required>
+                          <button type="button" class="credentials-toggle" aria-controls="checkout-password checkout-password-confirmation" :aria-label="showAccountPassword ? 'Hide passwords' : 'Show passwords'" @click="showAccountPassword = !showAccountPassword">{{ showAccountPassword ? 'Hide' : 'Show' }}</button>
                         </div>
-                      </label>
+                      </div>
                       <label class="checkout-field">
-                        <span>Confirm password</span>
-                        <input v-model="accountPassword.password_confirmation" :type="showAccountPassword ? 'text' : 'password'" autocomplete="new-password" required>
+                        <span class="credentials-label">Confirm password</span>
+                        <span class="credentials-field block">
+                          <input id="checkout-password-confirmation" v-model="accountPassword.password_confirmation" class="credentials-input" :data-complete="accountPasswordChecks.match" :type="showAccountPassword ? 'text' : 'password'" autocomplete="new-password" placeholder=" " required>
+                        </span>
                       </label>
                       <div class="sm:col-span-2 flex flex-wrap gap-x-4 gap-y-1 text-[9px]">
                         <span :class="accountPasswordChecks.length ? 'text-[#657d6c]' : 'text-charcoal-400'">{{ accountPasswordChecks.length ? '✓' : '○' }} 8+ characters</span>
@@ -766,6 +836,7 @@ onMounted(async () => {
 
                 <AddressFields
                   :model-value="newAddress"
+                  credentials-style
                   :show-label="(authStore.isLoggedIn && saveNewAddress) || (!authStore.isLoggedIn && createAccount)"
                   :show-recipient-fields="authStore.isLoggedIn"
                   @update:model-value="applyNewAddress"
@@ -824,6 +895,11 @@ onMounted(async () => {
             </div>
           </section>
 
+          <section ref="couponField">
+            <StorefrontCouponField v-model="couponInput" :applied="couponQuote?.code" :busy="couponPending" :disabled="submitting" :message="couponError" @apply="applyCoupon" @remove="removeCoupon" />
+            <button v-if="couponNeedsReview" type="button" class="mt-2 text-sm font-semibold underline underline-offset-4" @click="removeCoupon">Continue without a code</button>
+          </section>
+
           <section>
             <button type="button" class="group flex w-full items-center justify-between border-b border-charcoal-950/10 pb-4 text-left" @click="notesOpen = !notesOpen">
               <span>
@@ -834,8 +910,10 @@ onMounted(async () => {
             </button>
             <Transition name="checkout-reveal">
               <label v-if="notesOpen" class="checkout-field mt-5">
-                <span>Anything we should know?</span>
-                <textarea v-model="notes" rows="3" maxlength="1000" placeholder="Delivery note, gift instruction…" />
+                <span class="credentials-label">Anything we should know?</span>
+                <span class="credentials-field block">
+                  <textarea v-model="notes" class="credentials-input" :data-complete="!!notes.trim()" rows="3" maxlength="1000" placeholder="Delivery note, gift instruction…" />
+                </span>
               </label>
             </Transition>
           </section>
@@ -873,7 +951,8 @@ onMounted(async () => {
             </ul>
 
             <div class="space-y-3 border-t border-charcoal-950/10 py-5 text-[11px]">
-              <div class="flex items-center justify-between gap-6"><span class="text-charcoal-500">Subtotal</span><span class="storefront-price-numerals font-medium">{{ formatPrice(cart.subtotal) }}</span></div>
+              <div class="flex items-center justify-between gap-6"><span class="text-charcoal-500">Subtotal</span><span class="storefront-price-numerals font-medium">{{ formatPrice(subtotal) }}</span></div>
+              <div v-if="couponQuote" class="flex justify-between gap-5"><span class="text-charcoal-500">Discount · {{ couponQuote.code }}</span><span class="storefront-price-numerals">−{{ formatPrice(couponQuote.discount) }}</span></div>
               <div class="flex items-center justify-between gap-6"><span class="text-charcoal-500">Delivery</span><span class="text-right" :class="shippingError ? 'text-red-600' : 'text-charcoal-500'">{{ shippingLabel() }}</span></div>
             </div>
 
@@ -944,51 +1023,9 @@ onMounted(async () => {
 
 <style scoped>
 .checkout-field {
-  display: grid;
-  gap: 7px;
-}
-
-.checkout-field > span {
-  font-size: 9px;
-  font-weight: 650;
-  letter-spacing: .13em;
-  text-transform: uppercase;
-  color: var(--color-charcoal-400);
-}
-
-.checkout-field em {
-  font-style: normal;
-  font-weight: 500;
-  letter-spacing: .04em;
-  text-transform: none;
-}
-
-.checkout-field :is(input, textarea) {
-  width: 100%;
-  min-height: 50px;
-  border: 1px solid color-mix(in srgb, var(--color-charcoal-950) 14%, transparent);
-  background: var(--color-paper-50);
-  padding: 0 14px;
-  color: var(--color-charcoal-950);
-  font-size: 16px;
-  line-height: 1.4;
-  outline: none;
-  transition: border-color 160ms ease, background-color 160ms ease;
-}
-
-.checkout-field textarea {
-  min-height: 104px;
-  padding-top: 13px;
-  padding-bottom: 13px;
-  resize: vertical;
-}
-
-.checkout-field :is(input, textarea)::placeholder {
-  color: var(--color-charcoal-350);
-}
-
-.checkout-field :is(input, textarea):focus {
-  border-color: color-mix(in srgb, var(--color-charcoal-950) 70%, transparent);
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
 }
 
 .checkout-address-card {
@@ -1208,12 +1245,6 @@ onMounted(async () => {
 
 @keyframes checkout-spin { to { transform: rotate(360deg); } }
 @keyframes checkout-sheen { to { transform: translateX(100%); } }
-
-@media (min-width: 768px) {
-  .checkout-field :is(input, textarea) {
-    font-size: 14px;
-  }
-}
 
 @media (prefers-reduced-motion: reduce) {
   .checkout-address-card,

@@ -22,6 +22,14 @@ const showPassword = ref(false)
 const validPassword = computed(() => form.password.length >= 8 && /[A-Za-z]/.test(form.password) && /\d/.test(form.password))
 const passwordsMatch = computed(() => validPassword.value && form.password === form.password_confirmation)
 
+const signInLink = computed(() => ({
+  path: '/login',
+  query: isAccountSetup.value ? { setup: 'success', email: form.email } : { reset: 'success' },
+}))
+let redirectTimer: ReturnType<typeof setTimeout> | undefined
+
+onUnmounted(() => clearTimeout(redirectTimer))
+
 async function submit() {
   submitting.value = true
   error.value = ''
@@ -29,7 +37,7 @@ async function submit() {
   try {
     await $api('/customer/reset-password', { method: 'POST', body: form })
     success.value = true
-    setTimeout(() => router.push(isAccountSetup.value ? `/login?setup=success&email=${encodeURIComponent(form.email)}` : '/login?reset=success'), 1800)
+    redirectTimer = setTimeout(() => router.push(signInLink.value), 1800)
   } catch (err: any) {
     error.value = extractApiErrorMessage(err, 'This reset link is invalid or has expired.')
   } finally {
@@ -39,33 +47,36 @@ async function submit() {
 </script>
 
 <template>
-  <StorefrontAuthFrame
-    :eyebrow="isAccountSetup ? 'Account setup' : 'Account recovery'"
-    :title="success ? (isAccountSetup ? 'Account ready.' : 'Password updated.') : (isAccountSetup ? 'Finish your account.' : 'Set a new password.')"
-    :description="success ? (isAccountSetup ? 'Your password is ready. We’ll take you back to sign in.' : 'Your new password is ready. We’ll return you to sign in.') : (isAccountSetup ? 'Choose a password to finish the SAAJ account created with your order.' : 'Choose a new password for your SAAJ account.')"
+  <StorefrontCredentialsFrame
+    :title="success ? (isAccountSetup ? 'Account ready' : 'Password updated') : (isAccountSetup ? 'Finish your account' : 'Set a new password')"
+    :description="success ? 'We’ll take you back to sign in.' : (isAccountSetup ? 'Choose a password for the SAAJ account created with your order.' : 'Choose a new password for your SAAJ account.')"
   >
-    <div v-if="success" class="border border-[#657d6c]/30 bg-[#657d6c]/[0.08] p-5 text-[12px] leading-5 text-[#52685a]">
-      ✓ {{ isAccountSetup ? 'Account setup complete. Returning to sign in…' : 'Password updated successfully. Redirecting to sign in…' }}
-    </div>
+    <p v-if="success" class="credentials-message credentials-success" role="status">
+      {{ isAccountSetup ? 'Account setup complete.' : 'Your new password is ready.' }}
+      <NuxtLink :to="signInLink" class="credentials-link">Continue to sign in</NuxtLink>
+    </p>
 
-    <form v-else class="space-y-5" @submit.prevent="submit">
+    <form v-else class="credentials-form" @submit.prevent="submit">
       <div>
-        <label class="mb-2 block text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-500">New password</label>
-        <div class="relative">
-          <input v-model="form.password" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" required class="w-full border border-charcoal-950/15 bg-transparent px-4 py-3.5 pr-16 text-[16px] text-charcoal-950 outline-none transition focus:border-charcoal-950">
-          <button type="button" class="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] font-semibold uppercase tracking-[0.12em] text-charcoal-500" @click="showPassword = !showPassword">{{ showPassword ? 'Hide' : 'Show' }}</button>
+        <label for="new-password" class="credentials-label">New password</label>
+        <div class="credentials-field">
+          <input id="new-password" v-model="form.password" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" placeholder=" " :data-complete="validPassword" aria-describedby="new-password-help" required class="credentials-input credentials-password">
+          <button type="button" class="credentials-toggle" aria-controls="new-password new-password-confirm" :aria-label="showPassword ? 'Hide passwords' : 'Show passwords'" @click="showPassword = !showPassword">
+            {{ showPassword ? 'Hide' : 'Show' }}
+          </button>
         </div>
-        <p class="mt-2 text-[10px]" :class="validPassword ? 'text-[#657d6c]' : 'text-charcoal-400'">{{ validPassword ? '✓' : '○' }} At least 8 characters with a letter and number</p>
+        <p id="new-password-help" class="credentials-help mt-2" :class="{ 'credentials-success': validPassword }">Use at least 8 characters, including a letter and a number.</p>
       </div>
       <div>
-        <label class="mb-2 block text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-500">Confirm password</label>
-        <input v-model="form.password_confirmation" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" required class="w-full border border-charcoal-950/15 bg-transparent px-4 py-3.5 text-[16px] text-charcoal-950 outline-none transition focus:border-charcoal-950">
+        <label for="new-password-confirm" class="credentials-label">Confirm password</label>
+        <div class="credentials-field">
+          <input id="new-password-confirm" v-model="form.password_confirmation" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" placeholder=" " :data-complete="passwordsMatch" required class="credentials-input">
+        </div>
       </div>
-      <div v-if="error" class="border border-[#bd6f6f]/35 bg-[#bd6f6f]/[0.07] px-4 py-3 text-[12px] leading-5 text-[#9a4f4f]">{{ error }}</div>
-      <button type="submit" :disabled="submitting || !passwordsMatch" class="flex w-full items-center justify-center gap-3 bg-charcoal-950 px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-paper-50 disabled:opacity-45">
-        <span v-if="submitting" class="h-3.5 w-3.5 animate-spin rounded-full border border-paper-50/30 border-t-paper-50" />
+      <p v-if="error" class="credentials-message credentials-message-error" role="alert">{{ error }}</p>
+      <button type="submit" :disabled="submitting || !passwordsMatch" class="credentials-submit">
         {{ submitting ? 'Saving…' : isAccountSetup ? 'Finish account' : 'Set new password' }}
       </button>
     </form>
-  </StorefrontAuthFrame>
+  </StorefrontCredentialsFrame>
 </template>

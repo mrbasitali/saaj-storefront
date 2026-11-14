@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isCompletePhoneNumber } from '~/utils/isCompletePhoneNumber'
 import type { StorefrontSelectOption } from '~/components/StorefrontSearchSelect.vue'
 
 type LocationOption = StorefrontSelectOption & {
@@ -23,9 +24,11 @@ const props = withDefaults(defineProps<{
   modelValue: AddressFieldsValue
   showLabel?: boolean
   showRecipientFields?: boolean
+  credentialsStyle?: boolean
 }>(), {
   showLabel: false,
   showRecipientFields: true,
+  credentialsStyle: false,
 })
 
 const emit = defineEmits<{
@@ -195,73 +198,95 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="grid gap-4">
+  <div class="grid gap-4" :class="{ 'address-credentials': credentialsStyle }">
     <label v-if="showLabel" class="address-field">
-      <span>Label <em>optional</em></span>
-      <input
-        :value="modelValue.label"
-        type="text"
-        autocomplete="off"
-        placeholder="Home, Office…"
-        @input="update({ label: ($event.target as HTMLInputElement).value })"
-      >
+      <span :class="{ 'credentials-label': credentialsStyle }">Label <em>optional</em></span>
+      <span class="block min-w-0" :class="{ 'credentials-field': credentialsStyle }">
+        <input
+          :class="{ 'credentials-input': credentialsStyle }"
+          :data-complete="credentialsStyle ? !!modelValue.label.trim() : undefined"
+          :value="modelValue.label"
+          type="text"
+          autocomplete="off"
+          placeholder="Home, Office…"
+          @input="update({ label: ($event.target as HTMLInputElement).value })"
+        >
+      </span>
     </label>
 
     <div v-if="showRecipientFields" class="grid gap-4 sm:grid-cols-2">
       <label class="address-field">
-        <span>Recipient name</span>
-        <input
-          :value="modelValue.recipient_name"
-          type="text"
-          autocomplete="name"
-          required
-          placeholder="Full name"
-          @input="update({ recipient_name: ($event.target as HTMLInputElement).value })"
-        >
+        <span :class="{ 'credentials-label': credentialsStyle }">Recipient name</span>
+        <span class="block min-w-0" :class="{ 'credentials-field': credentialsStyle }">
+          <input
+            :class="{ 'credentials-input': credentialsStyle }"
+            :data-complete="credentialsStyle ? !!modelValue.recipient_name.trim() : undefined"
+            :value="modelValue.recipient_name"
+            type="text"
+            autocomplete="name"
+            required
+            placeholder="Full name"
+            @input="update({ recipient_name: ($event.target as HTMLInputElement).value })"
+          >
+        </span>
       </label>
 
       <label class="address-field">
-        <span>Recipient phone</span>
-        <input
-          :value="modelValue.recipient_phone"
-          type="tel"
-          autocomplete="tel"
-          inputmode="tel"
-          required
-          placeholder="03XXXXXXXXX"
-          @input="update({ recipient_phone: ($event.target as HTMLInputElement).value })"
-        >
+        <span :class="{ 'credentials-label': credentialsStyle }">Recipient phone</span>
+        <span class="block min-w-0" :class="{ 'credentials-field': credentialsStyle }">
+          <input
+            :class="{ 'credentials-input': credentialsStyle }"
+            :data-complete="credentialsStyle ? isCompletePhoneNumber(modelValue.recipient_phone) : undefined"
+            :value="modelValue.recipient_phone"
+            type="tel"
+            autocomplete="tel"
+            inputmode="tel"
+            required
+            placeholder="03XXXXXXXXX"
+            @input="update({ recipient_phone: ($event.target as HTMLInputElement).value })"
+          >
+        </span>
       </label>
     </div>
 
     <label class="address-field">
-      <span>Street address</span>
-      <input
-        :value="modelValue.address_line1"
-        type="text"
-        autocomplete="address-line1"
-        required
-        placeholder="House / building, street, area"
-        @input="update({ address_line1: ($event.target as HTMLInputElement).value })"
-      >
+      <span :class="{ 'credentials-label': credentialsStyle }">Street address</span>
+      <span class="block min-w-0" :class="{ 'credentials-field': credentialsStyle }">
+        <input
+          :class="{ 'credentials-input': credentialsStyle }"
+          :data-complete="credentialsStyle ? !!modelValue.address_line1.trim() : undefined"
+          :value="modelValue.address_line1"
+          type="text"
+          autocomplete="address-line1"
+          required
+          placeholder="House / building, street, area"
+          @input="update({ address_line1: ($event.target as HTMLInputElement).value })"
+        >
+      </span>
     </label>
 
     <label class="address-field">
-      <span>Apartment, suite, landmark <em>optional</em></span>
-      <input
-        :value="modelValue.address_line2"
-        type="text"
-        autocomplete="address-line2"
-        placeholder="Apartment, floor, nearby landmark…"
-        @input="update({ address_line2: ($event.target as HTMLInputElement).value })"
-      >
+      <span :class="{ 'credentials-label': credentialsStyle }">Apartment, suite, landmark <em>optional</em></span>
+      <span class="block min-w-0" :class="{ 'credentials-field': credentialsStyle }">
+        <input
+          :class="{ 'credentials-input': credentialsStyle }"
+          :data-complete="credentialsStyle ? !!modelValue.address_line2.trim() : undefined"
+          :value="modelValue.address_line2"
+          type="text"
+          autocomplete="address-line2"
+          placeholder="Apartment, floor, nearby landmark…"
+          @input="update({ address_line2: ($event.target as HTMLInputElement).value })"
+        >
+      </span>
     </label>
 
     <div class="grid gap-4 sm:grid-cols-3">
       <div class="address-field">
-        <span>Country</span>
+        <span :class="{ 'credentials-label': credentialsStyle }">Country</span>
         <StorefrontSearchSelect
           :model-value="countryId"
+          label="Country"
+          :credentials-style="credentialsStyle"
           :options="countries"
           :loading="loadingCountries"
           placeholder="Select country"
@@ -271,9 +296,11 @@ onMounted(async () => {
       </div>
 
       <div class="address-field">
-        <span>Province</span>
+        <span :class="{ 'credentials-label': credentialsStyle }">Province</span>
         <StorefrontSearchSelect
           :model-value="stateId"
+          label="Province"
+          :credentials-style="credentialsStyle"
           :options="states"
           :loading="loadingStates"
           :disabled="!countryId"
@@ -284,9 +311,11 @@ onMounted(async () => {
       </div>
 
       <div class="address-field">
-        <span>City</span>
+        <span :class="{ 'credentials-label': credentialsStyle }">City</span>
         <StorefrontSearchSelect
           :model-value="cityId"
+          label="City"
+          :credentials-style="credentialsStyle"
           :options="cities"
           :loading="loadingCities"
           :disabled="!stateId"
@@ -298,15 +327,19 @@ onMounted(async () => {
     </div>
 
     <label class="address-field sm:max-w-[220px]">
-      <span>Postal code <em>optional</em></span>
-      <input
-        :value="modelValue.postal_code"
-        type="text"
-        autocomplete="postal-code"
-        inputmode="numeric"
-        placeholder="Postal code"
-        @input="update({ postal_code: ($event.target as HTMLInputElement).value })"
-      >
+      <span :class="{ 'credentials-label': credentialsStyle }">Postal code <em>optional</em></span>
+      <span class="block min-w-0" :class="{ 'credentials-field': credentialsStyle }">
+        <input
+          :class="{ 'credentials-input': credentialsStyle }"
+          :data-complete="credentialsStyle ? !!modelValue.postal_code.trim() : undefined"
+          :value="modelValue.postal_code"
+          type="text"
+          autocomplete="postal-code"
+          inputmode="numeric"
+          placeholder="Postal code"
+          @input="update({ postal_code: ($event.target as HTMLInputElement).value })"
+        >
+      </span>
     </label>
   </div>
 </template>
@@ -318,7 +351,11 @@ onMounted(async () => {
   min-width: 0;
 }
 
-.address-field > span:first-child {
+.address-credentials .address-field {
+  gap: 0;
+}
+
+.address-field > span:first-child:not(.credentials-label) {
   font-size: 9px;
   font-weight: 650;
   letter-spacing: .13em;
@@ -326,14 +363,14 @@ onMounted(async () => {
   color: var(--color-charcoal-400);
 }
 
-.address-field em {
+.address-field > span:first-child:not(.credentials-label) em {
   font-style: normal;
   font-weight: 500;
   letter-spacing: .04em;
   text-transform: none;
 }
 
-.address-field input {
+.address-field input:not(.credentials-input) {
   width: 100%;
   min-height: 50px;
   border: 1px solid color-mix(in srgb, var(--color-charcoal-950) 14%, transparent);
@@ -346,17 +383,17 @@ onMounted(async () => {
   transition: border-color 160ms ease, box-shadow 180ms ease, opacity 160ms ease;
 }
 
-.address-field input::placeholder {
+.address-field input:not(.credentials-input)::placeholder {
   color: var(--color-charcoal-350);
 }
 
-.address-field input:focus {
+.address-field input:not(.credentials-input):focus {
   border-color: color-mix(in srgb, var(--color-charcoal-950) 65%, transparent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-charcoal-950) 5%, transparent);
 }
 
 @media (min-width: 768px) {
-  .address-field input {
+  .address-field input:not(.credentials-input) {
     font-size: 14px;
   }
 }

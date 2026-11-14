@@ -3,10 +3,12 @@ const props = withDefaults(defineProps<{
   active?: boolean
   burstKey?: number
   size?: number
+  duotone?: boolean
 }>(), {
   active: false,
   burstKey: 0,
   size: 20,
+  duotone: false,
 })
 
 const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '')
@@ -16,11 +18,13 @@ const gradientId = `saaj-heart-gradient-${uid}`
 <template>
   <span
     class="saaj-heart"
-    :class="{ 'is-active': active }"
+    :class="{ 'is-active': active, 'is-duotone': duotone }"
     :style="{ '--saaj-heart-size': `${size}px` }"
     aria-hidden="true"
   >
+    <StorefrontIcon v-if="duotone" name="heart" :size="size" :emphasized="active" class="saaj-heart-main" />
     <svg
+      v-else
       class="saaj-heart-main"
       viewBox="0 0 24 24"
       :width="size"
@@ -78,6 +82,11 @@ const gradientId = `saaj-heart-gradient-${uid}`
   transform: scale(1.055);
   filter: drop-shadow(0 3px 8px rgb(216 42 82 / .16));
 }
+
+.saaj-heart.is-duotone .saaj-heart-main { filter: none; }
+.saaj-heart.is-duotone .saaj-heart-ring { border-color: currentColor; }
+.saaj-heart.is-duotone .saaj-heart-fly { fill: currentColor; filter: none; }
+.saaj-heart.is-duotone .saaj-heart-spark { background: currentColor; }
 
 .saaj-heart-burst {
   position: absolute;

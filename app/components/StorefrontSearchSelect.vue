@@ -9,6 +9,8 @@ export type StorefrontSelectOption = {
 const props = withDefaults(defineProps<{
   modelValue: number | null
   options: StorefrontSelectOption[]
+  label?: string
+  credentialsStyle?: boolean
   placeholder?: string
   searchPlaceholder?: string
   emptyText?: string
@@ -16,6 +18,7 @@ const props = withDefaults(defineProps<{
   loading?: boolean
 }>(), {
   placeholder: 'Select',
+  credentialsStyle: false,
   searchPlaceholder: 'Search…',
   emptyText: 'No results found',
   disabled: false,
@@ -237,28 +240,35 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="root" class="sf-select" :class="{ 'sf-select--open': open, 'sf-select--disabled': disabled }" @keydown="onKeydown">
-    <button
-      type="button"
-      class="sf-select__trigger"
-      :disabled="disabled || loading"
-      :aria-expanded="open"
-      aria-haspopup="listbox"
-      @click="toggle"
+    <div
+      :class="{ 'credentials-field': credentialsStyle }"
+      :data-complete="credentialsStyle ? Boolean(selected || open) : undefined"
     >
-      <span v-if="loading" class="sf-select__loading">
-        <span class="sf-select__spinner" aria-hidden="true" />
-        Loading…
-      </span>
-      <span v-else-if="selected" class="sf-select__selected">
-        <span>{{ selected.name }}</span>
-        <small v-if="selected.code || selected.iso2">{{ selected.code || selected.iso2 }}</small>
-      </span>
-      <span v-else class="sf-select__placeholder">{{ placeholder }}</span>
+      <button
+        type="button"
+        class="sf-select__trigger"
+        :class="{ 'credentials-input': credentialsStyle }"
+        :aria-label="label ? `${label}: ${loading ? 'Loading…' : selected?.name || placeholder}` : undefined"
+        :disabled="disabled || loading"
+        :aria-expanded="open"
+        aria-haspopup="listbox"
+        @click="toggle"
+      >
+        <span v-if="loading" class="sf-select__loading">
+          <span class="sf-select__spinner" aria-hidden="true" />
+          Loading…
+        </span>
+        <span v-else-if="selected" class="sf-select__selected">
+          <span>{{ selected.name }}</span>
+          <small v-if="selected.code || selected.iso2">{{ selected.code || selected.iso2 }}</small>
+        </span>
+        <span v-else class="sf-select__placeholder">{{ placeholder }}</span>
 
-      <svg class="sf-select__chevron" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="m7 9 5 5 5-5" />
-      </svg>
-    </button>
+        <svg class="sf-select__chevron" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m7 9 5 5 5-5" />
+        </svg>
+      </button>
+    </div>
 
     <!-- Desktop / tablet anchored picker -->
     <Transition name="sf-select-pop">
@@ -428,14 +438,32 @@ onBeforeUnmount(() => {
   transition: border-color 160ms ease, background-color 160ms ease, box-shadow 180ms ease, opacity 160ms ease;
 }
 
-.sf-select__trigger:hover:not(:disabled) {
+.sf-select__trigger:not(.credentials-input):hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--color-charcoal-950) 30%, transparent);
 }
 
-.sf-select--open .sf-select__trigger,
-.sf-select__trigger:focus-visible {
+.sf-select--open .sf-select__trigger:not(.credentials-input),
+.sf-select__trigger:not(.credentials-input):focus-visible {
   border-color: color-mix(in srgb, var(--color-charcoal-950) 65%, transparent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-charcoal-950) 5%, transparent);
+}
+
+.sf-select__trigger.credentials-input {
+  display: flex;
+  border: 0;
+  border-radius: 0;
+  background: var(--field-surface);
+  color: var(--field-ink);
+}
+
+.sf-select__trigger.credentials-input :is(.sf-select__selected, .sf-select__placeholder, .sf-select__loading) {
+  font-size: inherit;
+}
+
+.credentials-input .sf-select__placeholder { color: var(--field-placeholder); }
+
+.credentials-input :is(.sf-select__loading, .sf-select__selected small) {
+  color: var(--field-muted);
 }
 
 .sf-select__trigger:disabled {

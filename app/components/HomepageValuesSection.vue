@@ -1,18 +1,20 @@
+<script setup lang="ts">
+const values = [
+  { title: 'Finishing', description: 'Clean lines and attention to texture.' },
+  { title: 'Fit', description: 'Easy proportions with room to move.' },
+  { title: 'Styling', description: 'Pieces you can layer and wear on repeat.' },
+]
+</script>
+
 <template>
-  <section class="mx-auto max-w-[1600px] px-5 py-14 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
-    <div class="grid gap-8 border-t border-black/8 pt-9 sm:grid-cols-3 sm:gap-6 sm:pt-10">
-      <div>
-        <p class="section-kicker">01 / Detail</p>
-        <p class="mt-3 max-w-xs text-sm leading-6 text-charcoal-600">Considered finishing and thoughtful proportions, kept clean and effortless.</p>
+  <section aria-label="About SAAJ clothing" class="mx-auto max-w-[1600px] px-5 py-10 sm:px-8 sm:py-14 lg:px-10 lg:py-16">
+    <dl class="grid divide-y divide-charcoal-950/15 border-y border-charcoal-950/15 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+      <div v-for="value in values" :key="value.title" class="py-5 sm:px-5 sm:py-7 sm:first:pl-0 lg:px-8 lg:py-9">
+        <dt class="font-display text-[clamp(1.75rem,2.6vw,2.75rem)] font-medium leading-none tracking-[-0.025em] text-charcoal-950">
+          {{ value.title }}
+        </dt>
+        <dd class="mt-2 text-sm leading-6 text-charcoal-600">{{ value.description }}</dd>
       </div>
-      <div>
-        <p class="section-kicker">02 / Ease</p>
-        <p class="mt-3 max-w-xs text-sm leading-6 text-charcoal-600">Pieces designed to work naturally with the way you move, layer, and live.</p>
-      </div>
-      <div>
-        <p class="section-kicker">03 / Character</p>
-        <p class="mt-3 max-w-xs text-sm leading-6 text-charcoal-600">A modern wardrobe with enough personality to feel unmistakably your own.</p>
-      </div>
-    </div>
+    </dl>
   </section>
 </template>

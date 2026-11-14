@@ -16,6 +16,7 @@ type Order = {
   payment_status?: string
   items: OrderItem[]
   subtotal: string | number
+  discount_total?: string | number
   shipping_cost: string | number
   grand_total: string | number
   shipping: {
@@ -231,6 +232,7 @@ onBeforeUnmount(() => {
 
             <div class="space-y-3 border-t border-charcoal-950/10 py-5 text-[10px]">
               <div class="flex justify-between gap-6"><span class="text-charcoal-500">Subtotal</span><span class="storefront-price-numerals">{{ formatPrice(order.subtotal) }}</span></div>
+              <div v-if="Number(order.discount_total) > 0" class="flex justify-between gap-6"><span class="text-charcoal-500">Discount</span><span class="storefront-price-numerals">−{{ formatPrice(order.discount_total ?? 0) }}</span></div>
               <div class="flex justify-between gap-6"><span class="text-charcoal-500">Delivery</span><span :class="Number(order.shipping_cost) === 0 ? '' : 'storefront-price-numerals'">{{ Number(order.shipping_cost) === 0 ? 'Complimentary' : formatPrice(order.shipping_cost) }}</span></div>
               <div class="flex justify-between gap-6"><span class="text-charcoal-500">Payment</span><span>{{ paymentLabel(order.payment_method) }}</span></div>
             </div>

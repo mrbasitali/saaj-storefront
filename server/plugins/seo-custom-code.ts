@@ -108,7 +108,8 @@ async function getCustomCode(apiBaseUrl: string): Promise<CustomCode> {
 }
 
 export default defineNitroPlugin((nitroApp) => {
-  nitroApp.hooks.hook('render:html', async (html) => {
+  nitroApp.hooks.hook('render:html', async (html, { event }) => {
+    if (event.path.split('?')[0].replace(/\/$/, '') === '/replace-order') return
     const config = useRuntimeConfig()
     const apiBaseUrl = String(config.public.apiBaseUrl || '').replace(/\/+$/, '')
 

@@ -14,6 +14,7 @@ type SiteSettings = {
   social_links: Record<string, string>
   timezone: string
   storefront: {
+    product_card_badge_visibility?: 'always' | 'hover' | 'hidden'
     stacked_product_gallery_enabled: boolean
     editorial_gallery_padding_enabled: boolean
     direct_buy_now_enabled: boolean

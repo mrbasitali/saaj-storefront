@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { isCompletePhoneNumber } from '~/utils/isCompletePhoneNumber'
+
 const authStore = useAuthStore()
 const router = useRouter()
 const route = useRoute()
@@ -77,7 +79,7 @@ function applyServerOtpCooldown(err: any) {
 }
 
 async function requestOtp() {
-  if (!phone.value.trim()) return
+  if (!phone.value.trim() || requestingOtp.value || !canResend.value) return
 
   requestingOtp.value = true
   error.value = ''
@@ -101,7 +103,7 @@ async function requestOtp() {
 }
 
 async function submitOtp() {
-  if (otpCode.value.length < 4) return
+  if (otpCode.value.length < 4 || submitting.value) return
 
   submitting.value = true
   error.value = ''
@@ -118,187 +120,154 @@ async function submitOtp() {
 </script>
 
 <template>
-  <StorefrontAuthFrame
-    title="Welcome back."
-    description="Sign in with your email and password, or use a one-time code on a phone you have already verified."
+  <StorefrontCredentialsFrame
+    title="Sign in"
+    description="Use your email address or a code sent to your verified phone."
   >
-    <div v-if="route.query.reset === 'success'" class="mb-6 border border-[#657d6c]/30 bg-[#657d6c]/[0.08] px-4 py-3 text-[12px] leading-5 text-[#52685a]">
-      ✓ Your password has been updated. Sign in with your new password.
-    </div>
-    <div v-if="route.query.setup === 'success'" class="mb-6 border border-[#657d6c]/30 bg-[#657d6c]/[0.08] px-4 py-3 text-[12px] leading-5 text-[#52685a]">
-      ✓ Your SAAJ account is ready. Sign in with the password you just chose.
-    </div>
+    <p v-if="route.query.reset === 'success'" class="credentials-message credentials-success mb-5" role="status">
+      Your password has been updated. Sign in with your new password.
+    </p>
+    <p v-if="route.query.setup === 'success'" class="credentials-message credentials-success mb-5" role="status">
+      Your SAAJ account is ready. Sign in with the password you just chose.
+    </p>
 
-    <div class="grid grid-cols-2 border-b border-charcoal-950/10">
-      <button
-        type="button"
-        class="relative pb-3 text-[10px] font-semibold uppercase tracking-[0.15em] transition"
-        :class="mode === 'email' ? 'text-charcoal-950' : 'text-charcoal-400'"
-        @click="switchMode('email')"
-      >
-        Email & password
-        <span v-if="mode === 'email'" class="absolute inset-x-0 -bottom-px h-px bg-charcoal-950" />
+    <div class="credentials-methods" :data-mode="mode" role="group" aria-label="Sign-in method">
+      <button type="button" class="credentials-method" :aria-pressed="mode === 'email'" @click="switchMode('email')">
+        Email &amp; password
       </button>
-      <button
-        type="button"
-        class="relative pb-3 text-[10px] font-semibold uppercase tracking-[0.15em] transition"
-        :class="mode === 'phone' ? 'text-charcoal-950' : 'text-charcoal-400'"
-        @click="switchMode('phone')"
-      >
+      <button type="button" class="credentials-method" :aria-pressed="mode === 'phone'" @click="switchMode('phone')">
         Phone code
-        <span v-if="mode === 'phone'" class="absolute inset-x-0 -bottom-px h-px bg-charcoal-950" />
       </button>
+      <span class="credentials-method-indicator" aria-hidden="true" />
     </div>
 
-    <form v-if="mode === 'email'" class="mt-7 space-y-5" @submit.prevent="submitEmail">
-      <div>
-        <label class="mb-2 block text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-500">Email</label>
-        <input
-          v-model.trim="emailForm.email"
-          type="email"
-          autocomplete="email"
-          required
-          class="w-full border border-charcoal-950/15 bg-transparent px-4 py-3.5 text-[16px] text-charcoal-950 outline-none transition focus:border-charcoal-950"
-        >
-      </div>
-
-      <div>
-        <div class="mb-2 flex items-center justify-between gap-4">
-          <label class="text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-500">Password</label>
-          <NuxtLink
-            :to="`/forgot-password${emailForm.email ? `?email=${encodeURIComponent(emailForm.email)}` : ''}`"
-            class="text-[10px] uppercase tracking-[0.12em] text-charcoal-500 underline underline-offset-4 transition hover:text-charcoal-950"
-          >
-            Forgot password?
-          </NuxtLink>
+    <Transition name="credentials-switch" mode="out-in">
+      <form v-if="mode === 'email'" class="credentials-form" @submit.prevent="submitEmail">
+        <div>
+          <label for="sign-in-email" class="credentials-label">Email address</label>
+          <div class="credentials-field">
+            <input id="sign-in-email" v-model.trim="emailForm.email" type="email" autocomplete="email" placeholder=" " autocapitalize="none" required class="credentials-input">
+          </div>
         </div>
-        <div class="relative">
-          <input
-            v-model="emailForm.password"
-            :type="showPassword ? 'text' : 'password'"
-            autocomplete="current-password"
-            required
-            class="w-full border border-charcoal-950/15 bg-transparent px-4 py-3.5 pr-16 text-[16px] text-charcoal-950 outline-none transition focus:border-charcoal-950"
-          >
-          <button
-            type="button"
-            class="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] font-semibold uppercase tracking-[0.12em] text-charcoal-500 hover:text-charcoal-950"
-            @click="showPassword = !showPassword"
-          >
-            {{ showPassword ? 'Hide' : 'Show' }}
-          </button>
-        </div>
-      </div>
 
-      <div v-if="error" class="border border-[#bd6f6f]/35 bg-[#bd6f6f]/[0.07] px-4 py-3 text-[12px] leading-5 text-[#9a4f4f]">
-        {{ error }}
-      </div>
-
-      <button
-        type="submit"
-        :disabled="submitting"
-        class="flex w-full items-center justify-center gap-3 bg-charcoal-950 px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-paper-50 transition hover:opacity-90 disabled:cursor-wait disabled:opacity-55"
-      >
-        <span v-if="submitting" class="h-3.5 w-3.5 animate-spin rounded-full border border-paper-50/30 border-t-paper-50" />
-        {{ submitting ? 'Signing in…' : 'Sign in' }}
-        <span v-if="!submitting">→</span>
-      </button>
-    </form>
-
-    <div v-else class="mt-7">
-      <div>
-        <label class="mb-2 block text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-500">Mobile number</label>
-        <input
-          v-model.trim="phone"
-          type="tel"
-          inputmode="tel"
-          autocomplete="tel"
-          placeholder="03XXXXXXXXX"
-          :disabled="otpSent"
-          class="w-full border border-charcoal-950/15 bg-transparent px-4 py-3.5 text-[16px] text-charcoal-950 outline-none transition focus:border-charcoal-950 disabled:opacity-65"
-        >
-      </div>
-
-      <template v-if="otpSent">
-        <div class="mt-6">
-          <div class="mb-3 flex items-center justify-between gap-4">
-            <p class="text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-500">Verification code</p>
+        <div>
+          <div class="flex flex-wrap items-baseline justify-between gap-x-4">
+            <label for="sign-in-password" class="credentials-label">Password</label>
+            <NuxtLink
+              :to="`/forgot-password${emailForm.email ? `?email=${encodeURIComponent(emailForm.email)}` : ''}`"
+              class="credentials-link mb-1.5"
+            >
+              Forgot password?
+            </NuxtLink>
+          </div>
+          <div class="credentials-field">
+            <input
+              id="sign-in-password"
+              v-model="emailForm.password"
+              :type="showPassword ? 'text' : 'password'"
+              autocomplete="current-password"
+              placeholder=" "
+              required
+              class="credentials-input credentials-password"
+            >
             <button
               type="button"
-              class="text-[10px] uppercase tracking-[0.12em] text-charcoal-500 underline underline-offset-4 disabled:no-underline disabled:opacity-45"
-              :disabled="!canResend || requestingOtp"
-              @click="requestOtp"
+              class="credentials-toggle"
+              aria-controls="sign-in-password"
+              :aria-label="showPassword ? 'Hide password' : 'Show password'"
+              @click="showPassword = !showPassword"
             >
+              {{ showPassword ? 'Hide' : 'Show' }}
+            </button>
+          </div>
+        </div>
+
+        <p v-if="error" class="credentials-message credentials-message-error" role="alert">{{ error }}</p>
+
+        <button type="submit" :disabled="submitting" class="credentials-submit">
+          {{ submitting ? 'Signing in…' : 'Sign in' }}
+        </button>
+      </form>
+
+      <form v-else class="credentials-form" @submit.prevent="otpSent ? submitOtp() : requestOtp()">
+        <div>
+          <label for="sign-in-phone" class="credentials-label">Mobile number</label>
+          <div class="credentials-field">
+            <input
+              id="sign-in-phone"
+              v-model.trim="phone"
+              type="tel"
+              inputmode="tel"
+              autocomplete="tel"
+              placeholder="03XXXXXXXXX"
+              :data-complete="isCompletePhoneNumber(phone)"
+              aria-describedby="sign-in-phone-help"
+              :disabled="otpSent"
+              required
+              class="credentials-input"
+            >
+          </div>
+          <p id="sign-in-phone-help" class="credentials-help mt-2">Use the verified mobile number on your account.</p>
+        </div>
+
+        <div v-if="otpSent">
+          <div class="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-4">
+            <p class="credentials-label">Verification code</p>
+            <button type="button" class="credentials-link mb-1.5" :disabled="!canResend || requestingOtp" @click="requestOtp">
               {{ canResend ? 'Resend code' : `Resend in ${formattedRemaining}` }}
             </button>
           </div>
-          <AuthOtpCodeInput v-model="otpCode" :disabled="submitting" />
+          <AuthOtpCodeInput v-model="otpCode" :disabled="submitting" :data-complete="otpCode.length === 6" class="credentials-otp" />
+
+          <button type="button" class="credentials-link mt-3" @click="otpSent = false; otpCode = ''; error = ''; notice = ''">
+            Use a different number
+          </button>
         </div>
+
+        <p v-if="notice" class="credentials-message credentials-success" role="status">{{ notice }}</p>
+
+        <div v-if="phoneAccountMissing" class="credentials-message credentials-message-error">
+          <p class="font-semibold" role="alert">We didn’t find that phone number.</p>
+          <p class="mt-1">Create an account with this number or sign in with email.</p>
+          <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+            <NuxtLink
+              :to="`/register?phone=${encodeURIComponent(phone)}${route.query.redirect ? `&redirect=${encodeURIComponent(String(route.query.redirect))}` : ''}`"
+              class="credentials-link"
+            >
+              Create an account
+            </NuxtLink>
+            <button type="button" class="credentials-link" @click="switchMode('email')">Use email instead</button>
+          </div>
+        </div>
+
+        <div v-else-if="phoneNotVerified" class="credentials-message credentials-message-error">
+          <p role="alert">{{ error }}</p>
+          <button type="button" class="credentials-link mt-3" @click="switchMode('email')">Sign in with email to verify your number</button>
+        </div>
+        <p v-else-if="error" class="credentials-message credentials-message-error" role="alert">{{ error }}</p>
 
         <button
-          type="button"
-          class="mt-4 text-[10px] uppercase tracking-[0.12em] text-charcoal-500 underline underline-offset-4"
-          @click="otpSent = false; otpCode = ''; error = ''; notice = ''"
+          v-if="!otpSent"
+          type="submit"
+          :disabled="requestingOtp || !phone.trim() || !canResend"
+          class="credentials-submit"
         >
-          Use a different number
+          {{ requestingOtp ? 'Sending code…' : canResend ? 'Send code' : `Try again in ${formattedRemaining}` }}
         </button>
-      </template>
+        <button v-else type="submit" :disabled="submitting || otpCode.length < 4" class="credentials-submit">
+          {{ submitting ? 'Checking code…' : 'Sign in with code' }}
+        </button>
+      </form>
+    </Transition>
 
-      <p class="mt-4 text-[11px] leading-5 text-charcoal-400">
-        Phone-code sign in is available only after that mobile number has been verified on your SAAJ account.
-      </p>
-
-      <div v-if="notice" class="mt-5 border border-[#657d6c]/30 bg-[#657d6c]/[0.08] px-4 py-3 text-[12px] leading-5 text-[#52685a]">
-        {{ notice }}
-      </div>
-
-      <div v-if="phoneAccountMissing" class="mt-5 border border-charcoal-950/12 bg-mist-50 p-4">
-        <p class="text-[12px] font-semibold text-charcoal-950">We didn’t find that phone number.</p>
-        <p class="mt-1 text-[11px] leading-5 text-charcoal-500">No SMS was sent. Create an account with this number, or use email sign in if you already have an account under a different phone.</p>
-        <div class="mt-4 flex flex-wrap gap-3">
-          <NuxtLink :to="`/register?phone=${encodeURIComponent(phone)}${route.query.redirect ? `&redirect=${encodeURIComponent(String(route.query.redirect))}` : ''}`" class="inline-flex min-h-10 items-center bg-charcoal-950 px-4 text-[9px] font-semibold uppercase tracking-[0.13em] text-paper-50">Create account</NuxtLink>
-          <button type="button" class="text-[9px] font-semibold uppercase tracking-[0.13em] text-charcoal-500 underline underline-offset-4" @click="switchMode('email')">Use email instead</button>
-        </div>
-      </div>
-
-      <div v-else-if="phoneNotVerified" class="mt-5 border border-[#b58b4b]/30 bg-[#b58b4b]/[0.07] p-4 text-[12px] leading-5 text-[#806433]">
-        {{ error }}
-        <button type="button" class="mt-3 block text-[9px] font-semibold uppercase tracking-[0.13em] underline underline-offset-4" @click="switchMode('email')">Sign in with email to verify phone</button>
-      </div>
-      <div v-else-if="error" class="mt-5 border border-[#bd6f6f]/35 bg-[#bd6f6f]/[0.07] px-4 py-3 text-[12px] leading-5 text-[#9a4f4f]">
-        {{ error }}
-      </div>
-
-      <button
-        v-if="!otpSent"
-        type="button"
-        :disabled="requestingOtp || !phone.trim() || !canResend"
-        class="mt-6 flex w-full items-center justify-center gap-3 bg-charcoal-950 px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-paper-50 transition hover:opacity-90 disabled:opacity-45"
-        @click="requestOtp"
-      >
-        <span v-if="requestingOtp" class="h-3.5 w-3.5 animate-spin rounded-full border border-paper-50/30 border-t-paper-50" />
-        {{ requestingOtp ? 'Sending code…' : canResend ? 'Send code' : `Try again in ${formattedRemaining}` }}
-      </button>
-      <button
-        v-else
-        type="button"
-        :disabled="submitting || otpCode.length < 4"
-        class="mt-6 flex w-full items-center justify-center gap-3 bg-charcoal-950 px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-paper-50 transition hover:opacity-90 disabled:opacity-45"
-        @click="submitOtp"
-      >
-        <span v-if="submitting" class="h-3.5 w-3.5 animate-spin rounded-full border border-paper-50/30 border-t-paper-50" />
-        {{ submitting ? 'Checking code…' : 'Sign in with code' }}
-      </button>
-    </div>
-
-    <div class="mt-8 flex items-center justify-between gap-4 border-t border-charcoal-950/10 pt-6 text-[12px] text-charcoal-500">
+    <div class="credentials-footer">
       <span>New to SAAJ?</span>
       <NuxtLink
         :to="`/register${route.query.redirect ? `?redirect=${encodeURIComponent(String(route.query.redirect))}` : ''}`"
-        class="font-medium text-charcoal-950 underline underline-offset-4"
+        class="credentials-link"
       >
         Create an account
       </NuxtLink>
     </div>
-  </StorefrontAuthFrame>
+  </StorefrontCredentialsFrame>
 </template>

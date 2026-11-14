@@ -83,6 +83,7 @@ const props = withDefaults(defineProps<{
 const route = useRoute()
 const router = useRouter()
 const nuxtApp = useNuxtApp()
+const isInitialCatalogueRender = nuxtApp.isHydrating
 const { $api } = nuxtApp
 
 const filterOpen = ref(false)
@@ -364,7 +365,7 @@ function shouldRestoreBrowsePosition() {
   const returningFromProduct = /^\/products\//.test(forwardPath)
 
   const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
-  const isReload = navigation?.type === 'reload'
+  const isReload = isInitialCatalogueRender && navigation?.type === 'reload'
 
   return returningFromProduct || isReload
 }

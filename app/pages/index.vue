@@ -144,7 +144,7 @@ function categoryPath(slug: string | null | undefined) {
 
 // Hero and curated product stories share one SSR response so the first product
 // edit never flashes into place after the page has already painted.
-const { data: homepageResponse, status: homepageStatus } = await useAsyncData('homepage-config', () =>
+const { data: homepageResponse } = await useAsyncData('homepage-config', () =>
   $api<HomepageResponse>('/homepage'),
 )
 
@@ -203,21 +203,17 @@ const fallbackSlide = computed<HeroSlide>(() => ({
   layout_type: 'single',
   media_type: 'image',
   desktop_media_url: heroImage.value,
-  eyebrow: 'The new edit',
-  title: 'Quiet detail.\nStrong presence.',
-  description: 'A considered wardrobe shaped by clean lines, effortless silhouettes, and the details that make a piece feel distinctly yours.',
+  title: heroCategory.value?.name || 'SAAJ clothing',
   alt_text: heroCategory.value?.name || 'SAAJ new collection',
-  primary_cta_label: 'Shop the edit',
+  primary_cta_label: heroCategory.value ? 'Shop the collection' : 'Shop all',
   primary_cta_url: heroLink.value,
-  secondary_cta_label: 'View all',
-  secondary_cta_url: '/shop',
   text_position: 'bottom-left',
   text_theme: 'light',
-  overlay_strength: 36,
+  overlay_strength: 30,
 }))
 
 const heroSlides = computed(() =>
-  heroConfig.value.slides.length ? heroConfig.value.slides : [fallbackSlide.value],
+  heroConfig.value.slides.length ? heroConfig.value.slides : heroImage.value ? [fallbackSlide.value] : [],
 )
 
 const editorialImage = computed(() =>
@@ -229,13 +225,15 @@ const editorialImage = computed(() =>
 )
 
 const homeCanonical = 'https://saaj.pk/'
+const homeTitle = 'SAAJ | Women’s & Men’s Clothing in Pakistan'
+const homeDescription = 'Shop women’s and men’s clothing at SAAJ. Explore new arrivals, embroidered lawn suits, and the full catalogue online in Pakistan.'
 
 useSeoMeta({
-  title: 'SAAJ — Modern Clothing',
-  description: 'Discover the latest SAAJ edit — considered clothing, modern silhouettes, and thoughtful detail.',
+  title: homeTitle,
+  description: homeDescription,
   robots: 'index,follow',
-  ogTitle: 'SAAJ — Modern Clothing',
-  ogDescription: 'Discover the latest SAAJ edit — considered clothing, modern silhouettes, and thoughtful detail.',
+  ogTitle: homeTitle,
+  ogDescription: homeDescription,
   ogUrl: homeCanonical,
   ogType: 'website',
   twitterCard: 'summary_large_image',
@@ -258,16 +256,29 @@ useHead({
 
 <template>
   <div class="overflow-hidden bg-paper-50">
+    <h1 v-if="heroSlides.length || !heroConfig.enabled" class="sr-only">SAAJ clothing for women and men</h1>
     <StorefrontHero
+      v-if="heroSlides.length"
       :config="heroConfig"
       :slides="heroSlides"
     />
+    <section v-else-if="heroConfig.enabled" class="bg-paper-100">
+      <div class="mx-auto max-w-[1600px] px-5 py-20 sm:px-8 sm:py-24 lg:px-10 lg:py-28">
+        <h1 class="font-display text-[clamp(3.25rem,8vw,7rem)] font-medium leading-none tracking-[-0.045em]">
+          SAAJ clothing for women and men
+        </h1>
+        <NuxtLink :to="heroLink" class="home-inline-action mt-5 min-h-11">
+          <span>{{ fallbackSlide.primary_cta_label }}</span>
+          <svg aria-hidden="true" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.25" class="size-4"><path d="M3.5 9h11M10.5 5l4 4-4 4" /></svg>
+        </NuxtLink>
+      </div>
+    </section>
 
     <template v-for="section in visibleSectionLayout" :key="section.key">
       <HomepageBrandStatement v-if="section.key === 'brand_statement'" />
       <HomepageCategorySection v-else-if="section.key === 'categories' && categorySection" :section="categorySection" />
       <HomepageProductSection v-else-if="section.key === 'product_section_1' && primaryProductSection" :section="primaryProductSection" />
-      <HomepageEditorialStory v-else-if="section.key === 'editorial'" :image="editorialImage" :loading="homepageStatus === 'pending'" />
+      <HomepageEditorialStory v-else-if="section.key === 'editorial'" :image="editorialImage" />
       <HomepageProductSection v-else-if="section.key === 'product_section_2' && secondaryProductSection" :section="secondaryProductSection" />
       <HomepageValuesSection v-else-if="section.key === 'values'" />
     </template>

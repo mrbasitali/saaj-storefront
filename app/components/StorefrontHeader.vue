@@ -17,7 +17,7 @@ const authStore = useAuthStore()
 const cart = useCartStore()
 const siteSettings = useSiteSettingsStore()
 const route = useRoute()
-const { theme, isDark, toggleTheme } = useStorefrontTheme()
+const { isDark, toggleTheme } = useStorefrontTheme()
 
 const mobileMenuOpen = ref(false)
 const mobileMenuGlassOpen = ref(false)
@@ -69,14 +69,16 @@ function categoryPath(slug: string | null | undefined) {
   return segments.length ? `/shop/${segments.join('/')}` : '/shop'
 }
 
-const headerLogo = computed(() => {
+const lightHeaderLogo = computed(() => {
   const logos = siteSettings.settings?.logos
-  if (!logos) return null
-
-  return isDark.value
-    ? (logos.navbar_dark || logos.navbar_light)
-    : (logos.navbar_light || logos.navbar_dark)
+  return logos?.navbar_light || logos?.navbar_dark
 })
+const darkHeaderLogo = computed(() => {
+  const logos = siteSettings.settings?.logos
+  return logos?.navbar_dark || logos?.navbar_light
+})
+const hasDistinctHeaderLogos = computed(() => lightHeaderLogo.value !== darkHeaderLogo.value)
+const headerLogo = computed(() => isDark.value ? darkHeaderLogo.value : lightHeaderLogo.value)
 
 const mobileMenuActive = computed(() => mobileMenuOpen.value || mobileMenuGlassOpen.value)
 // The icon follows the visible menu content, not the longer-lived preblur layer.
@@ -332,10 +334,7 @@ function submitSearch() {
           class="header-utility-button lg:hidden"
           @click="openSearch"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45" class="h-[18px] w-[18px]">
-            <circle cx="10.7" cy="10.7" r="6.5" />
-            <path d="m15.5 15.5 4.3 4.3" />
-          </svg>
+          <StorefrontIcon name="search" />
         </button>
 
         <NuxtLink
@@ -344,7 +343,7 @@ function submitSearch() {
           class="header-utility-button lg:hidden"
           @click="headerWishlistBurst += 1"
         >
-          <WishlistHeart :active="isWishlistRoute" :burst-key="headerWishlistBurst" :size="18" />
+          <WishlistHeart :active="isWishlistRoute" :burst-key="headerWishlistBurst" :size="20" duotone />
         </NuxtLink>
 
         <button
@@ -352,10 +351,7 @@ function submitSearch() {
           class="hidden items-center gap-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-charcoal-700 transition-colors duration-300 hover:text-charcoal-950 lg:inline-flex"
           @click="openSearch"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45" class="h-[18px] w-[18px]">
-            <circle cx="10.7" cy="10.7" r="6.5" />
-            <path d="m15.5 15.5 4.3 4.3" />
-          </svg>
+          <StorefrontIcon name="search" />
           Search
         </button>
       </div>
@@ -365,22 +361,28 @@ function submitSearch() {
         aria-label="SAAJ home"
         class="flex min-w-[120px] items-center justify-center px-3 sm:min-w-[150px]"
       >
-        <Transition name="logo-fade" mode="out-in">
+        <!-- Keep both theme assets loaded so toggling only changes visibility. -->
+        <template v-if="lightHeaderLogo">
           <img
-            v-if="headerLogo"
-            :key="`${theme}-${headerLogo}`"
-            :src="headerLogo"
+            v-show="!isDark || !hasDistinctHeaderLogos"
+            :src="lightHeaderLogo"
             alt="SAAJ"
             class="max-h-[31px] w-auto max-w-[142px] object-contain sm:max-h-[35px] sm:max-w-[170px]"
           >
-          <span
-            v-else
-            :key="`wordmark-${theme}`"
-            class="font-display text-[29px] font-medium leading-none tracking-[0.08em] text-charcoal-950 sm:text-[32px]"
+          <img
+            v-if="hasDistinctHeaderLogos"
+            v-show="isDark"
+            :src="darkHeaderLogo"
+            alt="SAAJ"
+            class="max-h-[31px] w-auto max-w-[142px] object-contain sm:max-h-[35px] sm:max-w-[170px]"
           >
-            SAAJ
-          </span>
-        </Transition>
+        </template>
+        <span
+          v-else
+          class="font-display text-[29px] font-medium leading-none tracking-[0.08em] text-charcoal-950 sm:text-[32px]"
+        >
+          SAAJ
+        </span>
       </NuxtLink>
 
       <div class="flex min-w-0 items-center justify-end gap-0.5 sm:gap-1">
@@ -390,15 +392,7 @@ function submitSearch() {
           class="header-utility-button flex cursor-pointer"
           @click="toggleTheme"
         >
-          <Transition name="theme-icon" mode="out-in">
-            <svg v-if="isDark" key="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="h-[18px] w-[18px]">
-              <circle cx="12" cy="12" r="3.6" />
-              <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4l-1.5 1.5M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4" />
-            </svg>
-            <svg v-else key="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="h-[18px] w-[18px]">
-              <path d="M20 15.2A8.6 8.6 0 0 1 8.8 4a8.2 8.2 0 1 0 11.2 11.2Z" />
-            </svg>
-          </Transition>
+          <StorefrontIcon :name="isDark ? 'sun' : 'moon'" />
         </button>
 
         <NuxtLink
@@ -407,22 +401,16 @@ function submitSearch() {
           class="header-utility-button hidden lg:flex"
           @click="headerWishlistBurst += 1"
         >
-          <WishlistHeart :active="isWishlistRoute" :burst-key="headerWishlistBurst" :size="18" />
+          <WishlistHeart :active="isWishlistRoute" :burst-key="headerWishlistBurst" :size="20" duotone />
         </NuxtLink>
 
         <NuxtLink :to="authStore.isLoggedIn ? '/account' : '/login'" aria-label="Account" class="header-utility-button relative flex">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="h-[18px] w-[18px]">
-            <circle cx="12" cy="8" r="3.4" />
-            <path d="M4.8 19.7c1.5-3.4 4.2-5 7.2-5s5.7 1.6 7.2 5" />
-          </svg>
+          <StorefrontIcon name="account" />
           <span v-if="authStore.isLoggedIn" class="absolute right-[7px] top-[7px] h-1.5 w-1.5 rounded-full bg-[#657d6c] ring-2 ring-paper-50" aria-hidden="true" />
         </NuxtLink>
 
         <NuxtLink to="/cart" aria-label="Shopping bag" class="header-utility-button relative">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="h-[18px] w-[18px]">
-            <path d="M4.6 7.2h14.8l-1.1 11.5H5.7L4.6 7.2Z" />
-            <path d="M8.5 7.2V5.8a3.5 3.5 0 0 1 7 0v1.4" />
-          </svg>
+          <StorefrontIcon name="bag" />
           <span v-if="cart.totalItems > 0" class="cart-count">
             {{ cart.totalItems > 99 ? '99+' : cart.totalItems }}
           </span>
@@ -437,6 +425,15 @@ function submitSearch() {
       @mouseleave="scheduleDesktopMenuClose"
     >
       <div class="storefront-desktop-nav-scroll flex h-full items-stretch justify-center gap-6 xl:gap-9">
+        <NuxtLink
+          to="/shop"
+          class="storefront-nav-item"
+          :class="{ 'is-active': route.path === '/shop' }"
+          @mouseenter="handleDesktopNavHover(null)"
+        >
+          Shop all
+        </NuxtLink>
+
         <NuxtLink
           v-if="showNewIn"
           to="/new-in"
@@ -463,16 +460,12 @@ function submitSearch() {
             @click="toggleDesktopMenu(category)"
           >
             {{ category.name }}
-            <svg
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.3"
-              class="h-3 w-3 transition-transform duration-300"
+            <StorefrontIcon
+              name="chevron"
+              :size="14"
+              class="transition-transform duration-300"
               :class="desktopCategoryId === category.id ? 'rotate-180' : ''"
-            >
-              <path d="m4.2 6 3.8 4 3.8-4" />
-            </svg>
+            />
           </button>
 
           <NuxtLink
@@ -595,6 +588,13 @@ function submitSearch() {
             <nav class="mobile-menu-scroll" aria-label="Mobile navigation">
               <p class="mobile-menu-eyebrow mobile-stagger" style="--menu-delay: 70ms">Shop</p>
 
+              <NuxtLink to="/shop" class="mobile-menu-main-link mobile-stagger" style="--menu-delay: 95ms">
+                <span>Shop all</span>
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" class="h-5 w-5 opacity-45">
+                  <path d="M5 12h14M14 7l5 5-5 5" />
+                </svg>
+              </NuxtLink>
+
               <NuxtLink v-if="showNewIn" to="/new-in" class="mobile-menu-main-link mobile-stagger" style="--menu-delay: 115ms">
                 <span>New in</span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" class="h-5 w-5 opacity-45">
@@ -701,19 +701,14 @@ function submitSearch() {
           <span v-else class="font-display text-[28px] tracking-[0.08em] text-charcoal-950">SAAJ</span>
         </NuxtLink>
         <button type="button" aria-label="Close search" class="header-utility-button -mr-2" @click="closeSearch">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.35" class="h-5 w-5">
-            <path d="m5 5 14 14M19 5 5 19" />
-          </svg>
+          <StorefrontIcon name="close" />
         </button>
       </div>
 
       <div class="mx-auto w-full max-w-[1180px] px-5 pb-10 pt-[8vh] sm:px-8 lg:px-10 lg:pt-[11vh]">
         <p class="section-kicker search-stagger" style="--menu-delay: 70ms">Search SAAJ</p>
         <form class="search-form search-stagger" style="--menu-delay: 115ms" @submit.prevent="submitSearch">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" class="h-6 w-6 shrink-0 text-charcoal-400 sm:h-7 sm:w-7">
-            <circle cx="10.7" cy="10.7" r="6.5" />
-            <path d="m15.5 15.5 4.3 4.3" />
-          </svg>
+          <StorefrontIcon name="search" class="h-6 w-6 text-charcoal-400 sm:h-7 sm:w-7" />
           <input
             ref="searchInput"
             v-model="searchQuery"
@@ -731,9 +726,7 @@ function submitSearch() {
               @click="clearSearchInput"
             >
               <span class="hidden sm:inline">Clear</span>
-              <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.2" class="h-4 w-4">
-                <path d="m4.5 4.5 9 9M13.5 4.5l-9 9" />
-              </svg>
+              <StorefrontIcon name="close" :size="16" />
             </button>
           </Transition>
         </form>

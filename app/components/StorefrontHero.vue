@@ -141,6 +141,7 @@ const activeIndex = ref(0)
 const previousIndex = ref<number | null>(null)
 const activeMobileFrame = ref(0)
 const paused = ref(false)
+const heroHasFocus = ref(false)
 const mobileInteracting = ref(false)
 const reduceMotion = ref(false)
 const isCompactViewport = ref(false)
@@ -162,7 +163,13 @@ const effectiveSlides = computed(() => props.config.mode === 'single' ? props.sl
 const currentSlide = computed(() => effectiveSlides.value[activeIndex.value] ?? null)
 const canSlide = computed(() => props.config.mode === 'slider' && effectiveSlides.value.length > 1)
 const autoplayDelay = computed(() => Math.max(3000, Number(props.config.autoplay_delay) || 6000))
-const isPanelSlide = computed(() => currentSlide.value?.layout_type === 'panels' && (currentSlide.value.panels?.length ?? 0) > 1)
+const isPanelSlide = computed(() => currentSlide.value?.layout_type === 'panels' && !!currentSlide.value.panels?.length)
+const desktopPrimaryLink = computed(() => currentSlide.value?.primary_cta_url || currentSlide.value?.secondary_cta_url || '/shop')
+const desktopPrimaryLabel = computed(() => {
+  const slide = currentSlide.value
+  return (slide?.primary_cta_url ? slide.primary_cta_label : slide?.secondary_cta_label) || 'Shop now'
+})
+const showDesktopSecondaryLink = computed(() => !!(currentSlide.value?.secondary_cta_label && currentSlide.value.secondary_cta_url && currentSlide.value.secondary_cta_url !== desktopPrimaryLink.value))
 
 const mobileFrames = computed<MobileHeroFrame[]>(() => {
   const frames: MobileHeroFrame[] = []
@@ -260,7 +267,7 @@ const heroStyle = computed(() => ({
 }))
 
 function shouldAutoplay() {
-  if (!import.meta.client || !props.config.autoplay || paused.value || mobileInteracting.value || reduceMotion.value || document.visibilityState !== 'visible') return false
+  if (!import.meta.client || !props.config.autoplay || paused.value || (!isCompactViewport.value && heroHasFocus.value) || mobileInteracting.value || reduceMotion.value || document.visibilityState !== 'visible') return false
   return isCompactViewport.value ? canMobileSlide.value : canSlide.value
 }
 
@@ -389,6 +396,17 @@ function onMouseLeave() {
   if (isCompactViewport.value || !props.config.pause_on_hover) return
   paused.value = false
   startClock()
+}
+
+function onHeroFocusIn() {
+  heroHasFocus.value = true
+  if (!isCompactViewport.value) stopClock()
+}
+
+function onHeroFocusOut(event: FocusEvent) {
+  if ((event.currentTarget as HTMLElement).contains(event.relatedTarget as Node | null)) return
+  heroHasFocus.value = false
+  if (!isCompactViewport.value) startClock()
 }
 
 function onVisibilityChange() {
@@ -529,6 +547,8 @@ onBeforeUnmount(() => {
       aria-label="SAAJ featured collection"
       @mouseenter="onMouseEnter"
       @mouseleave="onMouseLeave"
+      @focusin="onHeroFocusIn"
+      @focusout="onHeroFocusOut"
     >
       <!-- Desktop: preserve the editorial slide/panel composition exactly as configured. -->
       <div class="absolute inset-0 hidden overflow-hidden lg:block">
@@ -537,6 +557,7 @@ onBeforeUnmount(() => {
           :key="slide.id"
           class="hero-media-layer absolute inset-0"
           :class="{ 'is-active': index === activeIndex, 'is-previous': index === previousIndex }"
+          :inert="index !== activeIndex"
           :aria-hidden="index === activeIndex ? undefined : 'true'"
         >
           <div v-if="slide.layout_type === 'panels' && slide.panels?.length" class="hero-panel-track h-full">
@@ -544,7 +565,7 @@ onBeforeUnmount(() => {
               v-for="(panel, panelIndex) in slide.panels"
               :key="panelIndex"
               data-hero-panel
-              class="hero-panel group/panel relative isolate h-full min-w-0 overflow-hidden bg-mist-100"
+              class="hero-panel desktop-hero-panel relative isolate h-full min-w-0 overflow-hidden bg-mist-100"
             >
               <img
                 v-if="panel.image_url"
@@ -555,25 +576,37 @@ onBeforeUnmount(() => {
                 :fetchpriority="index === 0 && panelIndex === 0 ? 'high' : 'auto'"
               >
               <div v-else class="absolute inset-0 bg-[linear-gradient(145deg,#d8ded8,#f2efe8)]" />
-              <div class="hero-panel-scrim absolute inset-0" :class="panel.text_theme === 'dark' ? 'hero-panel-scrim-light' : 'hero-panel-scrim-dark'" />
+              <div class="hero-panel-scrim absolute inset-0"
+                :class="[
+                  panel.text_theme === 'dark' ? 'hero-panel-scrim-light' : 'hero-panel-scrim-dark',
+                  { 'desktop-hero-scrim-center': (panel.text_position ?? '').startsWith('center') },
+                ]" />
 
               <div
                 class="hero-panel-copy absolute inset-0 z-10 flex flex-col p-5 sm:p-7 lg:p-6 xl:p-8"
-                :class="[panel.text_theme === 'dark' ? 'text-[#151714]' : 'text-white', panelPositionClasses(panel)]"
+                :class="[
+                  panel.text_theme === 'dark' ? 'text-[#151714]' : 'text-white',
+                  panelPositionClasses(panel),
+                  { 'has-desktop-arrows': canSlide && config.show_arrows },
+                ]"
               >
                 <div class="hero-panel-copy-inner w-full max-w-[420px]" :class="panelInnerPositionClasses(panel)">
                   <p v-if="panel.eyebrow" class="text-[9px] font-semibold uppercase tracking-[0.22em] opacity-70 sm:text-[10px]">{{ panel.eyebrow }}</p>
-                  <h2 v-if="panel.title" class="hero-richtext mt-2 font-display text-[clamp(1.8rem,2.5vw,3.3rem)] font-medium leading-[0.94] tracking-[-0.045em]" v-html="heroRichTextHtml(panel.title)"></h2>
-                  <p v-if="panel.description" class="hero-panel-description hero-richtext mt-3 text-[12px] leading-5 opacity-80 sm:text-[13px] sm:leading-6" v-html="heroRichTextHtml(panel.description)"></p>
+                  <h2 v-if="heroPlainText(panel.title)" class="desktop-panel-title hero-richtext mt-2 font-display font-medium" v-html="heroRichTextHtml(panel.title)"></h2>
+                  <h2 v-else class="desktop-panel-title mt-2 font-display font-medium">The collection</h2>
+                  <div v-if="heroPlainText(panel.description)" class="desktop-hero-description">
+                    <div>
+                      <p class="hero-richtext mt-3 text-sm leading-6" v-html="heroRichTextHtml(panel.description)"></p>
+                    </div>
+                  </div>
                   <NuxtLink
-                    v-if="panel.cta_label && panel.cta_url"
-                    :to="panel.cta_url"
-                    class="hero-panel-action mt-5"
+                    :to="panel.cta_url || '/shop'"
+                    class="hero-panel-action desktop-panel-action mt-4"
                     :class="panel.text_theme === 'dark' ? 'hero-panel-action-dark' : 'hero-panel-action-light'"
                   >
-                    <span class="hero-panel-action-label">{{ panel.cta_label }}</span>
+                    <span class="hero-panel-action-label">{{ panel.cta_label || 'Shop now' }}</span>
                     <span class="hero-panel-action-icon" aria-hidden="true">
-                      <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.25" class="h-3.5 w-3.5"><path d="M3.5 9h11M10.5 5l4 4-4 4" /></svg>
+                      <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.25" class="size-3.5"><path d="M3.5 9h11M10.5 5l4 4-4 4" /></svg>
                     </span>
                   </NuxtLink>
                 </div>
@@ -684,7 +717,7 @@ onBeforeUnmount(() => {
             >
               <div :class="[singleWidthClass(frame.slide), frame.slide.text_theme === 'dark' ? 'text-[#151714]' : 'text-white']">
                 <p v-if="frame.slide.eyebrow" class="text-[10px] font-semibold uppercase tracking-[0.24em] opacity-72">{{ frame.slide.eyebrow }}</p>
-                <h1 v-if="frame.slide.title" class="storefront-hero-title hero-richtext mt-3 font-display font-medium leading-[0.9] tracking-[-0.058em]" v-html="heroRichTextHtml(frame.slide.title)"></h1>
+                <h2 v-if="frame.slide.title" class="storefront-hero-title hero-richtext mt-3 font-display font-medium leading-[0.9] tracking-[-0.058em]" v-html="heroRichTextHtml(frame.slide.title)"></h2>
                 <p v-if="frame.slide.description" class="hero-richtext mt-4 max-w-[34rem] text-[13px] leading-6 opacity-82" :class="(frame.slide.text_position === 'center' || frame.slide.text_position === 'bottom-center') ? 'mx-auto' : ''" v-html="heroRichTextHtml(frame.slide.description)"></p>
                 <div v-if="frame.slide.primary_cta_label || frame.slide.secondary_cta_label" class="mt-6 flex flex-wrap items-center gap-2.5" :class="(frame.slide.text_position === 'center' || frame.slide.text_position === 'bottom-center') ? 'justify-center' : ''">
                   <NuxtLink v-if="frame.slide.primary_cta_label && frame.slide.primary_cta_url" :to="frame.slide.primary_cta_url" class="hero-button" :class="frame.slide.text_theme === 'dark' ? 'hero-button-dark' : 'hero-button-light'">
@@ -712,16 +745,23 @@ onBeforeUnmount(() => {
           <Transition :name="reduceMotion ? undefined : 'hero-content'" mode="out-in">
             <div :key="currentSlide.id" :class="[contentWidthClass, isDarkText ? 'text-[#151714]' : 'text-white']">
               <p v-if="currentSlide.eyebrow" class="text-[10px] font-semibold uppercase tracking-[0.24em] sm:text-[11px]" :class="isDarkText ? 'text-[#555b53]' : 'text-white/72'">{{ currentSlide.eyebrow }}</p>
-              <h1 v-if="currentSlide.title" class="storefront-hero-title hero-richtext mt-3 font-display font-medium leading-[0.9] tracking-[-0.058em]" v-html="heroRichTextHtml(currentSlide.title)"></h1>
-              <p v-if="currentSlide.description" class="hero-richtext mt-5 max-w-[560px] text-[13px] leading-6 sm:text-[15px] sm:leading-7" :class="[isDarkText ? 'text-[#3a3f39]' : 'text-white/78', (currentSlide.text_position === 'center' || currentSlide.text_position === 'bottom-center') ? 'mx-auto' : '']" v-html="heroRichTextHtml(currentSlide.description)"></p>
+              <h2 v-if="heroPlainText(currentSlide.title)" class="desktop-single-title storefront-hero-title hero-richtext mt-3 font-display font-medium leading-[0.9] tracking-[-0.058em]" v-html="heroRichTextHtml(currentSlide.title)"></h2>
+              <h2 v-else class="desktop-single-title storefront-hero-title mt-3 font-display font-medium leading-[0.9] tracking-[-0.058em]">The collection</h2>
+              <div v-if="heroPlainText(currentSlide.description)" class="desktop-hero-description">
+                <div>
+                  <p class="hero-richtext mt-5 max-w-[560px] text-[15px] leading-7" :class="[isDarkText ? 'text-[#3a3f39]' : 'text-white/85', (currentSlide.text_position === 'center' || currentSlide.text_position === 'bottom-center') ? 'mx-auto' : '']" v-html="heroRichTextHtml(currentSlide.description)"></p>
+                </div>
+              </div>
 
-              <div v-if="currentSlide.primary_cta_label || currentSlide.secondary_cta_label" class="mt-7 flex flex-wrap items-center gap-2.5" :class="(currentSlide.text_position === 'center' || currentSlide.text_position === 'bottom-center') ? 'justify-center' : ''">
-                <NuxtLink v-if="currentSlide.primary_cta_label && currentSlide.primary_cta_url" :to="currentSlide.primary_cta_url" class="hero-button" :class="isDarkText ? 'hero-button-dark' : 'hero-button-light'">
-                  <span>{{ currentSlide.primary_cta_label }}</span>
-                  <span class="hero-button-icon" aria-hidden="true"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.25" class="h-4 w-4"><path d="M3.5 9h11M10.5 5l4 4-4 4" /></svg></span>
+              <div class="mt-6 flex flex-wrap items-center gap-2.5" :class="(currentSlide.text_position === 'center' || currentSlide.text_position === 'bottom-center') ? 'justify-center' : ''">
+                <NuxtLink :to="desktopPrimaryLink" class="hero-button" :class="isDarkText ? 'hero-button-dark' : 'hero-button-light'">
+                  <span>{{ desktopPrimaryLabel }}</span>
+                  <span class="hero-button-icon" aria-hidden="true">
+                    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.25" class="size-4"><path d="M3.5 9h11M10.5 5l4 4-4 4" /></svg>
+                  </span>
                 </NuxtLink>
 
-                <NuxtLink v-if="currentSlide.secondary_cta_label && currentSlide.secondary_cta_url" :to="currentSlide.secondary_cta_url" class="hero-button hero-button-outline group" :class="isDarkText ? 'hero-button-outline-dark' : 'hero-button-outline-light'">
+                <NuxtLink v-if="showDesktopSecondaryLink" :to="currentSlide.secondary_cta_url || '/shop'" class="hero-button hero-button-outline group" :class="isDarkText ? 'hero-button-outline-dark' : 'hero-button-outline-light'">
                   <span>{{ currentSlide.secondary_cta_label }}</span>
                   <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.15" class="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5"><path d="M3.5 9h11M10.5 5l4 4-4 4" /></svg>
                 </NuxtLink>
@@ -785,5 +825,94 @@ onBeforeUnmount(() => {
 
 .hero-richtext :deep([data-text-weight="light"]) {
   font-weight: 300;
+}
+
+/* Desktop campaigns keep the shopping action visible while their copy expands. */
+@media (min-width: 1024px) {
+  .desktop-hero-panel .hero-panel-copy {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  .desktop-hero-panel .has-desktop-arrows {
+    padding-bottom: 5rem;
+  }
+
+  .desktop-hero-panel .hero-panel-scrim { opacity: 1; }
+  .desktop-hero-panel .hero-panel-scrim-dark {
+    background: linear-gradient(to top, rgb(0 0 0 / .84), rgb(0 0 0 / .56) 45%, transparent 88%);
+  }
+  .desktop-hero-panel .hero-panel-scrim-light {
+    background: linear-gradient(to top, rgb(250 249 246 / .96), rgb(250 249 246 / .82) 45%, transparent 88%);
+  }
+  .desktop-hero-panel .hero-panel-scrim-dark.desktop-hero-scrim-center {
+    background: linear-gradient(transparent, rgb(0 0 0 / .68) 27%, rgb(0 0 0 / .78) 72%, transparent);
+  }
+  .desktop-hero-panel .hero-panel-scrim-light.desktop-hero-scrim-center {
+    background: linear-gradient(transparent, rgb(250 249 246 / .86) 27%, rgb(250 249 246 / .9) 72%, transparent);
+  }
+
+  .desktop-panel-title {
+    font-size: clamp(1.5rem, 2.1vw, 2.5rem);
+    line-height: 1;
+    letter-spacing: -.045em;
+    overflow-wrap: anywhere;
+    transition: font-size 360ms cubic-bezier(.22, 1, .36, 1);
+  }
+
+  .desktop-single-title {
+    font-size: clamp(2.75rem, 4.35vw, min(76px, var(--hero-title-max, 102px)));
+    overflow-wrap: anywhere;
+    transition: font-size 360ms cubic-bezier(.22, 1, .36, 1);
+  }
+
+  .desktop-panel-action {
+    max-width: 100%;
+    min-height: 44px;
+    overflow-wrap: anywhere;
+  }
+  .desktop-panel-action.hero-panel-action-light:focus-visible { outline-color: #fff; }
+  .desktop-panel-action.hero-panel-action-dark:focus-visible { outline-color: #151714; }
+
+  .desktop-hero-description { min-width: 0; overflow-wrap: anywhere; }
+
+  .desktop-hero-description p {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+  }
+}
+
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+  .desktop-hero-panel:is(:hover, :focus-within) { flex-grow: 1.26; }
+
+  .desktop-hero-panel:is(:hover, :focus-within) .desktop-panel-title {
+    font-size: clamp(1.75rem, 2.65vw, 3rem);
+  }
+  .storefront-hero:is(:hover, :focus-within) .desktop-single-title {
+    font-size: clamp(3rem, 5.4vw, var(--hero-title-max, 102px));
+  }
+
+  .desktop-hero-description {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    visibility: hidden;
+    transition: grid-template-rows 360ms cubic-bezier(.22, 1, .36, 1), opacity 220ms ease, visibility 220ms;
+  }
+  .desktop-hero-description > div { min-height: 0; overflow: hidden; }
+
+  .desktop-hero-panel:is(:hover, :focus-within) .desktop-hero-description,
+  .storefront-hero:is(:hover, :focus-within) .storefront-hero-inner .desktop-hero-description {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desktop-hero-description, .desktop-panel-title, .desktop-single-title { transition: none; }
 }
 </style>

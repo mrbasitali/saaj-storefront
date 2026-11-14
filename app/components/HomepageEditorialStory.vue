@@ -1,36 +1,61 @@
 <script setup lang="ts">
 defineProps<{
   image: string | null
-  loading?: boolean
 }>()
 </script>
 
 <template>
-  <section class="mx-auto max-w-[1600px] px-0 py-0 lg:px-10 lg:py-24">
-    <div class="home-editorial-story relative isolate overflow-hidden bg-mist-100 lg:min-h-[690px]">
-      <div class="relative aspect-[4/5] min-h-[520px] sm:aspect-[16/10] sm:min-h-[600px] lg:absolute lg:inset-0 lg:aspect-auto lg:min-h-0">
-        <NuxtImg v-if="image" :src="image" alt="SAAJ editorial" class="absolute inset-0 h-full w-full object-cover" loading="lazy" sizes="100vw lg:1520px" />
-        <StorefrontSkeleton v-else-if="loading" class="absolute inset-0" />
-        <div v-else class="absolute inset-0 bg-[linear-gradient(145deg,#cfd8d0,#edeae2)]" />
-        <div class="absolute inset-0 bg-gradient-to-t from-black/32 via-transparent to-black/5 lg:bg-gradient-to-r lg:from-transparent lg:via-transparent lg:to-black/10" />
-      </div>
-
-      <div class="relative z-10 -mt-24 px-5 pb-5 sm:-mt-28 sm:px-8 sm:pb-8 lg:ml-auto lg:mr-10 lg:mt-0 lg:flex lg:min-h-[690px] lg:w-[44%] lg:items-end lg:px-0 lg:pb-10 xl:mr-14 xl:w-[40%]">
-        <div class="w-full bg-paper-50/96 p-7 shadow-[0_22px_70px_rgba(0,0,0,0.08)] backdrop-blur-xl sm:p-9 lg:p-10 xl:p-12">
-          <div class="flex items-center gap-3">
-            <span class="h-px w-7 bg-charcoal-950/35" />
-            <p class="section-kicker">The SAAJ point of view</p>
-          </div>
-          <h2 class="mt-5 font-display text-[clamp(2.75rem,4.3vw,5rem)] font-medium leading-[0.9] tracking-[-0.06em] text-charcoal-950">Less noise.<br>More character.</h2>
-          <p class="mt-5 max-w-lg text-[13px] leading-6 text-charcoal-600 sm:text-sm sm:leading-7">We prefer pieces that earn attention through cut, movement, texture, and detail — not through excess.</p>
-          <NuxtLink to="/shop" class="home-editorial-cta mt-7">
-            <span>Discover SAAJ</span>
-            <span class="home-editorial-cta-icon">
-              <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.25" class="h-4 w-4"><path d="M3.5 9h11M10.5 5l4 4-4 4" /></svg>
-            </span>
-          </NuxtLink>
-        </div>
+  <section v-if="image" class="mx-auto max-w-[1600px] px-5 py-8 sm:px-8 sm:py-12 lg:px-10" aria-labelledby="home-lookbook-title">
+    <div class="lookbook-banner relative isolate overflow-hidden bg-[#302923] text-white">
+      <NuxtImg
+        :src="image"
+        alt="SAAJ lookbook"
+        class="block aspect-[4/5] w-full object-cover object-top sm:aspect-[5/3] md:aspect-[2/1]"
+        loading="lazy"
+        sizes="100vw xl:1520px"
+      />
+      <div class="lookbook-scrim pointer-events-none absolute inset-0" aria-hidden="true" />
+      <div class="absolute inset-0 flex flex-col items-start justify-end px-5 pb-6 sm:px-9 sm:pb-10 md:w-[48%] md:justify-center md:px-[clamp(2.5rem,5vw,6rem)] md:pb-0">
+        <h2 id="home-lookbook-title" class="font-display text-[clamp(2.75rem,5.3vw,5.75rem)] font-medium leading-[0.92] tracking-[-0.045em]">
+          The lookbook
+        </h2>
+        <NuxtLink to="/shop" class="lookbook-link mt-4 inline-flex min-h-11 max-w-full items-center gap-3 border border-white/75 px-4 text-[11px] font-semibold tracking-[0.04em] sm:mt-6 sm:px-5 sm:text-xs">
+          <span>Shop the collection</span>
+          <svg aria-hidden="true" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.25" class="size-4 shrink-0"><path d="M3.5 9h11M10.5 5l4 4-4 4" /></svg>
+        </NuxtLink>
       </div>
     </div>
   </section>
 </template>
+
+<style scoped>
+.lookbook-scrim {
+  background: linear-gradient(0deg, rgb(21 16 13 / 0.86), rgb(21 16 13 / 0.53) 26%, transparent 61%);
+}
+
+.lookbook-link {
+  transition: color 220ms ease, background-color 220ms ease;
+}
+
+.lookbook-link:is(:hover, :focus-visible) {
+  background: white;
+  color: #211d19;
+}
+
+.lookbook-link:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 3px;
+}
+
+@media (min-width: 768px) {
+  .lookbook-scrim {
+    background: linear-gradient(90deg, rgb(21 16 13 / 0.84), rgb(21 16 13 / 0.6) 30%, transparent 62%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lookbook-link {
+    transition: none;
+  }
+}
+</style>

@@ -127,7 +127,7 @@ function categoryPath(slug: string | null | undefined) {
           </ul>
         </div>
 
-        <div>
+        <div id="store-contact" class="scroll-mt-28">
           <p class="footer-heading">Contact</p>
           <div class="mt-5 space-y-3.5 text-sm leading-6 text-white/58">
             <a
