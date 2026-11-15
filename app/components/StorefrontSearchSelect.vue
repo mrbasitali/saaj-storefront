@@ -31,6 +31,9 @@ const emit = defineEmits<{
 
 const root = ref<HTMLElement | null>(null)
 const panel = ref<HTMLElement | null>(null)
+const trigger = ref<HTMLButtonElement | null>(null)
+const optionsPanel = ref<HTMLElement | null>(null)
+const mobileTitleId = useId()
 const searchInput = ref<HTMLInputElement | null>(null)
 const open = ref(false)
 const search = ref('')
@@ -38,10 +41,10 @@ const activeIndex = ref(-1)
 const isMobile = ref(false)
 const mobileSheetHeight = ref<number | null>(null)
 const mobileSheetBottom = ref(0)
-const sheetDragY = ref(0)
-const sheetDragging = ref(false)
-const sheetPointerId = ref<number | null>(null)
-const sheetDragStartY = ref(0)
+const {
+  dragY: sheetDragY, dragging: sheetDragging, reset: resetSheetDrag,
+  onTouchStart, onTouchMove, onTouchEnd,
+} = useBottomSheetDrag(() => close(), optionsPanel)
 
 let mobileMedia: MediaQueryList | null = null
 
@@ -59,40 +62,32 @@ const filteredOptions = computed(() => {
 })
 
 const mobilePanelStyle = computed(() => ({
-  maxHeight: mobileSheetHeight.value ? `${mobileSheetHeight.value}px` : undefined,
+  height: mobileSheetHeight.value === null ? undefined : `${mobileSheetHeight.value}px`,
   bottom: `${mobileSheetBottom.value}px`,
-  transform: `translate3d(0, ${Math.max(0, sheetDragY.value)}px, 0)`,
+  transform: `translate3d(0, ${sheetDragY.value}px, 0)`,
   transition: sheetDragging.value ? 'none' : undefined,
 }))
 
 function syncViewport() {
-  if (!import.meta.client || !isMobile.value) return
+  if (!isMobile.value) return
 
   const viewport = window.visualViewport
-  if (!viewport) {
-    mobileSheetHeight.value = Math.min(window.innerHeight * 0.78, 680)
-    mobileSheetBottom.value = 0
-    return
-  }
+  const visibleHeight = viewport?.height ?? window.innerHeight
 
-  // visualViewport shrinks when the software keyboard opens. Keep the entire
-  // picker inside the actually visible area and lift it above the keyboard.
-  mobileSheetHeight.value = Math.max(260, Math.min(viewport.height - 12, 680))
-  mobileSheetBottom.value = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+  // Keep a consistent height until a keyboard or viewport change needs space.
+  mobileSheetHeight.value = Math.min(window.innerHeight * 0.82, visibleHeight * 0.97, 680)
+  mobileSheetBottom.value = viewport
+    ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+    : 0
 }
 
-function resetSheetDrag() {
-  sheetDragY.value = 0
-  sheetDragging.value = false
-  sheetPointerId.value = null
-  sheetDragStartY.value = 0
-}
-
-function close() {
+function close(restoreFocus = isMobile.value) {
+  if (!open.value) return
   open.value = false
   search.value = ''
   activeIndex.value = -1
   resetSheetDrag()
+  if (restoreFocus) trigger.value?.focus({ preventScroll: true })
 }
 
 async function toggle() {
@@ -123,7 +118,7 @@ async function toggle() {
 
 function select(option: StorefrontSelectOption) {
   emit('update:modelValue', option.id)
-  close()
+  close(true)
 }
 
 function moveActive(direction: 1 | -1) {
@@ -132,18 +127,34 @@ function moveActive(direction: 1 | -1) {
 
   if (activeIndex.value < 0) {
     activeIndex.value = direction === 1 ? 0 : count - 1
-    return
+  } else {
+    activeIndex.value = (activeIndex.value + direction + count) % count
   }
-
-  activeIndex.value = (activeIndex.value + direction + count) % count
+  panel.value?.querySelectorAll('[role="option"]')[activeIndex.value]?.scrollIntoView({ block: 'nearest' })
 }
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {
     event.preventDefault()
-    close()
+    close(true)
     return
   }
+
+  if (event.key === 'Tab' && open.value && isMobile.value) {
+    const buttons = panel.value?.querySelectorAll<HTMLElement>('button, input')
+    if (!buttons?.length) return
+    const first = buttons[0]!
+    const last = buttons[buttons.length - 1]!
+    const element = document.activeElement
+    if (event.shiftKey ? element === first || element === panel.value : element === last) {
+      event.preventDefault()
+      const next = event.shiftKey ? last : first
+      next.focus()
+    }
+    return
+  }
+
+  if (event.key === 'Enter' && event.target instanceof HTMLButtonElement) return
 
   if (event.key === 'ArrowDown') {
     event.preventDefault()
@@ -172,30 +183,10 @@ function onDocumentPointerDown(event: PointerEvent) {
   if (target && !root.value?.contains(target) && !panel.value?.contains(target)) close()
 }
 
-function onSheetPointerDown(event: PointerEvent) {
-  if (event.pointerType === 'mouse') return
-  sheetPointerId.value = event.pointerId
-  sheetDragStartY.value = event.clientY
-  sheetDragging.value = true
-  ;(event.currentTarget as HTMLElement | null)?.setPointerCapture?.(event.pointerId)
-}
-
-function onSheetPointerMove(event: PointerEvent) {
-  if (!sheetDragging.value || sheetPointerId.value !== event.pointerId) return
-  sheetDragY.value = Math.max(0, event.clientY - sheetDragStartY.value)
-}
-
-function onSheetPointerEnd(event: PointerEvent) {
-  if (sheetPointerId.value !== event.pointerId) return
-  ;(event.currentTarget as HTMLElement | null)?.releasePointerCapture?.(event.pointerId)
-
-  if (sheetDragY.value > 90) close()
-  else resetSheetDrag()
-}
-
 function updateMobileMedia(event?: MediaQueryListEvent) {
-  isMobile.value = event ? event.matches : !!mobileMedia?.matches
-  if (open.value && isMobile.value) syncViewport()
+  const next = event ? event.matches : !!mobileMedia?.matches
+  if (next !== isMobile.value) close(false)
+  isMobile.value = next
 }
 
 watch(filteredOptions, (options) => {
@@ -203,11 +194,17 @@ watch(filteredOptions, (options) => {
   else if (activeIndex.value >= options.length) activeIndex.value = options.length - 1
 })
 
+watch(search, () => {
+  activeIndex.value = -1
+  if (optionsPanel.value) optionsPanel.value.scrollTop = 0
+  resetSheetDrag()
+})
+
 watch(() => props.disabled, (disabled) => {
   if (disabled) close()
 })
 
-watch(open, async (value) => {
+watch(open, (value) => {
   if (!import.meta.client) return
 
   if (value && isMobile.value) {
@@ -223,15 +220,17 @@ onMounted(() => {
   mobileMedia = window.matchMedia('(max-width: 767px)')
   updateMobileMedia()
   mobileMedia.addEventListener('change', updateMobileMedia)
+  window.addEventListener('resize', syncViewport)
   window.visualViewport?.addEventListener('resize', syncViewport)
   window.visualViewport?.addEventListener('scroll', syncViewport)
 })
 
 onBeforeUnmount(() => {
   if (import.meta.client) {
-    document.body.classList.remove('sf-select-mobile-open')
+    if (open.value && isMobile.value) document.body.classList.remove('sf-select-mobile-open')
     document.removeEventListener('pointerdown', onDocumentPointerDown)
     mobileMedia?.removeEventListener('change', updateMobileMedia)
+    window.removeEventListener('resize', syncViewport)
     window.visualViewport?.removeEventListener('resize', syncViewport)
     window.visualViewport?.removeEventListener('scroll', syncViewport)
   }
@@ -245,13 +244,14 @@ onBeforeUnmount(() => {
       :data-complete="credentialsStyle ? Boolean(selected || open) : undefined"
     >
       <button
+        ref="trigger"
         type="button"
         class="sf-select__trigger"
         :class="{ 'credentials-input': credentialsStyle }"
         :aria-label="label ? `${label}: ${loading ? 'Loading…' : selected?.name || placeholder}` : undefined"
         :disabled="disabled || loading"
         :aria-expanded="open"
-        aria-haspopup="listbox"
+        :aria-haspopup="isMobile ? 'dialog' : 'listbox'"
         @click="toggle"
       >
         <span v-if="loading" class="sf-select__loading">
@@ -325,32 +325,31 @@ onBeforeUnmount(() => {
     <Teleport to="body">
       <Transition name="sf-select-sheet">
         <div v-if="open && isMobile" class="sf-select-sheet-layer">
-          <button type="button" class="sf-select-sheet-backdrop" aria-label="Close picker" @click="close" />
+          <button type="button" class="sf-select-sheet-backdrop" tabindex="-1" aria-hidden="true" @click="close()" />
 
           <section
             ref="panel"
             class="sf-select-sheet"
             :class="{ 'is-dragging': sheetDragging }"
             :style="mobilePanelStyle"
+            role="dialog"
+            aria-modal="true"
+            :aria-labelledby="mobileTitleId"
             tabindex="-1"
             @keydown="onKeydown"
+            @touchstart.passive="onTouchStart"
+            @touchmove="onTouchMove"
+            @touchend="onTouchEnd"
+            @touchcancel="resetSheetDrag"
           >
-            <div
-              class="sf-select-sheet__grab"
-              @pointerdown="onSheetPointerDown"
-              @pointermove="onSheetPointerMove"
-              @pointerup="onSheetPointerEnd"
-              @pointercancel="onSheetPointerEnd"
-            >
-              <span />
-            </div>
+            <div class="sf-select-sheet__grab" aria-hidden="true"><span /></div>
 
             <div class="sf-select-sheet__heading">
               <div>
                 <p class="sf-select-sheet__eyebrow">Choose location</p>
-                <p class="sf-select-sheet__title">{{ placeholder }}</p>
+                <h2 :id="mobileTitleId" class="sf-select-sheet__title">{{ placeholder }}</h2>
               </div>
-              <button type="button" class="sf-select-sheet__close" aria-label="Close picker" @click="close">
+              <button type="button" class="sf-select-sheet__close" aria-label="Close picker" @click="close()">
                 <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.3">
                   <path d="m4.5 4.5 9 9M13.5 4.5l-9 9" />
                 </svg>
@@ -371,12 +370,24 @@ onBeforeUnmount(() => {
                 enterkeyhint="search"
                 autocomplete="off"
                 :placeholder="searchPlaceholder"
+                :aria-label="searchPlaceholder"
                 @keydown.stop="onKeydown"
               >
               <button v-if="search" type="button" class="sf-select-sheet__clear" aria-label="Clear search" @click="search = ''">×</button>
             </div>
 
-            <div class="sf-select-sheet__options" role="listbox">
+            <div v-if="!filteredOptions.length" class="sf-select-sheet__empty" role="status">
+              <span class="sf-select-sheet__empty-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                  <circle cx="10.5" cy="10.5" r="6" />
+                  <path d="m15 15 4.5 4.5M8 10.5h5" />
+                </svg>
+              </span>
+              <p class="sf-select-sheet__empty-title">{{ search.trim() ? emptyText : 'No locations available' }}</p>
+              <p v-if="search.trim()">Try a different name or spelling.</p>
+            </div>
+
+            <div ref="optionsPanel" class="sf-select-sheet__options" v-else role="listbox" :aria-label="placeholder">
               <button
                 v-for="(option, index) in filteredOptions"
                 :key="`mobile-${option.id}`"
@@ -401,9 +412,6 @@ onBeforeUnmount(() => {
                 </span>
               </button>
 
-              <div v-if="!filteredOptions.length" class="sf-select__empty">
-                {{ emptyText }}
-              </div>
             </div>
           </section>
         </div>
@@ -550,12 +558,14 @@ onBeforeUnmount(() => {
 .sf-select__search-wrap > svg,
 .sf-select-sheet__search-wrap > svg {
   position: absolute;
+  z-index: 1;
   left: 13px;
   width: 16px;
   height: 16px;
   fill: none;
-  stroke: var(--color-charcoal-450);
+  stroke: var(--color-charcoal-400);
   stroke-width: 1.5;
+  pointer-events: none;
 }
 
 .sf-select__search,
@@ -695,7 +705,8 @@ onBeforeUnmount(() => {
   right: 0;
   left: 0;
   display: flex;
-  min-height: 280px;
+  height: min(82dvh, 680px);
+  min-height: 0;
   flex-direction: column;
   overflow: hidden;
   border-radius: 18px 18px 0 0;
@@ -787,6 +798,45 @@ onBeforeUnmount(() => {
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
+}
+
+.sf-select-sheet__empty {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  gap: 6px;
+  overflow-y: auto;
+  padding: 16px 20px max(16px, env(safe-area-inset-bottom));
+  color: var(--color-charcoal-600);
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.sf-select-sheet__empty-icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  flex: none;
+  place-items: center;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-charcoal-950) 5%, transparent);
+  color: var(--color-charcoal-700);
+}
+
+.sf-select-sheet__empty-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.sf-select-sheet__empty-title {
+  color: var(--color-charcoal-950);
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .sf-select-sheet__option {

@@ -14,55 +14,19 @@ const emit = defineEmits<{
 }>()
 
 const sheet = ref<HTMLElement | null>(null)
-const dragY = ref(0)
-const dragging = ref(false)
-const pointerId = ref<number | null>(null)
-const dragStartY = ref(0)
-const dragStartTime = ref(0)
+const {
+  dragY, dragging, reset: resetDrag,
+  onTouchStart, onTouchMove, onTouchEnd,
+} = useBottomSheetDrag(close, sheet, () => window.matchMedia('(max-width: 767px)').matches)
 
 const sheetStyle = computed(() => ({
-  '--bag-drawer-y': `${Math.max(0, dragY.value)}px`,
-  '--bag-drawer-opacity': String(Math.max(0.45, 1 - Math.max(0, dragY.value) / 420)),
+  '--bag-drawer-y': `${dragY.value}px`,
+  '--bag-drawer-opacity': String(Math.max(0.45, 1 - dragY.value / 420)),
 }))
-
-function resetDrag() {
-  dragY.value = 0
-  dragging.value = false
-  pointerId.value = null
-  dragStartY.value = 0
-  dragStartTime.value = 0
-}
 
 function close() {
   resetDrag()
   emit('close')
-}
-
-function onPointerDown(event: PointerEvent) {
-  if (event.pointerType === 'mouse') return
-  pointerId.value = event.pointerId
-  dragStartY.value = event.clientY
-  dragStartTime.value = performance.now()
-  dragging.value = true
-  ;(event.currentTarget as HTMLElement | null)?.setPointerCapture?.(event.pointerId)
-}
-
-function onPointerMove(event: PointerEvent) {
-  if (!dragging.value || pointerId.value !== event.pointerId) return
-  dragY.value = Math.max(0, event.clientY - dragStartY.value)
-}
-
-function onPointerEnd(event: PointerEvent) {
-  if (pointerId.value !== event.pointerId) return
-
-  const elapsed = Math.max(1, performance.now() - dragStartTime.value)
-  const velocity = dragY.value / elapsed
-  const shouldDismiss = dragY.value > 110 || velocity > 0.72
-
-  ;(event.currentTarget as HTMLElement | null)?.releasePointerCapture?.(event.pointerId)
-
-  if (shouldDismiss) close()
-  else resetDrag()
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -115,14 +79,12 @@ onBeforeUnmount(() => {
           :class="{ 'is-dragging': dragging }"
           :style="sheetStyle"
           tabindex="-1"
+          @touchstart.passive="onTouchStart"
+          @touchmove="onTouchMove"
+          @touchend="onTouchEnd"
+          @touchcancel="resetDrag"
         >
-          <div
-            class="bag-drawer-handle-zone"
-            @pointerdown="onPointerDown"
-            @pointermove="onPointerMove"
-            @pointerup="onPointerEnd"
-            @pointercancel="onPointerEnd"
-          >
+          <div class="bag-drawer-handle-zone">
             <span class="bag-drawer-handle" aria-hidden="true" />
           </div>
 

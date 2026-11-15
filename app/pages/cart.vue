@@ -1,5 +1,9 @@
 <script setup lang="ts">
 const cart = useCartStore()
+const removalDialog = ref<HTMLDialogElement | null>(null)
+const bagHeading = ref<HTMLElement | null>(null)
+const removalVariantId = ref<number | null>(null)
+const removalItem = computed(() => cart.items.find(item => item.variantId === removalVariantId.value))
 
 useSeoMeta({
   title: 'Shopping Bag | SAAJ',
@@ -29,7 +33,22 @@ function increase(variantId: number) {
 function decrease(variantId: number) {
   const item = cart.items.find(entry => entry.variantId === variantId)
   if (!item) return
-  cart.updateQuantity(variantId, item.quantity - 1)
+  if (item.quantity > 1) {
+    cart.updateQuantity(variantId, item.quantity - 1)
+    return
+  }
+
+  removalVariantId.value = variantId
+  if (removalDialog.value && !removalDialog.value.open) removalDialog.value.showModal()
+}
+
+async function confirmRemoval() {
+  if (removalVariantId.value === null) return
+
+  cart.remove(removalVariantId.value)
+  removalDialog.value?.close()
+  await nextTick()
+  bagHeading.value?.focus({ preventScroll: true })
 }
 </script>
 
@@ -59,7 +78,7 @@ function decrease(variantId: number) {
       <header class="mt-7 flex items-end justify-between gap-6 border-b border-charcoal-950/10 pb-5 sm:mt-9 sm:pb-6">
         <div>
           <p class="section-kicker">Your selection</p>
-          <h1 class="mt-2 font-display text-[38px] font-medium leading-none tracking-[-0.035em] sm:text-[46px] lg:text-[52px]">
+          <h1 ref="bagHeading" tabindex="-1" class="mt-2 font-display text-[38px] font-medium leading-none tracking-[-0.035em] sm:text-[46px] lg:text-[52px]">
             Shopping bag
           </h1>
         </div>
@@ -107,10 +126,7 @@ function decrease(variantId: number) {
         class="flex min-h-[48vh] flex-col items-center justify-center px-4 py-16 text-center sm:py-24"
       >
         <div class="flex h-14 w-14 items-center justify-center rounded-full border border-charcoal-950/12">
-          <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
-            <path d="M6.8 8.2h10.4l-.7 11H7.5l-.7-11Z" />
-            <path d="M9.2 9V6.6a2.8 2.8 0 0 1 5.6 0V9" />
-          </svg>
+          <StorefrontIcon name="bag" :size="24" />
         </div>
         <p class="mt-7 section-kicker">Nothing here yet</p>
         <h2 class="mt-3 max-w-xl font-display text-[36px] font-medium leading-[0.98] tracking-[-0.035em] sm:text-[44px]">
@@ -331,6 +347,29 @@ function decrease(variantId: number) {
       </div>
     </div>
 
+    <dialog
+      ref="removalDialog"
+      aria-labelledby="bag-remove-title"
+      aria-describedby="bag-remove-message"
+      class="bag-remove-dialog"
+      @close="removalVariantId = null"
+    >
+      <h2 id="bag-remove-title" class="font-display text-[30px] leading-none tracking-[-0.025em]">
+        Remove from your bag?
+      </h2>
+      <p id="bag-remove-message" class="mt-3 break-words text-sm leading-6 text-charcoal-600">
+        Remove <strong class="font-semibold text-charcoal-950">{{ removalItem?.productName }}</strong> from your shopping bag?
+      </p>
+      <div class="mt-6 grid grid-cols-2 gap-2.5 text-sm font-semibold">
+        <button type="button" autofocus class="min-h-11 border border-charcoal-950/25 px-3" @click="removalDialog?.close()">
+          Keep item
+        </button>
+        <button type="button" class="min-h-11 bg-charcoal-950 px-3 text-paper-50" @click="confirmRemoval">
+          Remove item
+        </button>
+      </div>
+    </dialog>
+
     <!-- Mobile checkout stays within thumb reach and mirrors the live cart total. -->
     <Transition name="cart-mobile-checkout">
       <div
@@ -357,3 +396,22 @@ function decrease(variantId: number) {
     </Transition>
   </main>
 </template>
+
+
+<style scoped>
+.bag-remove-dialog {
+  width: min(100% - 2rem, 420px);
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  padding: 1.5rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--color-paper-50);
+  color: var(--color-charcoal-950);
+  box-shadow: 0 20px 50px rgb(0 0 0 / .15);
+}
+
+.bag-remove-dialog::backdrop {
+  background: rgb(15 17 15 / .4);
+}
+</style>
