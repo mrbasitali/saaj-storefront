@@ -66,6 +66,7 @@ async function sendPhoneCode() {
 }
 
 async function confirmPhone() {
+  if (phoneBusy.value || phoneCode.value.length < 4) return
   phoneBusy.value = true
   error.value = ''
 
@@ -82,7 +83,12 @@ async function confirmPhone() {
 }
 
 async function refreshStatus() {
-  await authStore.fetchMe()
+  error.value = ''
+  try {
+    await authStore.fetchMe()
+  } catch (err: any) {
+    error.value = extractApiErrorMessage(err, 'Could not refresh verification status.')
+  }
 }
 
 async function continueOn() {
@@ -98,96 +104,148 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
 </script>
 
 <template>
-  <StorefrontAuthFrame
-    eyebrow="Account verification"
-    title="Confirm the details that are yours."
-    description="Email verification protects account recovery. Phone verification is optional, and enables secure one-time-code sign in and recovery."
-    aside-title="One account. Two ways to prove it’s yours."
-    aside-copy="We never send a phone verification SMS automatically. You choose when to request a code, keeping both cost and account activity intentional."
-  >
-    <div v-if="route.query.new === '1'" class="mb-6 border border-[#657d6c]/30 bg-[#657d6c]/[0.08] p-4 text-[12px] leading-5 text-[#52685a]">
-      Your SAAJ account has been created. You can continue shopping now, or finish verification below.
-    </div>
+  <main class="min-h-[66vh] bg-paper-50 px-5 pb-14 pt-8 text-charcoal-950 sm:px-8 sm:pb-20 sm:pt-12 lg:pt-16">
+    <div class="mx-auto max-w-[620px]">
+      <header>
+        <h1 class="font-display text-[44px] font-medium leading-none tracking-[-0.045em] sm:text-[56px]">
+          {{ allAvailableVerified ? 'Account verified' : 'Verify your account' }}
+        </h1>
+        <p class="mt-3 max-w-lg text-sm leading-6 text-charcoal-600">
+          {{ allAvailableVerified
+            ? 'Your verified contact details are ready to use for account recovery.'
+            : 'Verify your email for account recovery. You can also verify your mobile for one-time-code sign-in.' }}
+        </p>
+      </header>
 
-    <div class="space-y-4">
-      <section class="border border-charcoal-950/12 p-5 sm:p-6">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <p class="text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-500">Email</p>
-            <p class="mt-2 text-[14px] text-charcoal-950">{{ customer?.email }}</p>
-          </div>
-          <span
-            class="px-2.5 py-1 text-[8px] font-semibold uppercase tracking-[0.14em]"
-            :class="customer?.email_verified ? 'bg-[#657d6c]/12 text-[#52685a]' : 'bg-[#b78b57]/12 text-[#89683f]'"
-          >
-            {{ customer?.email_verified ? 'Verified' : 'Pending' }}
-          </span>
-        </div>
+      <p v-if="route.query.new === '1' && !allAvailableVerified" class="mt-5 rounded-lg bg-charcoal-950/[0.045] px-4 py-3 text-sm leading-5">
+        Your SAAJ account is ready. You can continue shopping or verify your details here.
+      </p>
 
-        <template v-if="!customer?.email_verified">
-          <p class="mt-4 text-[11px] leading-5 text-charcoal-500">Open the verification link we sent to this address. If it didn’t arrive, you can send another.</p>
-          <div class="mt-4 flex flex-wrap items-center gap-5">
-            <button type="button" :disabled="emailBusy" class="text-[10px] font-semibold uppercase tracking-[0.13em] text-charcoal-950 underline underline-offset-4 disabled:opacity-45" @click="resendEmail">
-              {{ emailBusy ? 'Sending…' : 'Resend verification email' }}
-            </button>
-            <button type="button" class="text-[10px] uppercase tracking-[0.12em] text-charcoal-500 underline underline-offset-4" @click="refreshStatus">I’ve verified it — refresh</button>
-          </div>
-          <p v-if="emailMessage" class="mt-3 text-[11px] text-[#52685a]">{{ emailMessage }}</p>
-        </template>
-      </section>
-
-      <section class="border border-charcoal-950/12 p-5 sm:p-6">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <p class="text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-500">Mobile</p>
-            <p class="mt-2 text-[14px] text-charcoal-950">{{ customer?.phone || 'No mobile number added' }}</p>
-          </div>
-          <span
-            v-if="customer?.phone"
-            class="px-2.5 py-1 text-[8px] font-semibold uppercase tracking-[0.14em]"
-            :class="customer?.phone_verified ? 'bg-[#657d6c]/12 text-[#52685a]' : 'bg-[#b78b57]/12 text-[#89683f]'"
-          >
-            {{ customer?.phone_verified ? 'Verified' : 'Optional' }}
-          </span>
-        </div>
-
-        <template v-if="!customer?.phone">
-          <p class="mt-4 text-[11px] leading-5 text-charcoal-500">Add a mobile number in your profile if you want phone-code sign in and recovery.</p>
-          <NuxtLink to="/account/profile" class="mt-4 inline-block text-[10px] font-semibold uppercase tracking-[0.13em] text-charcoal-950 underline underline-offset-4">Add mobile number</NuxtLink>
-        </template>
-
-        <template v-else-if="!customer.phone_verified">
-          <p class="mt-4 text-[11px] leading-5 text-charcoal-500">Request a one-time SMS only when you’re ready to verify this number.</p>
-
-          <div v-if="phoneCodeSent" class="mt-5 max-w-sm">
-            <div class="mb-3 flex items-center justify-between gap-4">
-              <p class="text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-500">Verification code</p>
-              <button type="button" :disabled="!canResend || phoneBusy" class="text-[10px] uppercase tracking-[0.12em] text-charcoal-500 underline underline-offset-4 disabled:no-underline disabled:opacity-45" @click="sendPhoneCode">
-                {{ canResend ? 'Resend' : `Resend in ${formattedRemaining}` }}
-              </button>
+      <div class="mt-6 space-y-3 sm:mt-8">
+        <section aria-labelledby="verification-email" class="rounded-xl border border-charcoal-950/12 p-4 sm:p-5">
+          <div class="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2.5">
+            <div class="min-w-0">
+              <h2 id="verification-email" class="text-sm font-semibold">Email</h2>
+              <p class="mt-1 break-words text-sm text-charcoal-600">{{ customer?.email || 'No email address added' }}</p>
             </div>
-            <AuthOtpCodeInput v-model="phoneCode" :disabled="phoneBusy" />
-            <button type="button" :disabled="phoneBusy || phoneCode.length < 4" class="mt-4 w-full bg-charcoal-950 px-5 py-3.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-paper-50 disabled:opacity-45" @click="confirmPhone">
-              {{ phoneBusy ? 'Checking…' : 'Verify mobile' }}
-            </button>
+            <span v-if="customer?.email" role="status" class="verification-badge" :class="{ 'verification-badge--verified': customer.email_verified }">
+              {{ customer.email_verified ? 'Verified' : 'Pending' }}
+            </span>
           </div>
-          <button v-else type="button" :disabled="phoneBusy || !canResend" class="mt-4 text-[10px] font-semibold uppercase tracking-[0.13em] text-charcoal-950 underline underline-offset-4 disabled:opacity-45" @click="sendPhoneCode">
-            {{ phoneBusy ? 'Sending…' : canResend ? 'Send verification code' : `Try again in ${formattedRemaining}` }}
-          </button>
-          <p v-if="phoneMessage" class="mt-3 text-[11px] text-[#52685a]">{{ phoneMessage }}</p>
-        </template>
 
-        <p v-else class="mt-4 text-[11px] leading-5 text-charcoal-500">This number can now be used for phone-code sign in and password recovery.</p>
-      </section>
+          <template v-if="customer?.email && !customer.email_verified">
+            <p class="mt-4 text-sm leading-6 text-charcoal-600">Open the verification link in your inbox. If it hasn’t arrived, request a fresh link.</p>
+            <div class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1">
+              <button type="button" :disabled="emailBusy" class="verification-action" @click="resendEmail">
+                {{ emailBusy ? 'Sending…' : 'Resend verification email' }}
+              </button>
+              <button type="button" class="verification-action text-charcoal-600" @click="refreshStatus">Refresh status</button>
+            </div>
+          </template>
+          <NuxtLink v-else-if="!customer?.email && customer?.phone_verified" to="/account/profile" class="verification-action mt-2">Add email address</NuxtLink>
+          <p v-if="emailMessage && !customer?.email_verified" role="status" class="mt-2 text-sm leading-5">{{ emailMessage }}</p>
+        </section>
+
+        <section aria-labelledby="verification-mobile" class="rounded-xl border border-charcoal-950/12 p-4 sm:p-5">
+          <div class="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2.5">
+            <div class="min-w-0">
+              <h2 id="verification-mobile" class="text-sm font-semibold">Mobile</h2>
+              <p class="mt-1 break-words text-sm text-charcoal-600">{{ customer?.phone || 'No mobile number added' }}</p>
+            </div>
+            <span role="status" class="verification-badge" :class="{ 'verification-badge--verified': customer?.phone_verified }">
+              {{ customer?.phone_verified ? 'Verified' : 'Optional' }}
+            </span>
+          </div>
+
+          <NuxtLink v-if="!customer?.phone && customer?.email_verified" to="/account/profile" class="verification-action mt-2">Add mobile number</NuxtLink>
+          <template v-else-if="customer?.phone && !customer.phone_verified">
+            <form v-if="phoneCodeSent" class="mt-4 max-w-sm" @submit.prevent="confirmPhone">
+              <div class="mb-2 flex flex-wrap items-center justify-between gap-x-3">
+                <p class="text-sm font-semibold">Enter the SMS code</p>
+                <button type="button" :disabled="!canResend || phoneBusy" class="verification-action text-charcoal-600" @click="sendPhoneCode">
+                  {{ canResend ? 'Resend' : `Resend in ${formattedRemaining}` }}
+                </button>
+              </div>
+              <AuthOtpCodeInput v-model="phoneCode" :disabled="phoneBusy" />
+              <button type="submit" :disabled="phoneBusy || phoneCode.length < 4" class="verification-primary mt-3 w-full">
+                {{ phoneBusy ? 'Checking…' : 'Verify mobile' }}
+              </button>
+            </form>
+            <button v-else type="button" :disabled="phoneBusy || !canResend" class="verification-action mt-2" @click="sendPhoneCode">
+              {{ phoneBusy ? 'Sending…' : canResend ? 'Send verification code' : `Try again in ${formattedRemaining}` }}
+            </button>
+          </template>
+          <p v-if="phoneMessage && !customer?.phone_verified" role="status" class="mt-2 text-sm leading-5">{{ phoneMessage }}</p>
+        </section>
+      </div>
+
+      <div v-if="error" role="alert" class="mt-4 rounded-lg border border-[#bd6f6f]/35 bg-[#bd6f6f]/[0.08] px-4 py-3 text-sm leading-5 text-[#8c4949] dark:text-rose-200">{{ error }}</div>
+
+      <div class="mt-5 grid gap-2 sm:mt-6 sm:grid-cols-2">
+        <button type="button" class="verification-primary" @click="continueOn">
+          {{ allAvailableVerified ? 'Continue' : 'Continue for now' }}
+          <StorefrontIcon name="chevron" :size="16" class="-rotate-90" />
+        </button>
+        <NuxtLink to="/account/profile" class="flex min-h-12 items-center justify-center rounded-lg border border-charcoal-950/18 px-5 py-2.5 text-sm font-semibold hover:bg-charcoal-950/[0.045]">Manage profile</NuxtLink>
+      </div>
     </div>
-
-    <div v-if="error" class="mt-5 border border-[#bd6f6f]/35 bg-[#bd6f6f]/[0.07] px-4 py-3 text-[12px] leading-5 text-[#9a4f4f]">{{ error }}</div>
-
-    <div class="mt-7 flex flex-col gap-3 sm:flex-row">
-      <button type="button" class="flex-1 bg-charcoal-950 px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-paper-50" @click="continueOn">
-        {{ allAvailableVerified ? 'Continue' : 'Continue for now' }} →
-      </button>
-      <NuxtLink to="/account/profile" class="flex flex-1 items-center justify-center border border-charcoal-950/18 px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-charcoal-950">Manage profile</NuxtLink>
-    </div>
-  </StorefrontAuthFrame>
+  </main>
 </template>
+
+<style scoped>
+.verification-badge {
+  border-radius: 999px;
+  padding: .25rem .625rem;
+  background: color-mix(in srgb, var(--color-charcoal-950) 7%, transparent);
+  color: var(--color-charcoal-700);
+  font-size: .75rem;
+  font-weight: 600;
+}
+
+.verification-badge--verified {
+  background: #e9efea;
+  color: #355845;
+}
+
+:global(html.dark) .verification-badge--verified {
+  background: #283c32;
+  color: #b7d7c5;
+}
+
+.verification-action,
+.verification-primary {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  font-size: .875rem;
+  font-weight: 600;
+}
+
+.verification-action {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.verification-primary {
+  min-height: 48px;
+  border-radius: .5rem;
+  background: var(--color-charcoal-950);
+  padding: .625rem 1.25rem;
+  color: var(--color-paper-50);
+}
+
+.verification-primary:hover:not(:disabled) {
+  opacity: .88;
+}
+
+.verification-primary .storefront-icon {
+  --icon-primary: currentColor;
+}
+
+.verification-action:disabled,
+.verification-primary:disabled {
+  opacity: .55;
+}
+</style>

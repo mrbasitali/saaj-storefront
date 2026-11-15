@@ -10,7 +10,6 @@ const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const signingOut = ref(false)
-const mobileMenu = ref<HTMLDetailsElement | null>(null)
 
 const links = [
   { label: 'Overview', to: '/account' },
@@ -21,6 +20,8 @@ const links = [
 ]
 
 const firstName = computed(() => authStore.customer?.name?.trim().split(/\s+/)[0] || 'there')
+const accountPath = computed(() => route.path.replace(/\/$/, ''))
+const isOverview = computed(() => accountPath.value === '/account')
 const verificationComplete = computed(() => {
   const customer = authStore.customer
   if (!customer) return true
@@ -28,22 +29,14 @@ const verificationComplete = computed(() => {
 })
 
 function isActive(to: string) {
-  const path = route.path.replace(/\/$/, '')
+  const path = accountPath.value
   return path === to || (to !== '/account' && path.startsWith(`${to}/`))
 }
 
-const activeSection = computed(() => links.find(link => isActive(link.to))?.label ?? 'Overview')
-
 function currentSection(to: string) {
   if (!isActive(to)) return undefined
-  return route.path.replace(/\/$/, '') === to ? 'page' : 'location'
+  return accountPath.value === to ? 'page' : 'location'
 }
-
-function closeMobileMenu() {
-  if (mobileMenu.value) mobileMenu.value.open = false
-}
-
-watch(() => route.path, closeMobileMenu)
 
 async function logout() {
   if (signingOut.value) return
@@ -57,9 +50,9 @@ async function logout() {
 <template>
   <section class="min-h-[68vh] bg-paper-50 text-charcoal-950">
     <div class="mx-auto max-w-[1520px] px-5 pb-20 pt-7 sm:px-8 lg:px-10 lg:pb-28 lg:pt-14 xl:px-14">
-      <header class="border-b border-charcoal-950/10 pb-5 lg:pb-10">
-        <div class="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end lg:gap-7">
-          <div>
+      <header class="border-b border-charcoal-950/10 pb-5 lg:pb-10" :class="{ 'hidden lg:block': !isOverview }">
+        <div class="flex items-end justify-between gap-3 lg:gap-7">
+          <div class="min-w-0">
             <p class="text-[9px] font-semibold uppercase tracking-[0.2em] text-charcoal-400">Your SAAJ</p>
             <h1 class="mt-2 break-words font-display text-[clamp(2.5rem,6vw,5.8rem)] font-medium leading-[0.95] tracking-[-0.055em] text-charcoal-950 lg:mt-3">
               Welcome, {{ firstName }}.
@@ -69,11 +62,11 @@ async function logout() {
             </p>
           </div>
 
-          <div class="flex flex-wrap items-center gap-x-6 gap-y-3 lg:justify-end">
+          <div class="flex shrink-0 flex-col items-end gap-x-6 lg:flex-row lg:items-center">
             <NuxtLink
               v-if="!verificationComplete"
               to="/verify-account"
-              class="inline-flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-[#89683f] underline decoration-[#b78b57]/45 underline-offset-4"
+              class="hidden items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-[#89683f] underline decoration-[#b78b57]/45 underline-offset-4 lg:inline-flex"
             >
               Complete verification
               <span class="h-1.5 w-1.5 rounded-full bg-[#b78b57]" />
@@ -81,7 +74,7 @@ async function logout() {
             <button
               type="button"
               :disabled="signingOut"
-              class="text-[9px] font-semibold uppercase tracking-[0.14em] text-charcoal-500 underline decoration-charcoal-950/20 underline-offset-4 transition hover:text-charcoal-950 disabled:opacity-45"
+              class="inline-flex min-h-11 items-center whitespace-nowrap text-xs font-semibold text-charcoal-600 underline decoration-charcoal-950/20 underline-offset-4 transition hover:text-charcoal-950 disabled:opacity-45 lg:min-h-0 lg:text-[9px] lg:uppercase lg:tracking-[0.14em]"
               @click="logout"
             >
               {{ signingOut ? 'Signing out…' : 'Sign out' }}
@@ -121,34 +114,16 @@ async function logout() {
         </aside>
 
         <div class="min-w-0">
-          <details ref="mobileMenu" class="group mt-4 border border-charcoal-950/12 lg:hidden">
-            <summary class="account-menu-trigger flex min-h-14 cursor-pointer items-center justify-between gap-4 px-4 py-2.5">
-              <span class="grid gap-0.5">
-                <span class="text-[10px] font-semibold uppercase tracking-[0.13em] text-charcoal-500">Account menu</span>
-                <span class="text-sm font-semibold">{{ activeSection }}</span>
-              </span>
-              <StorefrontIcon name="chevron" :size="18" class="transition-transform group-open:rotate-180 motion-reduce:transition-none" />
-            </summary>
+          <NuxtLink
+            v-if="!isOverview"
+            to="/account"
+            class="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-charcoal-600 lg:hidden"
+          >
+            <StorefrontIcon name="chevron" :size="18" class="rotate-90" />
+            My account
+          </NuxtLink>
 
-            <nav class="grid grid-cols-2 gap-1 border-t border-charcoal-950/10 p-2" aria-label="Account navigation">
-              <NuxtLink
-                v-for="link in links"
-                :key="link.to"
-                :to="link.to"
-                :aria-current="currentSection(link.to)"
-                class="flex min-h-11 items-center px-3 py-2.5 text-sm focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-2"
-                :class="isActive(link.to) ? 'bg-charcoal-950/[0.07] font-semibold' : 'text-charcoal-600 hover:bg-charcoal-950/[0.04]'"
-                @click="closeMobileMenu"
-              >
-                {{ link.label }}
-              </NuxtLink>
-              <NuxtLink to="/track-order" class="flex min-h-11 items-center px-3 py-2.5 text-sm text-charcoal-600 hover:bg-charcoal-950/[0.04]">
-                Track an order
-              </NuxtLink>
-            </nav>
-          </details>
-
-          <main class="pt-6 lg:pt-10">
+          <main class="lg:pt-10" :class="isOverview ? 'pt-5' : 'pt-3'">
             <NuxtPage />
           </main>
         </div>
@@ -156,18 +131,3 @@ async function logout() {
     </div>
   </section>
 </template>
-
-<style scoped>
-.account-menu-trigger {
-  list-style: none;
-}
-
-.account-menu-trigger::-webkit-details-marker {
-  display: none;
-}
-
-.account-menu-trigger:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: -3px;
-}
-</style>

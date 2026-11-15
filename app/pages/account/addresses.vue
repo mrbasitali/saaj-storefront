@@ -27,6 +27,7 @@ const { data, pending, refresh } = await useAsyncData('account-addresses-v2', ()
 
 const addresses = computed(() => data.value?.data ?? [])
 const formOpen = ref(false)
+const addressScrollArea = ref<HTMLElement | null>(null)
 const editingId = ref<number | null>(null)
 const saving = ref(false)
 const formError = ref('')
@@ -254,9 +255,10 @@ async function remove() {
           </header>
 
           <form class="storefront-field-theme flex min-h-0 flex-1 flex-col" @submit.prevent="submit">
-            <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-8 sm:py-7">
+            <div ref="addressScrollArea" class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-5 py-5 sm:px-8 sm:py-7">
               <AddressFields
                 :model-value="form"
+                :picker-boundary="addressScrollArea"
                 credentials-style
                 show-label
                 @update:model-value="applyAddressFields"

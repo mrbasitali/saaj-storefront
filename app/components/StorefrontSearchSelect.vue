@@ -11,6 +11,7 @@ const props = withDefaults(defineProps<{
   options: StorefrontSelectOption[]
   label?: string
   credentialsStyle?: boolean
+  desktopBoundary?: HTMLElement | null
   placeholder?: string
   searchPlaceholder?: string
   emptyText?: string
@@ -41,6 +42,7 @@ const activeIndex = ref(-1)
 const isMobile = ref(false)
 const mobileSheetHeight = ref<number | null>(null)
 const mobileSheetBottom = ref(0)
+const desktopPanelStyle = ref<{ left: string, width: string, top?: string, bottom?: string, maxHeight: string }>()
 const {
   dragY: sheetDragY, dragging: sheetDragging, reset: resetSheetDrag,
   onTouchStart, onTouchMove, onTouchEnd,
@@ -69,7 +71,10 @@ const mobilePanelStyle = computed(() => ({
 }))
 
 function syncViewport() {
-  if (!isMobile.value) return
+  if (!isMobile.value) {
+    syncDesktopPanel()
+    return
+  }
 
   const viewport = window.visualViewport
   const visibleHeight = viewport?.height ?? window.innerHeight
@@ -81,11 +86,45 @@ function syncViewport() {
     : 0
 }
 
+function syncDesktopPanel() {
+  const boundary = props.desktopBoundary
+  const anchor = root.value?.getBoundingClientRect()
+  if (!open.value || isMobile.value || !boundary || !anchor) return
+
+  const bounds = boundary.getBoundingClientRect()
+  const padding = window.getComputedStyle(boundary)
+  const left = Math.max(8, bounds.left + parseFloat(padding.paddingLeft))
+  const right = Math.min(window.innerWidth - 8, bounds.left + boundary.clientWidth - parseFloat(padding.paddingRight))
+  const top = Math.max(0, bounds.top)
+  const bottom = Math.min(window.innerHeight, bounds.top + boundary.clientHeight)
+  const gap = 8
+
+  if (anchor.bottom <= top || anchor.top >= bottom) {
+    close(false)
+    return
+  }
+
+  const availableBelow = bottom - anchor.bottom - gap * 2
+  const availableAbove = anchor.top - top - gap * 2
+  const preferredHeight = 52 + Math.min(320, window.innerHeight * 0.42)
+  const openAbove = availableBelow < preferredHeight && availableAbove > availableBelow
+  const width = Math.min(Math.max(anchor.width, 280), right - left)
+
+  desktopPanelStyle.value = {
+    left: `${Math.max(left, Math.min(anchor.left, right - width)) - anchor.left}px`,
+    width: `${width}px`,
+    top: openAbove ? 'auto' : undefined,
+    bottom: openAbove ? `calc(100% + ${gap}px)` : undefined,
+    maxHeight: `${Math.max(0, Math.min(preferredHeight, openAbove ? availableAbove : availableBelow))}px`,
+  }
+}
+
 function close(restoreFocus = isMobile.value) {
   if (!open.value) return
   open.value = false
   search.value = ''
   activeIndex.value = -1
+  desktopPanelStyle.value = undefined
   resetSheetDrag()
   if (restoreFocus) trigger.value?.focus({ preventScroll: true })
 }
@@ -112,6 +151,8 @@ async function toggle() {
     // scroll/select, or tap Search when they actually need filtering.
     panel.value?.focus({ preventScroll: true })
   } else {
+    syncDesktopPanel()
+    await nextTick()
     searchInput.value?.focus({ preventScroll: true })
   }
 }
@@ -204,6 +245,12 @@ watch(() => props.disabled, (disabled) => {
   if (disabled) close()
 })
 
+watch([open, isMobile, () => props.desktopBoundary], ([value, mobile, boundary], _, onCleanup) => {
+  if (!value || mobile || !boundary) return
+  boundary.addEventListener('scroll', syncDesktopPanel, { passive: true })
+  onCleanup(() => boundary.removeEventListener('scroll', syncDesktopPanel))
+})
+
 watch(open, (value) => {
   if (!import.meta.client) return
 
@@ -272,7 +319,7 @@ onBeforeUnmount(() => {
 
     <!-- Desktop / tablet anchored picker -->
     <Transition name="sf-select-pop">
-      <div v-if="open && !isMobile" ref="panel" class="sf-select__panel">
+      <div v-if="open && !isMobile" ref="panel" class="sf-select__panel" :style="desktopPanelStyle">
         <div class="sf-select__search-wrap">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="11" cy="11" r="6.5" />
@@ -541,7 +588,9 @@ onBeforeUnmount(() => {
   z-index: 80;
   top: calc(100% + 8px);
   left: 0;
+  display: flex;
   width: max(100%, 280px);
+  flex-direction: column;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--color-charcoal-950) 10%, transparent);
   background: var(--color-paper-50);
@@ -556,6 +605,7 @@ onBeforeUnmount(() => {
 }
 
 .sf-select__search-wrap {
+  flex: none;
   border-bottom: 1px solid color-mix(in srgb, var(--color-charcoal-950) 9%, transparent);
 }
 
@@ -612,6 +662,7 @@ onBeforeUnmount(() => {
 }
 
 .sf-select__options {
+  min-height: 0;
   max-height: min(320px, 42vh);
   overflow-y: auto;
   overscroll-behavior: contain;

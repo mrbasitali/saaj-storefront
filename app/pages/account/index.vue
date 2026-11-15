@@ -52,6 +52,12 @@ const orderCount = computed(() => data.value?.orders.meta.total ?? 0)
 const addresses = computed(() => data.value?.addresses.data ?? [])
 const defaultAddress = computed(() => addresses.value.find(address => address.is_default) ?? addresses.value[0] ?? null)
 const wishlistCount = computed(() => data.value?.wishlist.data.length ?? 0)
+const accountShortcuts = computed(() => [
+  { to: '/account/orders', label: 'Orders', icon: 'package', count: orderCount.value },
+  { to: '/account/addresses', label: 'Addresses', icon: 'pin', count: addresses.value.length },
+  { to: '/account/wishlist', label: 'Wishlist', icon: 'heart', count: wishlistCount.value },
+  { to: '/account/profile', label: 'Profile', icon: 'account', count: null },
+] as const)
 const verificationComplete = computed(() => Boolean(
   authStore.customer?.email_verified
   && (!authStore.customer?.phone || authStore.customer?.phone_verified),
@@ -74,7 +80,7 @@ function orderImage(order: Order) {
 
 <template>
   <div>
-    <div class="flex flex-col gap-4 border-b border-charcoal-950/10 pb-7 sm:flex-row sm:items-end sm:justify-between">
+    <div class="hidden items-end justify-between gap-4 border-b border-charcoal-950/10 pb-7 lg:flex">
       <div>
         <p class="text-[9px] font-semibold uppercase tracking-[0.18em] text-charcoal-400">Account overview</p>
         <h2 class="mt-2 font-display text-[38px] font-medium leading-none tracking-[-0.04em] text-charcoal-950 sm:text-[44px]">Your account.</h2>
@@ -88,6 +94,32 @@ function orderImage(order: Order) {
         Refresh
       </button>
     </div>
+
+    <nav class="lg:hidden" aria-label="Account shortcuts">
+      <div class="grid grid-cols-2 gap-3">
+        <NuxtLink
+          v-for="shortcut in accountShortcuts"
+          :key="shortcut.to"
+          :to="shortcut.to"
+          class="flex min-h-[102px] min-w-0 flex-col justify-between gap-2.5 rounded-lg border border-charcoal-950/10 bg-charcoal-950/[0.025] p-3.5 transition-colors hover:border-charcoal-950/25 hover:bg-charcoal-950/[0.045] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 sm:p-4"
+        >
+          <span class="flex items-start justify-between gap-2">
+            <span class="grid size-9 place-items-center rounded-full bg-paper-50">
+              <StorefrontIcon :name="shortcut.icon" :size="21" />
+            </span>
+            <StorefrontIcon name="chevron" :size="15" class="-rotate-90" />
+          </span>
+          <span class="flex items-center justify-between gap-2">
+            <span class="text-sm font-semibold">{{ shortcut.label }}</span>
+            <span v-if="!pending && shortcut.count !== null" class="text-xs tabular-nums text-charcoal-600">{{ shortcut.count }}</span>
+          </span>
+        </NuxtLink>
+      </div>
+      <NuxtLink to="/track-order" class="mt-3 flex min-h-12 items-center justify-between gap-4 rounded-lg border border-charcoal-950/10 px-3.5 text-sm font-semibold transition-colors hover:bg-charcoal-950/[0.045] sm:px-4">
+        Track an order
+        <StorefrontIcon name="chevron" :size="15" class="-rotate-90" />
+      </NuxtLink>
+    </nav>
 
     <div
       v-if="!verificationComplete"
@@ -103,7 +135,7 @@ function orderImage(order: Order) {
       </NuxtLink>
     </div>
 
-    <div class="mt-8 grid border-y border-charcoal-950/10 sm:grid-cols-3">
+    <div class="mt-8 hidden grid-cols-3 border-y border-charcoal-950/10 lg:grid">
       <NuxtLink to="/account/orders" class="group py-6 sm:border-r sm:border-charcoal-950/10 sm:px-6 first:sm:pl-0">
         <p class="text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-400">Orders</p>
         <div class="mt-2 flex items-end justify-between gap-4">
@@ -127,14 +159,15 @@ function orderImage(order: Order) {
       </NuxtLink>
     </div>
 
-    <div class="mt-12 grid gap-12 xl:grid-cols-[1.25fr_.75fr] xl:gap-16">
+    <div class="mt-8 grid gap-9 lg:mt-12 lg:gap-12 xl:grid-cols-[1.25fr_.75fr] xl:gap-16">
       <section>
         <div class="flex items-end justify-between border-b border-charcoal-950/10 pb-4">
           <div>
             <p class="text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-400">Recent activity</p>
             <h3 class="mt-2 font-display text-[28px] font-medium tracking-[-0.03em] text-charcoal-950">Latest orders</h3>
           </div>
-          <NuxtLink to="/account/orders" class="text-[9px] font-semibold uppercase tracking-[0.13em] text-charcoal-500 underline decoration-charcoal-950/20 underline-offset-4">All orders</NuxtLink>
+          <NuxtLink to="/account/orders" class="hidden text-[9px] font-semibold uppercase tracking-[0.13em] text-charcoal-500 underline decoration-charcoal-950/20 underline-offset-4 lg:inline-flex">All orders</NuxtLink>
+          <button type="button" :disabled="pending" class="inline-flex min-h-11 items-center text-xs font-semibold text-charcoal-600 disabled:opacity-40 lg:hidden" @click="refresh">Refresh</button>
         </div>
 
         <div v-if="pending" class="divide-y divide-charcoal-950/10">
@@ -199,7 +232,7 @@ function orderImage(order: Order) {
           <NuxtLink to="/account/addresses" class="mt-5 inline-flex items-center gap-3 text-[9px] font-semibold uppercase tracking-[0.13em] text-charcoal-950">Add an address →</NuxtLink>
         </div>
 
-        <div class="mt-4 border-t border-charcoal-950/10 pt-6">
+        <div class="mt-4 hidden border-t border-charcoal-950/10 pt-6 lg:block">
           <p class="text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-400">Need an order update?</p>
           <p class="mt-2 text-[11px] leading-5 text-charcoal-500">Guest orders and older orders can be checked using the order number and checkout phone.</p>
           <NuxtLink to="/track-order" class="mt-4 inline-flex items-center gap-3 text-[9px] font-semibold uppercase tracking-[0.13em] text-charcoal-950">Track an order →</NuxtLink>

@@ -25,6 +25,7 @@ const props = withDefaults(defineProps<{
   showLabel?: boolean
   showRecipientFields?: boolean
   credentialsStyle?: boolean
+  pickerBoundary?: HTMLElement | null
 }>(), {
   showLabel: false,
   showRecipientFields: true,
@@ -286,6 +287,7 @@ onMounted(async () => {
         <StorefrontSearchSelect
           :model-value="countryId"
           label="Country"
+          :desktop-boundary="pickerBoundary"
           :credentials-style="credentialsStyle"
           :options="countries"
           :loading="loadingCountries"
@@ -300,6 +302,7 @@ onMounted(async () => {
         <StorefrontSearchSelect
           :model-value="stateId"
           label="Province"
+          :desktop-boundary="pickerBoundary"
           :credentials-style="credentialsStyle"
           :options="states"
           :loading="loadingStates"
@@ -315,6 +318,7 @@ onMounted(async () => {
         <StorefrontSearchSelect
           :model-value="cityId"
           label="City"
+          :desktop-boundary="pickerBoundary"
           :credentials-style="credentialsStyle"
           :options="cities"
           :loading="loadingCities"
