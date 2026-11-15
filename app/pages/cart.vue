@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const cart = useCartStore()
-const removalDialog = ref<HTMLDialogElement | null>(null)
+const removalDialog = useTemplateRef('removalDialog')
 const bagHeading = ref<HTMLElement | null>(null)
 const removalVariantId = ref<number | null>(null)
 const removalItem = computed(() => cart.items.find(item => item.variantId === removalVariantId.value))
@@ -39,7 +39,7 @@ function decrease(variantId: number) {
   }
 
   removalVariantId.value = variantId
-  if (removalDialog.value && !removalDialog.value.open) removalDialog.value.showModal()
+  removalDialog.value?.show()
 }
 
 async function confirmRemoval() {
@@ -347,28 +347,18 @@ async function confirmRemoval() {
       </div>
     </div>
 
-    <dialog
+    <StorefrontConfirmDialog
       ref="removalDialog"
-      aria-labelledby="bag-remove-title"
-      aria-describedby="bag-remove-message"
-      class="bag-remove-dialog"
-      @close="removalVariantId = null"
+      title="Remove from your bag?"
+      cancel-label="Keep item"
+      confirm-label="Remove item"
+      @dismiss="removalVariantId = null"
+      @confirm="confirmRemoval"
     >
-      <h2 id="bag-remove-title" class="font-display text-[30px] leading-none tracking-[-0.025em]">
-        Remove from your bag?
-      </h2>
-      <p id="bag-remove-message" class="mt-3 break-words text-sm leading-6 text-charcoal-600">
+      <p>
         Remove <strong class="font-semibold text-charcoal-950">{{ removalItem?.productName }}</strong> from your shopping bag?
       </p>
-      <div class="mt-6 grid grid-cols-2 gap-2.5 text-sm font-semibold">
-        <button type="button" autofocus class="min-h-11 border border-charcoal-950/25 px-3" @click="removalDialog?.close()">
-          Keep item
-        </button>
-        <button type="button" class="min-h-11 bg-charcoal-950 px-3 text-paper-50" @click="confirmRemoval">
-          Remove item
-        </button>
-      </div>
-    </dialog>
+    </StorefrontConfirmDialog>
 
     <!-- Mobile checkout stays within thumb reach and mirrors the live cart total. -->
     <Transition name="cart-mobile-checkout">
@@ -396,22 +386,3 @@ async function confirmRemoval() {
     </Transition>
   </main>
 </template>
-
-
-<style scoped>
-.bag-remove-dialog {
-  width: min(100% - 2rem, 420px);
-  max-height: calc(100dvh - 2rem);
-  margin: auto;
-  padding: 1.5rem;
-  overflow: auto;
-  overscroll-behavior: contain;
-  background: var(--color-paper-50);
-  color: var(--color-charcoal-950);
-  box-shadow: 0 20px 50px rgb(0 0 0 / .15);
-}
-
-.bag-remove-dialog::backdrop {
-  background: rgb(15 17 15 / .4);
-}
-</style>

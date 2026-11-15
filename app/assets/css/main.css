@@ -2042,20 +2042,16 @@ html.dark .storefront-footer {
 .product-editorial-stack-zoom {
   position: absolute;
   z-index: 2;
-  border: 1px solid color-mix(in srgb, var(--color-charcoal-950) 7%, transparent);
-  background: color-mix(in srgb, var(--color-paper-50) 88%, transparent);
-  color: var(--color-charcoal-700);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
 }
 
 .product-editorial-stack-counter {
   right: 1.25rem;
   bottom: 1.25rem;
-  padding: .55rem .7rem;
-  font-size: 8px;
-  font-weight: 650;
-  letter-spacing: .13em;
+  padding: .375rem .625rem;
+  background: var(--color-paper-50);
+  color: var(--color-charcoal-950);
+  font-size: .8125rem;
+  font-weight: 600;
 }
 
 .product-editorial-stack-zoom {
@@ -2065,6 +2061,11 @@ html.dark .storefront-footer {
   width: 42px;
   height: 42px;
   place-items: center;
+  border: 1px solid color-mix(in srgb, var(--color-charcoal-950) 7%, transparent);
+  background: color-mix(in srgb, var(--color-paper-50) 88%, transparent);
+  color: var(--color-charcoal-700);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   opacity: 0;
   transform: translateY(-4px);
   transition: opacity 220ms ease, transform 320ms cubic-bezier(.22, 1, .36, 1), background-color 180ms ease, color 180ms ease;

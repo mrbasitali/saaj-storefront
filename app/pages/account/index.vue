@@ -82,13 +82,13 @@ function orderImage(order: Order) {
   <div>
     <div class="hidden items-end justify-between gap-4 border-b border-charcoal-950/10 pb-7 lg:flex">
       <div>
-        <p class="text-[9px] font-semibold uppercase tracking-[0.18em] text-charcoal-400">Account overview</p>
+        <p class="text-xs font-semibold text-charcoal-700">Account overview</p>
         <h2 class="mt-2 font-display text-[38px] font-medium leading-none tracking-[-0.04em] text-charcoal-950 sm:text-[44px]">Your account.</h2>
       </div>
       <button
         type="button"
         :disabled="pending"
-        class="self-start text-[9px] font-semibold uppercase tracking-[0.13em] text-charcoal-500 underline decoration-charcoal-950/20 underline-offset-4 disabled:opacity-40 sm:self-auto"
+        class="self-start text-xs font-semibold text-charcoal-700 underline decoration-charcoal-950/20 underline-offset-4 disabled:opacity-40 sm:self-auto"
         @click="refresh"
       >
         Refresh
@@ -101,7 +101,7 @@ function orderImage(order: Order) {
           v-for="shortcut in accountShortcuts"
           :key="shortcut.to"
           :to="shortcut.to"
-          class="flex min-h-[102px] min-w-0 flex-col justify-between gap-2.5 rounded-lg border border-charcoal-950/10 bg-charcoal-950/[0.025] p-3.5 transition-colors hover:border-charcoal-950/25 hover:bg-charcoal-950/[0.045] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 sm:p-4"
+          class="flex min-h-[102px] min-w-0 flex-col justify-between gap-2.5 bg-charcoal-950/[0.045] p-3.5 transition-colors hover:bg-charcoal-950/[0.075] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 sm:p-4"
         >
           <span class="flex items-start justify-between gap-2">
             <span class="grid size-9 place-items-center rounded-full bg-paper-50">
@@ -115,7 +115,7 @@ function orderImage(order: Order) {
           </span>
         </NuxtLink>
       </div>
-      <NuxtLink to="/track-order" class="mt-3 flex min-h-12 items-center justify-between gap-4 rounded-lg border border-charcoal-950/10 px-3.5 text-sm font-semibold transition-colors hover:bg-charcoal-950/[0.045] sm:px-4">
+      <NuxtLink to="/track-order" class="mt-3 flex min-h-12 items-center justify-between gap-4 border border-charcoal-950/15 px-3.5 text-sm font-semibold transition-colors hover:bg-charcoal-950/[0.045] sm:px-4">
         Track an order
         <StorefrontIcon name="chevron" :size="15" class="-rotate-90" />
       </NuxtLink>
@@ -126,10 +126,10 @@ function orderImage(order: Order) {
       class="mt-6 grid gap-5 border border-[#b78b57]/30 bg-[#b78b57]/[0.06] p-5 sm:grid-cols-[1fr_auto] sm:items-center"
     >
       <div>
-        <p class="text-[9px] font-semibold uppercase tracking-[0.15em] text-[#89683f]">Account verification</p>
-        <p class="mt-2 text-[12px] leading-5 text-charcoal-700">Complete your email or mobile verification to unlock the full sign-in and recovery experience.</p>
+        <p class="text-xs font-semibold text-charcoal-800">Account verification</p>
+        <p class="mt-2 text-sm leading-5 text-charcoal-700">Complete your email or mobile verification to unlock the full sign-in and recovery experience.</p>
       </div>
-      <NuxtLink to="/verify-account" class="inline-flex items-center gap-3 text-[9px] font-semibold uppercase tracking-[0.14em] text-charcoal-950">
+      <NuxtLink to="/verify-account" class="inline-flex items-center gap-3 text-xs font-semibold text-charcoal-950">
         Manage verification
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" class="h-4 w-4"><path d="M5 12h14M14 7l5 5-5 5" /></svg>
       </NuxtLink>
@@ -137,24 +137,24 @@ function orderImage(order: Order) {
 
     <div class="mt-8 hidden grid-cols-3 border-y border-charcoal-950/10 lg:grid">
       <NuxtLink to="/account/orders" class="group py-6 sm:border-r sm:border-charcoal-950/10 sm:px-6 first:sm:pl-0">
-        <p class="text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-400">Orders</p>
+        <p class="text-xs font-semibold text-charcoal-700">Orders</p>
         <div class="mt-2 flex items-end justify-between gap-4">
           <p class="font-display text-[38px] leading-none tracking-[-0.04em] text-charcoal-950">{{ pending ? '—' : orderCount }}</p>
-          <span class="text-[9px] uppercase tracking-[0.12em] text-charcoal-400 transition group-hover:text-charcoal-950">View history →</span>
+          <span class="text-xs text-charcoal-700 transition group-hover:text-charcoal-950">View history →</span>
         </div>
       </NuxtLink>
       <NuxtLink to="/account/addresses" class="group border-t border-charcoal-950/10 py-6 sm:border-r sm:border-t-0 sm:px-6">
-        <p class="text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-400">Addresses</p>
+        <p class="text-xs font-semibold text-charcoal-700">Addresses</p>
         <div class="mt-2 flex items-end justify-between gap-4">
           <p class="font-display text-[38px] leading-none tracking-[-0.04em] text-charcoal-950">{{ pending ? '—' : addresses.length }}</p>
-          <span class="text-[9px] uppercase tracking-[0.12em] text-charcoal-400 transition group-hover:text-charcoal-950">Manage →</span>
+          <span class="text-xs text-charcoal-700 transition group-hover:text-charcoal-950">Manage →</span>
         </div>
       </NuxtLink>
       <NuxtLink to="/account/wishlist" class="group border-t border-charcoal-950/10 py-6 sm:border-t-0 sm:pl-6">
-        <p class="text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-400">Saved pieces</p>
+        <p class="text-xs font-semibold text-charcoal-700">Saved pieces</p>
         <div class="mt-2 flex items-end justify-between gap-4">
           <p class="font-display text-[38px] leading-none tracking-[-0.04em] text-charcoal-950">{{ pending ? '—' : wishlistCount }}</p>
-          <span class="text-[9px] uppercase tracking-[0.12em] text-charcoal-400 transition group-hover:text-charcoal-950">Open wishlist →</span>
+          <span class="text-xs text-charcoal-700 transition group-hover:text-charcoal-950">Open wishlist →</span>
         </div>
       </NuxtLink>
     </div>
@@ -163,10 +163,10 @@ function orderImage(order: Order) {
       <section>
         <div class="flex items-end justify-between border-b border-charcoal-950/10 pb-4">
           <div>
-            <p class="text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-400">Recent activity</p>
+            <p class="text-xs font-semibold text-charcoal-700">Recent activity</p>
             <h3 class="mt-2 font-display text-[28px] font-medium tracking-[-0.03em] text-charcoal-950">Latest orders</h3>
           </div>
-          <NuxtLink to="/account/orders" class="hidden text-[9px] font-semibold uppercase tracking-[0.13em] text-charcoal-500 underline decoration-charcoal-950/20 underline-offset-4 lg:inline-flex">All orders</NuxtLink>
+          <NuxtLink to="/account/orders" class="hidden text-xs font-semibold text-charcoal-700 underline decoration-charcoal-950/20 underline-offset-4 lg:inline-flex">All orders</NuxtLink>
           <button type="button" :disabled="pending" class="inline-flex min-h-11 items-center text-xs font-semibold text-charcoal-600 disabled:opacity-40 lg:hidden" @click="refresh">Refresh</button>
         </div>
 
@@ -188,9 +188,9 @@ function orderImage(order: Order) {
               <img v-if="orderImage(order)" :src="orderImage(order)!" :alt="order.items?.[0]?.product_name || 'Order item'" class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]">
             </div>
             <div class="min-w-0 self-center">
-              <p class="text-[9px] font-semibold uppercase tracking-[0.13em] text-charcoal-400">{{ formatDate(order.placed_at) }}</p>
-              <p class="mt-1.5 truncate text-[12px] font-medium text-charcoal-950">{{ order.order_number }}</p>
-              <p class="mt-1 text-[10px] text-charcoal-500">{{ order.items?.reduce((sum, item) => sum + Number(item.quantity || 0), 0) || 0 }} piece<span v-if="(order.items?.length || 0) !== 1">s</span></p>
+              <p class="text-xs font-semibold text-charcoal-700">{{ formatDate(order.placed_at) }}</p>
+              <p class="mt-1.5 truncate text-sm font-medium text-charcoal-950">{{ order.order_number }}</p>
+              <p class="mt-1 text-xs text-charcoal-700">{{ order.items?.reduce((sum, item) => sum + Number(item.quantity || 0), 0) || 0 }} piece<span v-if="(order.items?.length || 0) !== 1">s</span></p>
             </div>
             <div class="flex flex-col items-end justify-center gap-2 text-right">
               <OrderStatusBadge :status="order.fulfillment_status" />
@@ -199,43 +199,43 @@ function orderImage(order: Order) {
           </NuxtLink>
         </div>
 
-        <div v-else class="py-10">
+        <div v-else class="py-6 sm:py-8">
           <p class="font-display text-[26px] tracking-[-0.03em] text-charcoal-950">No orders yet.</p>
-          <p class="mt-2 max-w-md text-[11px] leading-5 text-charcoal-500">Your online orders will appear here once you find something worth keeping.</p>
-          <NuxtLink to="/shop" class="mt-5 inline-flex items-center gap-3 text-[9px] font-semibold uppercase tracking-[0.14em] text-charcoal-950">Explore the shop →</NuxtLink>
+          <p class="mt-2 max-w-md text-sm leading-5 text-charcoal-700">Your online orders will appear here once you find something worth keeping.</p>
+          <NuxtLink to="/shop" class="mt-5 inline-flex items-center gap-3 text-xs font-semibold text-charcoal-950">Explore the shop →</NuxtLink>
         </div>
       </section>
 
       <section>
         <div class="border-b border-charcoal-950/10 pb-4">
-          <p class="text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-400">Delivery</p>
+          <p class="text-xs font-semibold text-charcoal-700">Delivery</p>
           <h3 class="mt-2 font-display text-[28px] font-medium tracking-[-0.03em] text-charcoal-950">Default address</h3>
         </div>
 
         <div v-if="defaultAddress" class="py-5">
           <div class="flex items-start justify-between gap-4">
             <div>
-              <p class="text-[12px] font-medium text-charcoal-950">{{ defaultAddress.label || 'Delivery address' }}</p>
-              <p class="mt-2 text-[11px] leading-5 text-charcoal-500">
+              <p class="text-sm font-medium text-charcoal-950">{{ defaultAddress.label || 'Delivery address' }}</p>
+              <p class="mt-2 text-sm leading-5 text-charcoal-700">
                 {{ defaultAddress.recipient_name }} · {{ defaultAddress.recipient_phone }}<br>
                 {{ defaultAddress.address_line1 }}<span v-if="defaultAddress.address_line2">, {{ defaultAddress.address_line2 }}</span><br>
                 {{ defaultAddress.city_name }}<span v-if="defaultAddress.state_name">, {{ defaultAddress.state_name }}</span>
               </p>
             </div>
-            <span v-if="defaultAddress.is_default" class="border border-[#657d6c]/25 bg-[#657d6c]/[0.08] px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.12em] text-[#52685a]">Default</span>
+            <span v-if="defaultAddress.is_default" class="border border-[#657d6c]/25 bg-[#657d6c]/[0.08] px-2 py-1 text-[8px] font-semibold text-[#52685a]">Default</span>
           </div>
-          <NuxtLink to="/account/addresses" class="mt-5 inline-flex items-center gap-3 text-[9px] font-semibold uppercase tracking-[0.13em] text-charcoal-950">Manage addresses →</NuxtLink>
+          <NuxtLink to="/account/addresses" class="mt-5 inline-flex items-center gap-3 text-xs font-semibold text-charcoal-950">Manage addresses →</NuxtLink>
         </div>
 
         <div v-else-if="!pending" class="py-8">
-          <p class="text-[11px] leading-5 text-charcoal-500">Save a delivery address to make your next checkout quicker.</p>
-          <NuxtLink to="/account/addresses" class="mt-5 inline-flex items-center gap-3 text-[9px] font-semibold uppercase tracking-[0.13em] text-charcoal-950">Add an address →</NuxtLink>
+          <p class="text-sm leading-5 text-charcoal-700">Save a delivery address to make your next checkout quicker.</p>
+          <NuxtLink to="/account/addresses" class="mt-5 inline-flex items-center gap-3 text-xs font-semibold text-charcoal-950">Add an address →</NuxtLink>
         </div>
 
         <div class="mt-4 hidden border-t border-charcoal-950/10 pt-6 lg:block">
-          <p class="text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-400">Need an order update?</p>
-          <p class="mt-2 text-[11px] leading-5 text-charcoal-500">Guest orders and older orders can be checked using the order number and checkout phone.</p>
-          <NuxtLink to="/track-order" class="mt-4 inline-flex items-center gap-3 text-[9px] font-semibold uppercase tracking-[0.13em] text-charcoal-950">Track an order →</NuxtLink>
+          <p class="text-xs font-semibold text-charcoal-700">Need an order update?</p>
+          <p class="mt-2 text-sm leading-5 text-charcoal-700">Guest orders and older orders can be checked using the order number and checkout phone.</p>
+          <NuxtLink to="/track-order" class="mt-4 inline-flex items-center gap-3 text-xs font-semibold text-charcoal-950">Track an order →</NuxtLink>
         </div>
       </section>
     </div>

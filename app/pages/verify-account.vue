@@ -104,33 +104,31 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
 </script>
 
 <template>
-  <main class="min-h-[66vh] bg-paper-50 px-5 pb-14 pt-8 text-charcoal-950 sm:px-8 sm:pb-20 sm:pt-12 lg:pt-16">
+  <main class="min-h-[66vh] bg-paper-50 px-5 pb-14 pt-8 subpixel-antialiased text-charcoal-950 sm:px-8 sm:pb-20 sm:pt-12 lg:pt-16">
     <div class="mx-auto max-w-[620px]">
       <header>
         <h1 class="font-display text-[44px] font-medium leading-none tracking-[-0.045em] sm:text-[56px]">
           {{ allAvailableVerified ? 'Account verified' : 'Verify your account' }}
         </h1>
-        <p class="mt-3 max-w-lg text-sm leading-6 text-charcoal-600">
+        <p class="mt-3 max-w-lg text-base leading-6 text-charcoal-700">
           {{ allAvailableVerified
             ? 'Your verified contact details are ready to use for account recovery.'
             : 'Verify your email for account recovery. You can also verify your mobile for one-time-code sign-in.' }}
         </p>
       </header>
 
-      <p v-if="route.query.new === '1' && !allAvailableVerified" class="mt-5 rounded-lg bg-charcoal-950/[0.045] px-4 py-3 text-sm leading-5">
+      <p v-if="route.query.new === '1' && !allAvailableVerified" class="mt-5 bg-charcoal-950/[0.045] px-4 py-3 text-sm leading-5">
         Your SAAJ account is ready. You can continue shopping or verify your details here.
       </p>
 
-      <div class="mt-6 space-y-3 sm:mt-8">
-        <section aria-labelledby="verification-email" class="rounded-xl border border-charcoal-950/12 p-4 sm:p-5">
+      <div class="mt-6 divide-y divide-charcoal-950/12 border-y border-charcoal-950/12 sm:mt-8">
+        <section aria-labelledby="verification-email" class="py-4 sm:py-5">
           <div class="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2.5">
             <div class="min-w-0">
-              <h2 id="verification-email" class="text-sm font-semibold">Email</h2>
-              <p class="mt-1 break-words text-sm text-charcoal-600">{{ customer?.email || 'No email address added' }}</p>
+              <h2 id="verification-email" class="text-base font-semibold">Email</h2>
+              <p class="mt-1 break-words text-sm text-charcoal-800">{{ customer?.email || 'No email address added' }}</p>
             </div>
-            <span v-if="customer?.email" role="status" class="verification-badge" :class="{ 'verification-badge--verified': customer.email_verified }">
-              {{ customer.email_verified ? 'Verified' : 'Pending' }}
-            </span>
+            <StorefrontVerificationStatus v-if="customer?.email" role="status" :status="customer.email_verified ? 'verified' : 'pending'" />
           </div>
 
           <template v-if="customer?.email && !customer.email_verified">
@@ -146,15 +144,13 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
           <p v-if="emailMessage && !customer?.email_verified" role="status" class="mt-2 text-sm leading-5">{{ emailMessage }}</p>
         </section>
 
-        <section aria-labelledby="verification-mobile" class="rounded-xl border border-charcoal-950/12 p-4 sm:p-5">
+        <section aria-labelledby="verification-mobile" class="py-4 sm:py-5">
           <div class="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2.5">
             <div class="min-w-0">
-              <h2 id="verification-mobile" class="text-sm font-semibold">Mobile</h2>
-              <p class="mt-1 break-words text-sm text-charcoal-600">{{ customer?.phone || 'No mobile number added' }}</p>
+              <h2 id="verification-mobile" class="text-base font-semibold">Mobile</h2>
+              <p class="mt-1 break-words text-sm text-charcoal-800">{{ customer?.phone || 'No mobile number added' }}</p>
             </div>
-            <span role="status" class="verification-badge" :class="{ 'verification-badge--verified': customer?.phone_verified }">
-              {{ customer?.phone_verified ? 'Verified' : 'Optional' }}
-            </span>
+            <StorefrontVerificationStatus role="status" :status="customer?.phone_verified ? 'verified' : 'optional'" />
           </div>
 
           <NuxtLink v-if="!customer?.phone && customer?.email_verified" to="/account/profile" class="verification-action mt-2">Add mobile number</NuxtLink>
@@ -179,39 +175,20 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
         </section>
       </div>
 
-      <div v-if="error" role="alert" class="mt-4 rounded-lg border border-[#bd6f6f]/35 bg-[#bd6f6f]/[0.08] px-4 py-3 text-sm leading-5 text-[#8c4949] dark:text-rose-200">{{ error }}</div>
+      <div v-if="error" role="alert" class="mt-4 border border-[#bd6f6f]/35 bg-[#bd6f6f]/[0.08] px-4 py-3 text-sm leading-5 text-[#8c4949] dark:text-rose-200">{{ error }}</div>
 
       <div class="mt-5 grid gap-2 sm:mt-6 sm:grid-cols-2">
         <button type="button" class="verification-primary" @click="continueOn">
           {{ allAvailableVerified ? 'Continue' : 'Continue for now' }}
           <StorefrontIcon name="chevron" :size="16" class="-rotate-90" />
         </button>
-        <NuxtLink to="/account/profile" class="flex min-h-12 items-center justify-center rounded-lg border border-charcoal-950/18 px-5 py-2.5 text-sm font-semibold hover:bg-charcoal-950/[0.045]">Manage profile</NuxtLink>
+        <NuxtLink to="/account/profile" class="flex min-h-12 items-center justify-center border border-charcoal-950/18 px-5 py-2.5 text-sm font-semibold hover:bg-charcoal-950/[0.045]">Manage profile</NuxtLink>
       </div>
     </div>
   </main>
 </template>
 
 <style scoped>
-.verification-badge {
-  border-radius: 999px;
-  padding: .25rem .625rem;
-  background: color-mix(in srgb, var(--color-charcoal-950) 7%, transparent);
-  color: var(--color-charcoal-700);
-  font-size: .75rem;
-  font-weight: 600;
-}
-
-.verification-badge--verified {
-  background: #e9efea;
-  color: #355845;
-}
-
-:global(html.dark) .verification-badge--verified {
-  background: #283c32;
-  color: #b7d7c5;
-}
-
 .verification-action,
 .verification-primary {
   display: inline-flex;
@@ -230,7 +207,6 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
 
 .verification-primary {
   min-height: 48px;
-  border-radius: .5rem;
   background: var(--color-charcoal-950);
   padding: .625rem 1.25rem;
   color: var(--color-paper-50);

@@ -10,6 +10,8 @@ const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const signingOut = ref(false)
+const signOutError = ref('')
+const signOutDialog = useTemplateRef('signOutDialog')
 
 const links = [
   { label: 'Overview', to: '/account' },
@@ -38,26 +40,38 @@ function currentSection(to: string) {
   return accountPath.value === to ? 'page' : 'location'
 }
 
+function requestSignOut() {
+  signOutError.value = ''
+  signOutDialog.value?.show()
+}
+
 async function logout() {
   if (signingOut.value) return
   signingOut.value = true
-  await authStore.logout()
-  await router.push('/')
-  signingOut.value = false
+  signOutError.value = ''
+  try {
+    await authStore.logout()
+    signOutDialog.value?.close()
+    await router.push('/')
+  } catch (err: unknown) {
+    signOutError.value = extractApiErrorMessage(err, 'Could not sign out. Please try again.')
+  } finally {
+    signingOut.value = false
+  }
 }
 </script>
 
 <template>
-  <section class="min-h-[68vh] bg-paper-50 text-charcoal-950">
+  <section class="min-h-[68vh] bg-paper-50 subpixel-antialiased text-charcoal-950">
     <div class="mx-auto max-w-[1520px] px-5 pb-20 pt-7 sm:px-8 lg:px-10 lg:pb-28 lg:pt-14 xl:px-14">
       <header class="border-b border-charcoal-950/10 pb-5 lg:pb-10" :class="{ 'hidden lg:block': !isOverview }">
         <div class="flex items-end justify-between gap-3 lg:gap-7">
           <div class="min-w-0">
-            <p class="text-[9px] font-semibold uppercase tracking-[0.2em] text-charcoal-400">Your SAAJ</p>
+            <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-charcoal-700">Your SAAJ</p>
             <h1 class="mt-2 break-words font-display text-[clamp(2.5rem,6vw,5.8rem)] font-medium leading-[0.95] tracking-[-0.055em] text-charcoal-950 lg:mt-3">
               Welcome, {{ firstName }}.
             </h1>
-            <p class="mt-5 hidden max-w-xl text-[12px] leading-6 text-charcoal-500 lg:block">
+            <p class="mt-5 hidden max-w-xl text-sm leading-6 text-charcoal-700 lg:block">
               Review your orders, saved pieces, delivery details and account preferences in one place.
             </p>
           </div>
@@ -66,16 +80,16 @@ async function logout() {
             <NuxtLink
               v-if="!verificationComplete"
               to="/verify-account"
-              class="hidden items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-[#89683f] underline decoration-[#b78b57]/45 underline-offset-4 lg:inline-flex"
+              class="hidden items-center gap-2 text-sm font-semibold text-charcoal-800 underline decoration-[#b78b57]/45 underline-offset-4 lg:inline-flex"
             >
               Complete verification
-              <span class="h-1.5 w-1.5 rounded-full bg-[#b78b57]" />
+              <span class="h-1.5 w-1.5 rounded-full bg-[#b78b57]" aria-hidden="true" />
             </NuxtLink>
             <button
               type="button"
               :disabled="signingOut"
-              class="inline-flex min-h-11 items-center whitespace-nowrap text-xs font-semibold text-charcoal-600 underline decoration-charcoal-950/20 underline-offset-4 transition hover:text-charcoal-950 disabled:opacity-45 lg:min-h-0 lg:text-[9px] lg:uppercase lg:tracking-[0.14em]"
-              @click="logout"
+              class="inline-flex min-h-11 items-center whitespace-nowrap text-sm font-semibold text-charcoal-800 underline decoration-charcoal-950/25 underline-offset-4 transition hover:text-charcoal-950 disabled:opacity-45 lg:min-h-0"
+              @click="requestSignOut"
             >
               {{ signingOut ? 'Signing out…' : 'Sign out' }}
             </button>
@@ -91,8 +105,8 @@ async function logout() {
               :key="link.to"
               :to="link.to"
               :aria-current="currentSection(link.to)"
-              class="group flex items-center justify-between border-b border-charcoal-950/[0.07] py-4 text-[10px] font-semibold uppercase tracking-[0.15em] transition"
-              :class="isActive(link.to) ? 'text-charcoal-950' : 'text-charcoal-400 hover:text-charcoal-950'"
+              class="group flex items-center justify-between border-b border-charcoal-950/[0.07] py-4 text-sm font-semibold transition"
+              :class="isActive(link.to) ? 'text-charcoal-950' : 'text-charcoal-700 hover:text-charcoal-950'"
             >
               <span>{{ link.label }}</span>
               <span
@@ -103,7 +117,7 @@ async function logout() {
 
             <NuxtLink
               to="/track-order"
-              class="group flex items-center justify-between py-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-charcoal-400 transition hover:text-charcoal-950"
+              class="group flex items-center justify-between py-4 text-sm font-semibold text-charcoal-700 transition hover:text-charcoal-950"
             >
               <span>Track an order</span>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" class="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1">
@@ -129,5 +143,17 @@ async function logout() {
         </div>
       </div>
     </div>
+
+    <StorefrontConfirmDialog
+      ref="signOutDialog"
+      title="Sign out of SAAJ?"
+      confirm-label="Sign out"
+      busy-label="Signing out…"
+      :busy="signingOut"
+      @confirm="logout"
+    >
+      <p>You’ll need to sign in again to access your account.</p>
+      <p v-if="signOutError" role="alert" class="mt-2 text-[#8c4949] dark:text-rose-200">{{ signOutError }}</p>
+    </StorefrontConfirmDialog>
   </section>
 </template>

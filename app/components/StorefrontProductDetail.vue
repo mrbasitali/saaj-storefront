@@ -1401,7 +1401,7 @@ watch(product, () => {
             :loading="index < 2 ? 'eager' : 'lazy'"
             sizes="lg:54vw xl:52vw"
           />
-          <span class="product-editorial-stack-counter">
+          <span class="product-editorial-stack-counter tabular-nums" aria-hidden="true">
             {{ String(index + 1).padStart(2, '0') }} / {{ String(galleryImages.length).padStart(2, '0') }}
           </span>
           <span class="product-editorial-stack-zoom" aria-hidden="true">
@@ -1964,15 +1964,15 @@ watch(product, () => {
         >
           <div class="relative z-30 flex h-[68px] shrink-0 items-center justify-between border-b border-white/10 px-4 sm:h-[76px] sm:px-7">
             <div class="flex items-center gap-4">
-              <span class="text-[9px] font-semibold uppercase tracking-[0.16em] text-white/55">
+              <span class="text-xs font-semibold text-white/80" :class="galleryImages.length > 1 ? 'hidden sm:inline' : ''">
                 Gallery
               </span>
               <span
                 v-if="galleryImages.length > 1"
-                class="text-[10px] font-medium tracking-[0.12em] text-white/85"
+                class="text-[13px] font-semibold tabular-nums text-white"
               >
                 {{ String(zoomImageIndex + 1).padStart(2, '0') }}
-                <span class="mx-1 text-white/30">/</span>
+                <span class="mx-0.5 text-white/70">/</span>
                 {{ String(galleryImages.length).padStart(2, '0') }}
               </span>
             </div>
@@ -2088,7 +2088,7 @@ watch(product, () => {
                 <div class="mx-auto flex max-w-4xl items-center gap-3 sm:gap-4">
                   <div class="hidden w-[72px] shrink-0 sm:block">
                     <p class="text-[8px] font-semibold uppercase tracking-[0.14em] text-white/35">Image</p>
-                    <p class="mt-1 text-[10px] font-medium tracking-[0.12em] text-white/80">
+                    <p class="mt-1 text-[13px] font-semibold tabular-nums text-white">
                       {{ String(zoomImageIndex + 1).padStart(2, '0') }} / {{ String(galleryImages.length).padStart(2, '0') }}
                     </p>
                   </div>
