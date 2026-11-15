@@ -97,27 +97,35 @@ async function logoutEverywhere() {
     </div>
 
     <div class="mt-10 grid gap-12 xl:grid-cols-[1.15fr_.85fr] xl:gap-16">
-      <form class="space-y-5" @submit.prevent="submit">
+      <form class="storefront-field-theme min-w-0 space-y-5" @submit.prevent="submit">
         <div>
-          <label class="mb-2 block text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-400">Full name</label>
-          <input v-model.trim="form.name" type="text" autocomplete="name" required class="w-full border border-charcoal-950/15 bg-transparent px-4 py-3.5 text-[16px] text-charcoal-950 outline-none transition focus:border-charcoal-950">
+          <label for="profile-name" class="credentials-label">Full name</label>
+          <div class="credentials-field">
+            <input id="profile-name" v-model.trim="form.name" class="credentials-input" type="text" autocomplete="name" placeholder="Your name" required>
+          </div>
         </div>
 
         <div>
-          <label class="mb-2 block text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-400">Email</label>
-          <input v-model.trim="form.email" type="email" autocomplete="email" class="w-full border border-charcoal-950/15 bg-transparent px-4 py-3.5 text-[16px] text-charcoal-950 outline-none transition focus:border-charcoal-950">
+          <label for="profile-email" class="credentials-label">Email</label>
+          <div class="credentials-field">
+            <input id="profile-email" v-model.trim="form.email" class="credentials-input" type="email" autocomplete="email" placeholder="you@example.com">
+          </div>
           <p v-if="emailChanged" class="mt-2 text-[10px] leading-5 text-[#89683f]">Changing your email resets email verification and sends a new verification link.</p>
         </div>
 
         <div class="grid gap-5 sm:grid-cols-2">
           <div>
-            <label class="mb-2 block text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-400">Mobile</label>
-            <input v-model.trim="form.phone" type="tel" inputmode="tel" autocomplete="tel" class="w-full border border-charcoal-950/15 bg-transparent px-4 py-3.5 text-[16px] text-charcoal-950 outline-none transition focus:border-charcoal-950">
+            <label for="profile-mobile" class="credentials-label">Mobile</label>
+            <div class="credentials-field">
+              <input id="profile-mobile" v-model.trim="form.phone" class="credentials-input" :data-complete="isCompletePhoneNumber(form.phone)" type="tel" inputmode="tel" autocomplete="tel" placeholder="03XXXXXXXXX">
+            </div>
             <p v-if="phoneChanged" class="mt-2 text-[10px] leading-5 text-[#89683f]">Changing your mobile resets phone verification. No SMS is sent until you request verification.</p>
           </div>
           <div>
-            <label class="mb-2 block text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-400">Secondary phone <span class="font-normal normal-case tracking-normal text-charcoal-300">optional</span></label>
-            <input v-model.trim="form.secondary_phone" type="tel" inputmode="tel" autocomplete="tel" class="w-full border border-charcoal-950/15 bg-transparent px-4 py-3.5 text-[16px] text-charcoal-950 outline-none transition focus:border-charcoal-950">
+            <label for="profile-secondary-phone" class="credentials-label">Secondary phone <em>optional</em></label>
+            <div class="credentials-field">
+              <input id="profile-secondary-phone" v-model.trim="form.secondary_phone" class="credentials-input" :data-complete="isCompletePhoneNumber(form.secondary_phone)" type="tel" inputmode="tel" autocomplete="tel" placeholder="03XXXXXXXXX">
+            </div>
           </div>
         </div>
 

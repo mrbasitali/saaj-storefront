@@ -246,33 +246,34 @@ async function remove() {
     <Transition name="address-panel">
       <div v-if="formOpen" class="fixed inset-0 z-[80] bg-black/30 backdrop-blur-[2px]" @click.self="closeForm">
         <section class="absolute inset-y-0 right-0 flex w-full max-w-[690px] flex-col bg-paper-50 shadow-2xl">
-          <header class="flex items-center justify-between border-b border-charcoal-950/10 px-5 py-5 sm:px-8">
-            <div>
-              <p class="text-[9px] font-semibold uppercase tracking-[0.16em] text-charcoal-400">{{ editingId ? 'Update delivery details' : 'New delivery details' }}</p>
-              <h3 class="mt-1 font-display text-[30px] tracking-[-0.035em] text-charcoal-950">{{ editingId ? 'Edit address' : 'Add address' }}</h3>
-            </div>
-            <button type="button" aria-label="Close address form" class="flex h-10 w-10 items-center justify-center text-charcoal-950" @click="closeForm">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" class="h-5 w-5"><path d="m5 5 14 14M19 5 5 19" /></svg>
+          <header class="flex shrink-0 items-center justify-between gap-4 border-b border-charcoal-950/10 px-5 py-4 sm:px-8">
+            <h3 class="font-display text-[32px] leading-none tracking-[-0.035em] text-charcoal-950">{{ editingId ? 'Edit address' : 'Add address' }}</h3>
+            <button type="button" aria-label="Close address form" class="grid size-11 shrink-0 place-items-center rounded-full bg-charcoal-950/[0.04] hover:bg-charcoal-950/[0.08]" @click="closeForm">
+              <StorefrontIcon name="close" />
             </button>
           </header>
 
-          <form class="min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8 sm:py-8" @submit.prevent="submit">
-            <AddressFields
-              :model-value="form"
-              show-label
-              @update:model-value="applyAddressFields"
-            />
+          <form class="storefront-field-theme flex min-h-0 flex-1 flex-col" @submit.prevent="submit">
+            <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-8 sm:py-7">
+              <AddressFields
+                :model-value="form"
+                credentials-style
+                show-label
+                @update:model-value="applyAddressFields"
+              />
 
-            <label class="mt-6 flex cursor-pointer items-center gap-3 border-t border-charcoal-950/10 pt-5 text-[10px] text-charcoal-600">
-              <input v-model="isDefault" type="checkbox" class="h-4 w-4 accent-charcoal-950">
-              Use as my default delivery address
-            </label>
+              <label class="mt-4 flex min-h-11 cursor-pointer items-center gap-3 text-sm text-charcoal-600">
+                <input v-model="isDefault" type="checkbox" class="size-4 shrink-0 accent-charcoal-950">
+                Use as my default delivery address
+              </label>
+            </div>
 
-            <div v-if="formError" class="mt-5 border border-[#bd6f6f]/35 bg-[#bd6f6f]/[0.07] px-4 py-3 text-[11px] leading-5 text-[#9a4f4f]">{{ formError }}</div>
-
-            <div class="mt-8 flex flex-col-reverse gap-3 border-t border-charcoal-950/10 pt-6 sm:flex-row sm:justify-end">
-              <button type="button" :disabled="saving" class="border border-charcoal-950/18 px-6 py-3.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-charcoal-950 disabled:opacity-40" @click="closeForm">Cancel</button>
-              <button type="submit" :disabled="saving" class="min-w-[160px] bg-charcoal-950 px-6 py-3.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-paper-50 disabled:opacity-45">{{ saving ? 'Saving…' : 'Save address' }}</button>
+            <div class="shrink-0 border-t border-charcoal-950/10 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:px-8">
+              <div v-if="formError" role="alert" class="mb-3 border border-[#bd6f6f]/35 bg-[#bd6f6f]/[0.07] px-4 py-3 text-[11px] leading-5 text-[#9a4f4f]">{{ formError }}</div>
+              <div class="grid grid-cols-2 gap-3 sm:flex sm:justify-end">
+                <button type="button" :disabled="saving" class="min-h-11 border border-charcoal-950/18 px-4 text-[10px] font-semibold uppercase tracking-[0.12em] text-charcoal-950 disabled:opacity-40 sm:px-6" @click="closeForm">Cancel</button>
+                <button type="submit" :disabled="saving" class="min-h-11 bg-charcoal-950 px-4 text-[10px] font-semibold uppercase tracking-[0.12em] text-paper-50 disabled:opacity-45 sm:min-w-40 sm:px-6">{{ saving ? 'Saving…' : 'Save address' }}</button>
+              </div>
             </div>
           </form>
         </section>

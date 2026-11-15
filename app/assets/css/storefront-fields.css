@@ -1,7 +1,7 @@
 .storefront-field-theme {
   --field-ink: #202020;
   --field-muted: #595959;
-  --field-placeholder: #737373;
+  --field-placeholder: #70716c;
   --field-line: #767676;
   --field-surface: #f6f6f6;
   --field-active: #252421;
@@ -11,7 +11,7 @@
 html.dark .storefront-field-theme {
   --field-ink: #f5f3ee;
   --field-muted: #c4c0b7;
-  --field-placeholder: #9e9a91;
+  --field-placeholder: #969289;
   --field-line: #918d83;
   --field-surface: #282622;
   --field-active: #f5f3ee;
@@ -71,7 +71,12 @@ html.dark .storefront-field-theme {
 
 .storefront-field-theme .credentials-input:focus { outline: none; }
 .storefront-field-theme textarea.credentials-input { min-height: 104px; resize: vertical; }
-.storefront-field-theme .credentials-input::placeholder { color: var(--field-placeholder); opacity: 1; }
+.storefront-field-theme .credentials-input::placeholder {
+  color: var(--field-placeholder);
+  font-style: italic;
+  font-weight: 400;
+  opacity: 1;
+}
 .storefront-field-theme .credentials-input:disabled { background: var(--field-surface); }
 .storefront-field-theme .credentials-password { padding-inline-end: 4.75rem; }
 

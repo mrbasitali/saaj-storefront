@@ -10,6 +10,7 @@ const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const signingOut = ref(false)
+const mobileMenu = ref<HTMLDetailsElement | null>(null)
 
 const links = [
   { label: 'Overview', to: '/account' },
@@ -27,9 +28,22 @@ const verificationComplete = computed(() => {
 })
 
 function isActive(to: string) {
-  if (to === '/account') return route.path === '/account'
-  return route.path.startsWith(to)
+  const path = route.path.replace(/\/$/, '')
+  return path === to || (to !== '/account' && path.startsWith(`${to}/`))
 }
+
+const activeSection = computed(() => links.find(link => isActive(link.to))?.label ?? 'Overview')
+
+function currentSection(to: string) {
+  if (!isActive(to)) return undefined
+  return route.path.replace(/\/$/, '') === to ? 'page' : 'location'
+}
+
+function closeMobileMenu() {
+  if (mobileMenu.value) mobileMenu.value.open = false
+}
+
+watch(() => route.path, closeMobileMenu)
 
 async function logout() {
   if (signingOut.value) return
@@ -42,15 +56,15 @@ async function logout() {
 
 <template>
   <section class="min-h-[68vh] bg-paper-50 text-charcoal-950">
-    <div class="mx-auto max-w-[1520px] px-5 pb-20 pt-10 sm:px-8 lg:px-10 lg:pb-28 lg:pt-14 xl:px-14">
-      <header class="border-b border-charcoal-950/10 pb-8 lg:pb-10">
-        <div class="grid gap-7 lg:grid-cols-[1fr_auto] lg:items-end">
+    <div class="mx-auto max-w-[1520px] px-5 pb-20 pt-7 sm:px-8 lg:px-10 lg:pb-28 lg:pt-14 xl:px-14">
+      <header class="border-b border-charcoal-950/10 pb-5 lg:pb-10">
+        <div class="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end lg:gap-7">
           <div>
             <p class="text-[9px] font-semibold uppercase tracking-[0.2em] text-charcoal-400">Your SAAJ</p>
-            <h1 class="mt-3 font-display text-[clamp(2.8rem,6vw,5.8rem)] font-medium leading-[0.88] tracking-[-0.055em] text-charcoal-950">
+            <h1 class="mt-2 break-words font-display text-[clamp(2.5rem,6vw,5.8rem)] font-medium leading-[0.95] tracking-[-0.055em] text-charcoal-950 lg:mt-3">
               Welcome, {{ firstName }}.
             </h1>
-            <p class="mt-5 max-w-xl text-[12px] leading-6 text-charcoal-500">
+            <p class="mt-5 hidden max-w-xl text-[12px] leading-6 text-charcoal-500 lg:block">
               Review your orders, saved pieces, delivery details and account preferences in one place.
             </p>
           </div>
@@ -83,6 +97,7 @@ async function logout() {
               v-for="link in links"
               :key="link.to"
               :to="link.to"
+              :aria-current="currentSection(link.to)"
               class="group flex items-center justify-between border-b border-charcoal-950/[0.07] py-4 text-[10px] font-semibold uppercase tracking-[0.15em] transition"
               :class="isActive(link.to) ? 'text-charcoal-950' : 'text-charcoal-400 hover:text-charcoal-950'"
             >
@@ -106,24 +121,34 @@ async function logout() {
         </aside>
 
         <div class="min-w-0">
-          <nav
-            class="account-mobile-nav sticky top-[68px] z-40 -mx-5 flex gap-6 overflow-x-auto border-b border-charcoal-950/10 bg-paper-50/95 px-5 py-1 shadow-[0_10px_28px_rgba(15,17,14,0.035)] backdrop-blur-xl sm:-mx-8 sm:top-[72px] sm:px-8 lg:hidden"
-            aria-label="Account navigation"
-          >
-            <NuxtLink
-              v-for="link in links"
-              :key="link.to"
-              :to="link.to"
-              class="relative shrink-0 py-5 text-[9px] font-semibold uppercase tracking-[0.14em] transition"
-              :class="isActive(link.to) ? 'text-charcoal-950' : 'text-charcoal-400'"
-            >
-              {{ link.label }}
-              <span v-if="isActive(link.to)" class="absolute inset-x-0 bottom-0 h-px bg-charcoal-950" />
-            </NuxtLink>
-            <NuxtLink to="/track-order" class="shrink-0 py-5 text-[9px] font-semibold uppercase tracking-[0.14em] text-charcoal-400">Track</NuxtLink>
-          </nav>
+          <details ref="mobileMenu" class="group mt-4 border border-charcoal-950/12 lg:hidden">
+            <summary class="account-menu-trigger flex min-h-14 cursor-pointer items-center justify-between gap-4 px-4 py-2.5">
+              <span class="grid gap-0.5">
+                <span class="text-[10px] font-semibold uppercase tracking-[0.13em] text-charcoal-500">Account menu</span>
+                <span class="text-sm font-semibold">{{ activeSection }}</span>
+              </span>
+              <StorefrontIcon name="chevron" :size="18" class="transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+            </summary>
 
-          <main class="pt-9 lg:pt-10">
+            <nav class="grid grid-cols-2 gap-1 border-t border-charcoal-950/10 p-2" aria-label="Account navigation">
+              <NuxtLink
+                v-for="link in links"
+                :key="link.to"
+                :to="link.to"
+                :aria-current="currentSection(link.to)"
+                class="flex min-h-11 items-center px-3 py-2.5 text-sm focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-2"
+                :class="isActive(link.to) ? 'bg-charcoal-950/[0.07] font-semibold' : 'text-charcoal-600 hover:bg-charcoal-950/[0.04]'"
+                @click="closeMobileMenu"
+              >
+                {{ link.label }}
+              </NuxtLink>
+              <NuxtLink to="/track-order" class="flex min-h-11 items-center px-3 py-2.5 text-sm text-charcoal-600 hover:bg-charcoal-950/[0.04]">
+                Track an order
+              </NuxtLink>
+            </nav>
+          </details>
+
+          <main class="pt-6 lg:pt-10">
             <NuxtPage />
           </main>
         </div>
@@ -131,3 +156,18 @@ async function logout() {
     </div>
   </section>
 </template>
+
+<style scoped>
+.account-menu-trigger {
+  list-style: none;
+}
+
+.account-menu-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.account-menu-trigger:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -3px;
+}
+</style>

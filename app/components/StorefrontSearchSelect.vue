@@ -468,7 +468,11 @@ onBeforeUnmount(() => {
   font-size: inherit;
 }
 
-.credentials-input .sf-select__placeholder { color: var(--field-placeholder); }
+.credentials-input .sf-select__placeholder {
+  color: var(--field-placeholder);
+  font-style: italic;
+  font-weight: 400;
+}
 
 .credentials-input :is(.sf-select__loading, .sf-select__selected small) {
   color: var(--field-muted);
