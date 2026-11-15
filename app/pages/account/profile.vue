@@ -133,8 +133,8 @@ async function logoutEverywhere() {
       <aside class="xl:border-l xl:border-charcoal-950/10 xl:pl-10">
         <section class="border-y border-charcoal-950/10 py-5 xl:border-t-0 xl:pt-0">
           <h3 class="text-sm font-semibold">Password</h3>
-          <p class="mt-2 text-sm leading-6 text-charcoal-700">Use your verified email or mobile to change your password.</p>
-          <NuxtLink to="/forgot-password" class="mt-1 inline-flex min-h-11 items-center text-sm font-semibold underline underline-offset-4">Change password</NuxtLink>
+          <p class="mt-2 text-sm leading-6 text-charcoal-700">Use your current password to choose a new one.</p>
+          <NuxtLink to="/account/change-password" class="mt-1 inline-flex min-h-11 items-center text-sm font-semibold underline underline-offset-4">Change password</NuxtLink>
         </section>
 
         <section class="pt-5">

@@ -24,6 +24,7 @@ const links = [
 const firstName = computed(() => authStore.customer?.name?.trim().split(/\s+/)[0] || 'there')
 const accountPath = computed(() => route.path.replace(/\/$/, ''))
 const isOverview = computed(() => accountPath.value === '/account')
+const isPasswordPage = computed(() => accountPath.value === '/account/change-password')
 const verificationComplete = computed(() => {
   const customer = authStore.customer
   if (!customer) return true
@@ -32,6 +33,7 @@ const verificationComplete = computed(() => {
 
 function isActive(to: string) {
   const path = accountPath.value
+  if (isPasswordPage.value) return to === '/account/profile'
   return path === to || (to !== '/account' && path.startsWith(`${to}/`))
 }
 
@@ -130,11 +132,11 @@ async function logout() {
         <div class="min-w-0">
           <NuxtLink
             v-if="!isOverview"
-            to="/account"
+            :to="isPasswordPage ? '/account/profile' : '/account'"
             class="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-charcoal-600 lg:hidden"
           >
             <StorefrontIcon name="chevron" :size="18" class="rotate-90" />
-            My account
+            {{ isPasswordPage ? 'Profile' : 'My account' }}
           </NuxtLink>
 
           <main class="lg:pt-10" :class="isOverview ? 'pt-5' : 'pt-3'">

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { isCompletePhoneNumber } from '~/utils/isCompletePhoneNumber'
 
+definePageMeta({ middleware: 'guest' })
+
 const authStore = useAuthStore()
 const router = useRouter()
 const route = useRoute()
@@ -31,10 +33,7 @@ const passwordChecks = computed(() => ({
 
 const passwordComplete = computed(() => passwordChecks.value.length && passwordChecks.value.letter && passwordChecks.value.number)
 
-const redirectTo = computed(() => {
-  const value = typeof route.query.redirect === 'string' ? route.query.redirect : ''
-  return value.startsWith('/') && !value.startsWith('//') ? value : '/account'
-})
+const redirectTo = computed(() => getStorefrontAuthRedirect(route.query.redirect))
 
 async function submit() {
   submitting.value = true

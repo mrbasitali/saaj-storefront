@@ -9,6 +9,8 @@ export default defineNuxtConfig({
   // session cookie remain host-only to backend.saaj.pk instead of widening its
   // Domain or forwarding confidential credentials through the Nuxt server.
   routeRules: {
+    '/login': { ssr: false },
+    '/register': { ssr: false },
     '/account': { ssr: false },
     '/account/**': { ssr: false },
     '/checkout': { ssr: false },

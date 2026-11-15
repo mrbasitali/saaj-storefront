@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { isCompletePhoneNumber } from '~/utils/isCompletePhoneNumber'
 
+definePageMeta({ middleware: 'guest' })
+
 const authStore = useAuthStore()
 const router = useRouter()
 const route = useRoute()
@@ -27,10 +29,7 @@ const phoneAccountMissing = ref(false)
 const phoneNotVerified = ref(false)
 const { remaining, formattedRemaining, canResend, start: startCooldown } = useOtpCooldown(30)
 
-const redirectTo = computed(() => {
-  const value = typeof route.query.redirect === 'string' ? route.query.redirect : ''
-  return value.startsWith('/') && !value.startsWith('//') ? value : '/account'
-})
+const redirectTo = computed(() => getStorefrontAuthRedirect(route.query.redirect))
 
 function switchMode(next: 'email' | 'phone') {
   mode.value = next
