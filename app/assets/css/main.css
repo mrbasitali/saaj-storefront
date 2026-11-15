@@ -1315,6 +1315,21 @@ html.dark .bg-white {
   opacity: .58;
 }
 
+@media (width < 40rem) {
+  .product-sold-out-badge {
+    gap: 4px;
+    min-height: 19px;
+    padding: 3px 7px;
+    font-size: 8px;
+    letter-spacing: .09em;
+  }
+
+  .product-sold-out-dot {
+    width: 4px;
+    height: 4px;
+  }
+}
+
 .dark .product-card-soldout-overlay {
   background: color-mix(in srgb, var(--color-charcoal-950) 10%, transparent);
 }

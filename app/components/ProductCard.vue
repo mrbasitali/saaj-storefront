@@ -132,7 +132,7 @@ const productCategory = computed(() => {
 
         <span
           v-if="isSoldOut"
-          class="product-sold-out-badge absolute left-3 top-3 z-[2]"
+          class="product-sold-out-badge absolute left-2 top-2 z-[2] sm:left-3 sm:top-3"
         >
           <span class="product-sold-out-dot" aria-hidden="true" />
           <span>Sold out</span>
@@ -141,7 +141,7 @@ const productCategory = computed(() => {
         <span
           v-else-if="isOnSale"
           aria-hidden="true"
-          class="absolute left-3 top-3 z-[2] rounded-full bg-charcoal-950/94 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-paper-50 shadow-[0_8px_24px_rgb(0_0_0/0.12)] backdrop-blur-md"
+          class="absolute left-2 top-2 z-[2] rounded-full bg-charcoal-950/94 px-2 py-1 text-[8px] font-semibold uppercase leading-[11px] tracking-[0.1em] text-paper-50 shadow-[0_8px_24px_rgb(0_0_0/0.12)] backdrop-blur-md sm:left-3 sm:top-3 sm:px-3 sm:py-1.5 sm:text-[9px] sm:leading-normal sm:tracking-[0.14em]"
         >
           Save {{ discountPercentage }}%
         </span>
@@ -150,10 +150,10 @@ const productCategory = computed(() => {
           v-if="product.badges?.length"
           :badges="product.badges"
           :class="isSoldOut || isOnSale
-            ? 'mt-8 !max-w-[calc(100%-1rem)] sm:mt-0 sm:!max-w-[45%]'
-            : '!max-w-[calc(100%-1rem)]'"
+            ? 'sm:!max-w-[45%]'
+            : 'sm:!max-w-[calc(100%-1rem)]'"
           size="card"
-          class="absolute right-2 top-2 z-[3] sm:right-3 sm:top-3"
+          class="absolute bottom-2 right-2 z-[3] max-sm:!max-w-[calc(100%-1rem)] sm:bottom-auto sm:right-3 sm:top-3"
         />
 
         <div class="product-card-view absolute inset-x-0 bottom-0 z-[2] translate-y-full bg-paper-50/94 px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-charcoal-950 backdrop-blur transition duration-300 group-hover:translate-y-0 max-lg:hidden">
