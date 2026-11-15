@@ -1,2 +1,13 @@
-User-Agent: *
-Disallow:
+User-agent: *
+Disallow: /cart
+Disallow: /checkout
+Disallow: /account
+Disallow: /login
+Disallow: /track-order
+Disallow: /search
+Disallow: /*?*sort_by=
+Disallow: /*?sort=
+Disallow: /*?*&sort=
+Disallow: /*?*utm_
+
+Sitemap: https://www.saaj.pk/sitemap.xml
