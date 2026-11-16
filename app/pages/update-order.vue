@@ -7,6 +7,7 @@ type CorrectionRequest = {
   fields: ('address' | 'email' | 'phone')[]
 }
 
+definePageMeta({ key: route => route.fullPath })
 useSeoMeta({ title: 'Update order details | SAAJ', robots: 'noindex, nofollow' })
 
 const { $api } = useNuxtApp()
@@ -39,26 +40,32 @@ async function load() {
     correction.value = response.data
   } catch (cause) {
     error.value = extractApiErrorMessage(cause, 'Could not open the order update link.')
-    if (isClosed(cause)) token = ''
+    if (isClosed(cause)) closeLink()
   } finally {
     loading.value = false
   }
 }
 
-onMounted(() => {
-  const hash = window.location.hash.slice(1)
-  if (/^[A-Za-z0-9]{48}$/.test(hash)) {
-    token = hash
-    window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search)
+usePrivateOrderLink(48, (link) => {
+  token = link.token
+  if (token) {
     void load()
   } else {
-    error.value = 'Open the private link from your SAAJ email or text message.'
+    error.value = link.closed
+      ? 'This order update link is no longer available.'
+      : 'Open the private link from your SAAJ email or text message.'
     loading.value = false
   }
 })
 
 function isClosed(cause: unknown) {
-  return typeof cause === 'object' && cause !== null && 'statusCode' in cause && cause.statusCode === 410
+  const failure = cause as { statusCode?: number, response?: { status?: number } } | null
+  return (failure?.statusCode ?? failure?.response?.status) === 410
+}
+
+function closeLink() {
+  retirePrivateOrderLink(token)
+  token = ''
 }
 
 async function submit() {
@@ -85,13 +92,13 @@ async function submit() {
         ...(isRequested('address') ? { country_id, state_id, city_id, address_line1, address_line2, postal_code } : {}),
       },
     })
-    token = ''
+    closeLink()
     complete.value = true
   } catch (cause) {
     error.value = extractApiErrorMessage(cause, 'Could not save your order details. Please try again.')
     if (isClosed(cause)) {
       correction.value = undefined
-      token = ''
+      closeLink()
     }
   } finally {
     saving.value = false

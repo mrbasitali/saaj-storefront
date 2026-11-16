@@ -32,6 +32,7 @@ type Review = {
   grand_total: number
 }
 
+definePageMeta({ key: route => route.fullPath })
 useSeoMeta({ title: 'Choose a replacement | SAAJ', robots: 'noindex, nofollow' })
 const { $api } = useNuxtApp()
 const catalogue = ref<Catalogue>()
@@ -71,15 +72,15 @@ const reviewStale = ref(false)
 const reviewHeading = ref<HTMLElement>()
 let token = ''
 
-onMounted(async () => {
-  const hash = window.location.hash.slice(1)
-  if (/^[A-Za-z0-9]{32}$/.test(hash)) {
-    token = hash
-    window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search)
+usePrivateOrderLink(32, async (link) => {
+  token = link.token
+  if (token) {
     await loadCatalogue(1)
   } else {
     closed.value = true
-    error.value = 'Open the private replacement link from your email or text message.'
+    error.value = link.closed
+      ? 'This replacement link is no longer available.'
+      : 'Open the private replacement link from your email or text message.'
   }
   ready.value = true
 })
@@ -89,11 +90,17 @@ function money(value: number) {
 }
 
 function closeExpiredLink(message: string) {
+  closeLink()
   error.value = message
   resetProductPreview()
   closed.value = true
   review.value = undefined
   confirmingCancellation.value = false
+}
+
+function closeLink() {
+  retirePrivateOrderLink(token)
+  token = ''
 }
 
 async function fetchReplacement<T>(path: string, body: Record<string, unknown>) {
@@ -262,7 +269,7 @@ async function confirm() {
   if (data) {
     completed.value = data
     review.value = undefined
-    token = ''
+    closeLink()
     await nextTick()
     reviewHeading.value?.focus()
   }
@@ -283,7 +290,7 @@ async function cancelOrder() {
   cancelled.value = true
   confirmingCancellation.value = false
   review.value = undefined
-  token = ''
+  closeLink()
   await nextTick()
   reviewHeading.value?.focus()
 }
