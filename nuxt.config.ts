@@ -15,6 +15,7 @@ export default defineNuxtConfig({
     '/account/**': { ssr: false },
     '/checkout': { ssr: false },
     '/replace-order': { ssr: false, headers: { 'cache-control': 'private, no-store', 'referrer-policy': 'no-referrer', 'x-robots-tag': 'noindex, nofollow' } },
+    '/update-order': { ssr: false, headers: { 'cache-control': 'private, no-store', 'referrer-policy': 'no-referrer', 'x-robots-tag': 'noindex, nofollow' } },
     '/verify-account': { ssr: false },
     '/email-verified': { ssr: false },
   },
@@ -62,7 +63,7 @@ export default defineNuxtConfig({
       // Never cache API calls in the service worker — prices, stock,
       // and order status all need to stay live, not served stale from
       // an offline cache.
-      navigateFallbackDenylist: [/^\/api\//, /^\/replace-order\/?$/],
+      navigateFallbackDenylist: [/^\/api\//, /^\/(?:replace-order|update-order)\/?$/],
     },
     devOptions: {
       enabled: process.env.NODE_ENV !== 'production',

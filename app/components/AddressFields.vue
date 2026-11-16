@@ -26,6 +26,7 @@ const props = withDefaults(defineProps<{
   showRecipientFields?: boolean
   credentialsStyle?: boolean
   pickerBoundary?: HTMLElement | null
+  locationFirst?: boolean
 }>(), {
   showLabel: false,
   showRecipientFields: true,
@@ -37,6 +38,10 @@ const emit = defineEmits<{
 }>()
 
 const { $api } = useNuxtApp()
+
+const deliveryFields = computed(() => props.locationFirst
+  ? ['location', 'street', 'apartment'] as const
+  : ['street', 'apartment', 'location'] as const)
 
 const countries = ref<LocationOption[]>([])
 const states = ref<LocationOption[]>([])
@@ -250,85 +255,87 @@ onMounted(async () => {
       </label>
     </div>
 
-    <label class="address-field">
-      <span :class="{ 'credentials-label': credentialsStyle }">Street address</span>
-      <span class="block min-w-0" :class="{ 'credentials-field': credentialsStyle }">
-        <input
-          :class="{ 'credentials-input': credentialsStyle }"
-          :data-complete="credentialsStyle ? !!modelValue.address_line1.trim() : undefined"
-          :value="modelValue.address_line1"
-          type="text"
-          autocomplete="address-line1"
-          required
-          placeholder="House / building, street, area"
-          @input="update({ address_line1: ($event.target as HTMLInputElement).value })"
-        >
-      </span>
-    </label>
+    <template v-for="field in deliveryFields" :key="field">
+      <label v-if="field === 'street'" class="address-field">
+        <span :class="{ 'credentials-label': credentialsStyle }">Street address</span>
+        <span class="block min-w-0" :class="{ 'credentials-field': credentialsStyle }">
+          <input
+            :class="{ 'credentials-input': credentialsStyle }"
+            :data-complete="credentialsStyle ? !!modelValue.address_line1.trim() : undefined"
+            :value="modelValue.address_line1"
+            type="text"
+            autocomplete="address-line1"
+            required
+            placeholder="House / building, street, area"
+            @input="update({ address_line1: ($event.target as HTMLInputElement).value })"
+          >
+        </span>
+      </label>
 
-    <label class="address-field">
-      <span :class="{ 'credentials-label': credentialsStyle }">Apartment, suite, landmark <em>optional</em></span>
-      <span class="block min-w-0" :class="{ 'credentials-field': credentialsStyle }">
-        <input
-          :class="{ 'credentials-input': credentialsStyle }"
-          :data-complete="credentialsStyle ? !!modelValue.address_line2.trim() : undefined"
-          :value="modelValue.address_line2"
-          type="text"
-          autocomplete="address-line2"
-          placeholder="Apartment, floor, nearby landmark…"
-          @input="update({ address_line2: ($event.target as HTMLInputElement).value })"
-        >
-      </span>
-    </label>
+      <label v-else-if="field === 'apartment'" class="address-field">
+        <span :class="{ 'credentials-label': credentialsStyle }">Apartment, suite, landmark <em>optional</em></span>
+        <span class="block min-w-0" :class="{ 'credentials-field': credentialsStyle }">
+          <input
+            :class="{ 'credentials-input': credentialsStyle }"
+            :data-complete="credentialsStyle ? !!modelValue.address_line2.trim() : undefined"
+            :value="modelValue.address_line2"
+            type="text"
+            autocomplete="address-line2"
+            placeholder="Apartment, floor, nearby landmark…"
+            @input="update({ address_line2: ($event.target as HTMLInputElement).value })"
+          >
+        </span>
+      </label>
 
-    <div class="grid gap-4 sm:grid-cols-3">
-      <div class="address-field">
-        <span :class="{ 'credentials-label': credentialsStyle }">Country</span>
-        <StorefrontSearchSelect
-          :model-value="countryId"
-          label="Country"
-          :desktop-boundary="pickerBoundary"
-          :credentials-style="credentialsStyle"
-          :options="countries"
-          :loading="loadingCountries"
-          placeholder="Select country"
-          search-placeholder="Search country…"
-          @update:model-value="selectCountry"
-        />
+      <div v-else class="grid gap-4 sm:grid-cols-3">
+        <div class="address-field">
+          <span :class="{ 'credentials-label': credentialsStyle }">Country</span>
+          <StorefrontSearchSelect
+            :model-value="countryId"
+            label="Country"
+            :desktop-boundary="pickerBoundary"
+            :credentials-style="credentialsStyle"
+            :options="countries"
+            :loading="loadingCountries"
+            placeholder="Select country"
+            search-placeholder="Search country…"
+            @update:model-value="selectCountry"
+          />
+        </div>
+
+        <div class="address-field">
+          <span :class="{ 'credentials-label': credentialsStyle }">Province</span>
+          <StorefrontSearchSelect
+            :model-value="stateId"
+            label="Province"
+            :desktop-boundary="pickerBoundary"
+            :credentials-style="credentialsStyle"
+            :options="states"
+            :loading="loadingStates"
+            :disabled="!countryId"
+            placeholder="Select province"
+            search-placeholder="Search province…"
+            @update:model-value="selectState"
+          />
+        </div>
+
+        <div class="address-field">
+          <span :class="{ 'credentials-label': credentialsStyle }">City</span>
+          <StorefrontSearchSelect
+            :model-value="cityId"
+            label="City"
+            :desktop-boundary="pickerBoundary"
+            :credentials-style="credentialsStyle"
+            :options="cities"
+            :loading="loadingCities"
+            :disabled="!stateId"
+            placeholder="Select city"
+            search-placeholder="Search city…"
+            @update:model-value="selectCity"
+          />
+        </div>
       </div>
-
-      <div class="address-field">
-        <span :class="{ 'credentials-label': credentialsStyle }">Province</span>
-        <StorefrontSearchSelect
-          :model-value="stateId"
-          label="Province"
-          :desktop-boundary="pickerBoundary"
-          :credentials-style="credentialsStyle"
-          :options="states"
-          :loading="loadingStates"
-          :disabled="!countryId"
-          placeholder="Select province"
-          search-placeholder="Search province…"
-          @update:model-value="selectState"
-        />
-      </div>
-
-      <div class="address-field">
-        <span :class="{ 'credentials-label': credentialsStyle }">City</span>
-        <StorefrontSearchSelect
-          :model-value="cityId"
-          label="City"
-          :desktop-boundary="pickerBoundary"
-          :credentials-style="credentialsStyle"
-          :options="cities"
-          :loading="loadingCities"
-          :disabled="!stateId"
-          placeholder="Select city"
-          search-placeholder="Search city…"
-          @update:model-value="selectCity"
-        />
-      </div>
-    </div>
+    </template>
 
     <label class="address-field sm:max-w-[220px]">
       <span :class="{ 'credentials-label': credentialsStyle }">Postal code <em>optional</em></span>

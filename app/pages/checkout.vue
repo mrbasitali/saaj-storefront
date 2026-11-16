@@ -837,6 +837,7 @@ onMounted(async () => {
                 <AddressFields
                   :model-value="newAddress"
                   credentials-style
+                  location-first
                   :show-label="(authStore.isLoggedIn && saveNewAddress) || (!authStore.isLoggedIn && createAccount)"
                   :show-recipient-fields="authStore.isLoggedIn"
                   @update:model-value="applyNewAddress"
